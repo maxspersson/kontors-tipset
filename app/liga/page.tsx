@@ -1,18 +1,30 @@
+"use client";
+
+import { useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import Container from "../components/Container";
 
 export default function LigaPage() {
+  useEffect(() => {
+    const testConnection = async () => {
+      const { data, error } = await supabase
+        .from("leagues")
+        .select("*");
+
+      console.log("DATA:", data);
+      console.log("ERROR:", error);
+    };
+
+    testConnection();
+  }, []);
+
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100">
       <Container>
-        <h1 className="text-4xl font-bold tracking-tight">Min liga</h1>
-
+        <h1 className="text-4xl font-bold">Liga</h1>
         <p className="mt-4 text-neutral-400">
-          Här kommer ligainformation, medlemmar och inbjudningar att visas.
+          Här kommer dina ligor visas.
         </p>
-
-        <div className="mt-10 rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
-          <p className="text-neutral-400">Ligainformation kommer här</p>
-        </div>
       </Container>
     </main>
   );
