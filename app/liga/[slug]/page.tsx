@@ -54,7 +54,7 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
 
   if (leagueError || !league) {
     return (
-  <main className="min-h-screen bg-red-950 text-neutral-100">
+  <main className="min-h-screen bg-neutral-950 text-neutral-100">
         <Container>
           <h1 className="text-4xl font-bold tracking-tight">Liga hittades inte</h1>
           <p className="mt-4 text-neutral-400">
@@ -202,8 +202,8 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm text-neutral-400">Leaderboard</p>
-              <h2 className="mt-1 text-xl font-semibold text-yellow-400">
-  BRUTAL TEST LEADERBOARD
+              <h2 className="mt-1 text-xl font-semibold text-neutral-100">
+  Ställning i ligan
 </h2>
             </div>
           </div>
@@ -239,15 +239,11 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
     </p>
   )}
 
-  <p className="mt-2 text-xs text-yellow-400">
-    DEBUG: rättade={row.scored_matches} tips={row.submitted_predictions}
-  </p>
-
-  <div className="mt-2 flex flex-wrap gap-2 text-xs text-neutral-400">
-    <span className="rounded-full border border-neutral-700 px-2 py-1">
+  <div className="mt-3 flex flex-wrap gap-2">
+    <span className="rounded-full border border-neutral-700 bg-neutral-950 px-3 py-1 text-xs text-neutral-300">
       {row.scored_matches} rättade
     </span>
-    <span className="rounded-full border border-neutral-700 px-2 py-1">
+    <span className="rounded-full border border-neutral-700 bg-neutral-950 px-3 py-1 text-xs text-neutral-300">
       {row.submitted_predictions} tips
     </span>
   </div>
