@@ -193,8 +193,8 @@ export default async function Home() {
             }
 
             .hero-title {
-              font-size: clamp(56px, 7vw, 112px);
-              line-height: 0.88;
+  font-size: clamp(56px, 7vw, 112px);
+  line-height: 1.02;
               letter-spacing: -0.06em;
               font-weight: 950;
               text-transform: uppercase;
@@ -494,12 +494,12 @@ export default async function Home() {
                 margin-bottom: 18px;
               }
 
-              .hero-title {
-                font-size: 44px;
-                line-height: 0.92;
-                letter-spacing: -0.055em;
-                max-width: 330px;
-              }
+             .hero-title {
+  font-size: 44px;
+  line-height: 1.05;
+  letter-spacing: -0.055em;
+  max-width: 330px;
+}
 
               .hero-copy {
                 font-size: 16px;

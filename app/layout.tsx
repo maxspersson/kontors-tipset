@@ -13,80 +13,43 @@ export default function RootLayout({
 }) {
   return (
     <html lang="sv">
-      <body className="bg-neutral-950 text-neutral-100">
-        <header className="sticky top-0 z-50 border-b border-white/10 bg-neutral-950/85 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-            <Link
-              href="/"
-              className="text-sm font-black tracking-[0.28em] text-neutral-400 transition hover:text-white"
-            >
+      <body>
+        <header className="site-header">
+          <div className="header-inner">
+            <Link href="/" className="logo">
               KONTORS-TIPSET
             </Link>
 
-            <nav className="hidden items-center gap-8 text-sm md:flex">
-              <Link href="/tippa" className="text-neutral-400 transition hover:text-white">
-                Tippa
-              </Link>
-              <Link href="/tabell" className="text-neutral-400 transition hover:text-white">
-                Tabell
-              </Link>
-              <Link href="/liga" className="text-neutral-400 transition hover:text-white">
-                Liga
-              </Link>
-              <Link href="/regler" className="text-neutral-400 transition hover:text-white">
-                Regler
-              </Link>
+            <nav className="desktop-nav">
+              <Link href="/tippa">Tippa</Link>
+              <Link href="/tabell">Tabell</Link>
+              <Link href="/liga">Liga</Link>
+              <Link href="/regler">Regler</Link>
             </nav>
 
-            <div className="flex items-center gap-3">
-              <div className="hidden rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-neutral-300 sm:block">
-                VM 2026
-              </div>
+            <div className="header-right">
+              <span className="season-pill">VM 2026</span>
 
-              <details className="relative hidden md:block">
-                <summary className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-full bg-neutral-800 text-xs font-black text-white marker:hidden">
-                  MP
-                </summary>
-
-                <div className="absolute right-0 mt-3 w-44 rounded-2xl border border-white/10 bg-[#080B10] p-2 shadow-2xl">
-                  <Link
-                    href="/liga"
-                    className="block rounded-xl px-3 py-2 text-sm text-neutral-300 hover:bg-white/10 hover:text-white"
-                  >
-                    Mina ligor
-                  </Link>
-
+              <details className="user-menu desktop-user">
+                <summary>MP</summary>
+                <div className="dropdown">
+                  <Link href="/liga">Mina ligor</Link>
                   <form action="/api/logout" method="POST">
-                    <button
-                      type="submit"
-                      className="w-full rounded-xl px-3 py-2 text-left text-sm text-neutral-300 hover:bg-white/10 hover:text-white"
-                    >
-                      Logga ut
-                    </button>
+                    <button type="submit">Logga ut</button>
                   </form>
                 </div>
               </details>
 
-              <details className="relative md:hidden">
-                <summary className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg font-black text-white marker:hidden">
-                  ☰
-                </summary>
-
-                <div className="absolute right-0 mt-3 w-56 rounded-2xl border border-white/10 bg-[#080B10] p-2 shadow-2xl">
-                  <Link className="mobile-link" href="/tippa">Tippa</Link>
-                  <Link className="mobile-link" href="/tabell">Tabell</Link>
-                  <Link className="mobile-link" href="/liga">Liga</Link>
-                  <Link className="mobile-link" href="/regler">Regler</Link>
-
-                  <div className="my-2 h-px bg-white/10" />
-
+              <details className="user-menu mobile-menu">
+                <summary>☰</summary>
+                <div className="dropdown mobile-dropdown">
+                  <Link href="/tippa">Tippa</Link>
+                  <Link href="/tabell">Tabell</Link>
+                  <Link href="/liga">Liga</Link>
+                  <Link href="/regler">Regler</Link>
+                  <div className="divider" />
                   <form action="/api/logout" method="POST">
-                    <button
-                      type="submit"
-                      className="w-full rounded-xl px-3 py-3 text-left text-sm font-bold text-neutral-300 hover:bg-white/10 hover:text-white"
-                    >
-                      Logga ut
-                    </button>
+                    <button type="submit">Logga ut</button>
                   </form>
                 </div>
               </details>
@@ -96,25 +59,17 @@ export default function RootLayout({
 
         {children}
 
-        <footer className="border-t border-white/10 bg-[#020304]">
-          <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-sm text-neutral-500 md:flex-row md:items-center md:justify-between">
+        <footer className="site-footer">
+          <div className="footer-inner">
             <div>
-              <p className="font-black tracking-[0.28em] text-neutral-400">
-                KONTORS-TIPSET
-              </p>
-              <p className="mt-2">VM-tipset för kontoret.</p>
+              <p className="footer-logo">KONTORS-TIPSET</p>
+              <p>VM-tipset för kontoret.</p>
             </div>
 
-            <div className="flex gap-5">
-              <Link href="/regler" className="hover:text-white">
-                Regler
-              </Link>
-              <Link href="/liga" className="hover:text-white">
-                Liga
-              </Link>
-              <Link href="/tabell" className="hover:text-white">
-                Tabell
-              </Link>
+            <div className="footer-links">
+              <Link href="/regler">Regler</Link>
+              <Link href="/liga">Liga</Link>
+              <Link href="/tabell">Tabell</Link>
             </div>
           </div>
         </footer>
@@ -122,23 +77,212 @@ export default function RootLayout({
         <style
           dangerouslySetInnerHTML={{
             __html: `
+              * {
+                box-sizing: border-box;
+              }
+
+              body {
+                margin: 0;
+                background: #020304;
+                color: white;
+              }
+
+              .site-header {
+                position: sticky;
+                top: 0;
+                z-index: 999;
+                background: rgba(8, 8, 9, 0.78);
+                border-bottom: 1px solid rgba(255,255,255,0.09);
+                backdrop-filter: blur(18px);
+                -webkit-backdrop-filter: blur(18px);
+              }
+
+              .header-inner {
+                max-width: 1380px;
+                margin: 0 auto;
+                padding: 18px 28px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 24px;
+              }
+
+              .logo {
+                color: rgba(255,255,255,0.58);
+                text-decoration: none;
+                font-size: 14px;
+                font-weight: 900;
+                letter-spacing: 0.28em;
+              }
+
+              .desktop-nav {
+                display: flex;
+                gap: 34px;
+                align-items: center;
+              }
+
+              .desktop-nav a,
+              .footer-links a {
+                color: rgba(255,255,255,0.55);
+                text-decoration: none;
+                font-size: 14px;
+                font-weight: 700;
+              }
+
+              .desktop-nav a:hover,
+              .footer-links a:hover {
+                color: white;
+              }
+
+              .header-right {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+              }
+
+              .season-pill {
+                border: 1px solid rgba(255,255,255,0.10);
+                background: rgba(0,0,0,0.35);
+                color: rgba(255,255,255,0.75);
+                padding: 6px 13px;
+                border-radius: 999px;
+                font-size: 12px;
+                font-weight: 800;
+                white-space: nowrap;
+              }
+
               details > summary::-webkit-details-marker {
                 display: none;
               }
 
-              .mobile-link {
-                display: block;
-                border-radius: 12px;
-                padding: 12px;
-                color: rgb(212 212 212);
-                font-size: 14px;
-                font-weight: 700;
-                text-decoration: none;
+              .user-menu {
+                position: relative;
               }
 
-              .mobile-link:hover {
-                background: rgba(255,255,255,0.10);
+              .user-menu summary {
+                width: 38px;
+                height: 38px;
+                border-radius: 999px;
+                display: grid;
+                place-items: center;
+                cursor: pointer;
+                list-style: none;
+                background: rgba(255,255,255,0.12);
                 color: white;
+                font-size: 13px;
+                font-weight: 950;
+                user-select: none;
+              }
+
+              .dropdown {
+                position: absolute;
+                right: 0;
+                top: 48px;
+                width: 170px;
+                padding: 8px;
+                border-radius: 16px;
+                background: rgba(6,9,13,0.96);
+                border: 1px solid rgba(255,255,255,0.12);
+                box-shadow: 0 24px 80px rgba(0,0,0,0.45);
+                backdrop-filter: blur(18px);
+                -webkit-backdrop-filter: blur(18px);
+              }
+
+              .dropdown a,
+              .dropdown button {
+                width: 100%;
+                display: block;
+                border: 0;
+                background: transparent;
+                color: rgba(255,255,255,0.72);
+                text-align: left;
+                text-decoration: none;
+                font-size: 14px;
+                font-weight: 750;
+                padding: 11px 12px;
+                border-radius: 11px;
+                cursor: pointer;
+                font-family: inherit;
+              }
+
+              .dropdown a:hover,
+              .dropdown button:hover {
+                background: rgba(255,255,255,0.08);
+                color: white;
+              }
+
+              .divider {
+                height: 1px;
+                margin: 6px 4px;
+                background: rgba(255,255,255,0.10);
+              }
+
+              .mobile-menu {
+                display: none;
+              }
+
+              .site-footer {
+                background: #020304;
+                border-top: 1px solid rgba(255,255,255,0.10);
+              }
+
+              .footer-inner {
+                max-width: 1380px;
+                margin: 0 auto;
+                padding: 34px 28px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 24px;
+                color: rgba(255,255,255,0.45);
+                font-size: 14px;
+              }
+
+              .footer-logo {
+                margin: 0 0 8px;
+                color: rgba(255,255,255,0.65);
+                font-weight: 950;
+                letter-spacing: 0.24em;
+              }
+
+              .footer-inner p {
+                margin-top: 0;
+              }
+
+              .footer-links {
+                display: flex;
+                gap: 22px;
+              }
+
+              @media (max-width: 760px) {
+                .header-inner {
+                  padding: 16px 18px;
+                }
+
+                .desktop-nav,
+                .desktop-user,
+                .season-pill {
+                  display: none;
+                }
+
+                .mobile-menu {
+                  display: block;
+                }
+
+                .logo {
+                  font-size: 13px;
+                  letter-spacing: 0.22em;
+                }
+
+                .mobile-dropdown {
+                  width: 210px;
+                }
+
+                .footer-inner {
+                  padding: 30px 18px;
+                  flex-direction: column;
+                  align-items: flex-start;
+                }
               }
             `,
           }}
