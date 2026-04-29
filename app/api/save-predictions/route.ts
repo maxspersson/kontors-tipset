@@ -12,7 +12,7 @@ type MatchRow = {
   kickoff_utc: string;
 };
 
-const LOCK_MINUTES_BEFORE_KICKOFF = 5;
+const LOCK_MINUTES_BEFORE_KICKOFF = 60;
 
 function isPredictionLocked(kickoffUtc: string) {
   const kickoffTime = new Date(kickoffUtc).getTime();

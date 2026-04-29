@@ -10,6 +10,7 @@ type League = {
   id: string;
   name: string;
   slug: string;
+  submission_deadline: string | null;
 };
 
 type MatchRow = {
@@ -27,6 +28,11 @@ type PredictionRow = {
   match_id: string;
   predicted_home_score: number;
   predicted_away_score: number;
+};
+
+type SubmissionRow = {
+  submitted_at: string;
+  updated_at: string;
 };
 
 type TipState = Record<string, { home: string; away: string }>;
@@ -50,9 +56,28 @@ type MatchStatusState = Record<
   }
 >;
 
-const LOCK_MINUTES_BEFORE_KICKOFF = 5;
+const LOCK_MINUTES_BEFORE_KICKOFF = 60;
 
 function formatKickoff(dateString: string) {
+  return new Intl.DateTimeFormat("sv-SE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(dateString));
+}
+
+function formatDeadline(dateString: string) {
+  return new Intl.DateTimeFormat("sv-SE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(dateString));
+}
+
+function isSubmissionDeadlinePassed(deadline: string | null) {
+  if (!deadline) return false;
+  return Date.now() > new Date(deadline).getTime();
+}
+
+function formatSubmissionTime(dateString: string) {
   return new Intl.DateTimeFormat("sv-SE", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -88,7 +113,6 @@ function getCountdownLabel(kickoffUtc: string, nowTs: number) {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
-  // 👉 Om mer än 24 timmar kvar → visa inte countdown
   if (hours >= 24) {
     return null;
   }
@@ -114,12 +138,25 @@ export default function LeagueTippaPage() {
   const [league, setLeague] = useState<League | null>(null);
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [tips, setTips] = useState<TipState>({});
+  const [submission, setSubmission] = useState<SubmissionRow | null>(null);
   const [matchStatuses, setMatchStatuses] = useState<MatchStatusState>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [pageError, setPageError] = useState("");
   const [message, setMessage] = useState("");
   const [nowTs, setNowTs] = useState(Date.now());
+
+  const completedTipsCount = matches.filter((match) => {
+    const tip = tips[match.id];
+    return tip?.home !== "" && tip?.away !== "";
+  }).length;
+
+  const allMatchesTipped = matches.length > 0 && completedTipsCount === matches.length;
+
+  const isDeadlinePassed = isSubmissionDeadlinePassed(
+  league?.submission_deadline ?? null
+);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -149,7 +186,7 @@ export default function LeagueTippaPage() {
 
       const { data: leagueRow, error: leagueError } = await supabase
         .from("leagues")
-        .select("id, name, slug")
+        .select("id, name, slug, submission_deadline")
         .eq("slug", slug)
         .single();
 
@@ -196,6 +233,21 @@ export default function LeagueTippaPage() {
       });
 
       setTips(initialTips);
+
+      const { data: submissionRow, error: submissionError } = await supabase
+        .from("league_submissions")
+        .select("submitted_at, updated_at")
+        .eq("league_id", leagueRow.id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (submissionError) {
+        setPageError("Kunde inte hämta status för ditt turneringstips.");
+        setLoading(false);
+        return;
+      }
+
+      setSubmission(submissionRow);
 
       const nextStatuses: MatchStatusState = {};
 
@@ -331,10 +383,14 @@ export default function LeagueTippaPage() {
 
   async function handleSaveAll() {
     if (!league) return;
+    if (!submission) {
+  setMessage(
+    "Du har inte skickat in ditt turneringstips än. Dina tips sparas, men du måste skicka in innan deadline för att delta i ligan."
+  );
+}
 
     setSaving(true);
-    setMessage("");
-    setPageError("");
+setPageError("");
 
     const payload = Object.entries(tips).map(([matchId, values]) => ({
       matchId,
@@ -376,6 +432,53 @@ export default function LeagueTippaPage() {
     await refreshMatchStatuses(league.id, matches);
 
     setSaving(false);
+  }
+
+  async function handleSubmitTournament() {
+    if (!league) return;
+
+    setSubmitting(true);
+    setMessage("");
+    setPageError("");
+
+    const response = await fetch("/api/submit-tournament", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        leagueId: league.id,
+      }),
+    });
+
+    const text = await response.text();
+
+    let result: {
+      success?: boolean;
+      message?: string;
+      totalMatches?: number;
+      userPredictions?: number;
+    } | null = null;
+
+    try {
+      result = JSON.parse(text);
+    } catch {
+      result = null;
+    }
+
+    if (!response.ok) {
+      setPageError(result?.message || text || "Kunde inte skicka in turneringstipset.");
+      setSubmitting(false);
+      return;
+    }
+
+    setSubmission({
+      submitted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    setMessage(result?.message || "Turneringstipset är inskickat.");
+    setSubmitting(false);
   }
 
   if (loading) {
@@ -441,9 +544,68 @@ export default function LeagueTippaPage() {
           </h1>
 
           <p className="mt-4 max-w-2xl text-neutral-400">
-            Fyll i dina resultat och spara alla tips i ett klick. Tips låses 5
-            minuter före avspark.
+            <p className="mt-4 max-w-2xl text-neutral-400">
+  Fyll i alla matcher och skicka in ditt turneringstips innan turneringen startar.
+  När du har skickat in kan du fortfarande ändra enskilda matcher fram till
+  60 minuter före avspark.
+</p>
           </p>
+
+          {league?.submission_deadline && (
+  <p className="mt-2 text-sm text-yellow-400">
+    Skicka in ditt turneringstips senast{" "}
+    {formatDeadline(league.submission_deadline)}
+  </p>
+)}
+
+          <div className="mt-6 rounded-2xl border border-neutral-800 bg-neutral-900 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-neutral-100">
+                  Turneringstips
+                </p>
+
+                {submission ? (
+                  <p className="mt-1 text-sm text-green-400">
+                    Inskickat {formatSubmissionTime(submission.submitted_at)}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm text-neutral-400">
+                    Inte inskickat än
+                  </p>
+                )}
+
+                <p className="mt-2 text-sm text-neutral-500">
+                  {completedTipsCount} av {matches.length} matcher är ifyllda.
+                </p>
+                {!submission && (
+  <p className="mt-2 text-sm text-neutral-500">
+    Du måste skicka in ditt turneringstips innan deadline för att delta i ligan.
+  </p>
+)}
+              </div>
+
+              <button
+  type="button"
+  onClick={handleSubmitTournament}
+  disabled={submitting || !allMatchesTipped || isDeadlinePassed}
+              >
+                {submitting
+  ? "Skickar in..."
+  : isDeadlinePassed
+    ? "Deadline passerad"
+    : submission
+      ? "Skicka in igen"
+      : "Skicka in turneringstips"}
+              </button>
+            </div>
+
+            {!allMatchesTipped && (
+              <p className="mt-4 text-sm text-neutral-500">
+                Du behöver fylla i alla matcher innan du kan skicka in.
+              </p>
+            )}
+          </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
@@ -514,25 +676,25 @@ export default function LeagueTippaPage() {
 
                     <div className="mt-4 rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-3 text-sm text-neutral-300">
                       {locked ? (
-  <div className="space-y-1">
-    <p>Tipset är låst</p>
-    <p className="text-xs text-neutral-500">
-      Låstes {formatLockTime(match.kickoff_utc)}
-    </p>
-  </div>
-) : (
-  <div className="space-y-1">
-    {countdownLabel ? (
-      <p>{countdownLabel}</p>
-    ) : (
-      <p>Tips låses {formatLockTime(match.kickoff_utc)}</p>
-    )}
+                        <div className="space-y-1">
+                          <p>Tipset är låst</p>
+                          <p className="text-xs text-neutral-500">
+                            Låstes {formatLockTime(match.kickoff_utc)}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {countdownLabel ? (
+                            <p>{countdownLabel}</p>
+                          ) : (
+                            <p>Tips låses {formatLockTime(match.kickoff_utc)}</p>
+                          )}
 
-    <p className="text-xs text-neutral-500">
-      Tips låses 5 minuter före avspark
-    </p>
-  </div>
-)}
+                          <p className="text-xs text-neutral-500">
+                            Tips låses 60 minuter före avspark
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-6 grid items-center gap-4 md:grid-cols-[1fr_auto_1fr]">

@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-type ProfileRow = {
-  id: string;
-  display_name: string | null;
-  email: string | null;
-};
-
 type PredictionRow = {
   user_id: string;
   match_id: string;
@@ -20,20 +14,13 @@ type MatchRow = {
   away_score: number | null;
 };
 
-function getMatchPoints(
-  prediction: PredictionRow,
-  match: MatchRow
-) {
-  if (
-    match.home_score === null ||
-    match.away_score === null
-  ) {
+function getMatchPoints(prediction: PredictionRow, match: MatchRow) {
+  if (match.home_score === null || match.away_score === null) {
     return 0;
   }
 
   let points = 0;
 
-  // rätt mål
   if (prediction.predicted_home_score === match.home_score) {
     points += 2;
   }
@@ -42,18 +29,13 @@ function getMatchPoints(
     points += 2;
   }
 
-  // rätt tecken
   const predictedDiff =
-    prediction.predicted_home_score -
-    prediction.predicted_away_score;
+    prediction.predicted_home_score - prediction.predicted_away_score;
 
   const actualDiff = match.home_score - match.away_score;
 
-  const predictedSign =
-    predictedDiff === 0 ? 0 : predictedDiff > 0 ? 1 : -1;
-
-  const actualSign =
-    actualDiff === 0 ? 0 : actualDiff > 0 ? 1 : -1;
+  const predictedSign = predictedDiff === 0 ? 0 : predictedDiff > 0 ? 1 : -1;
+  const actualSign = actualDiff === 0 ? 0 : actualDiff > 0 ? 1 : -1;
 
   if (predictedSign === actualSign) {
     points += 3;
@@ -80,7 +62,6 @@ export async function GET(request: Request) {
     return new NextResponse("leagueId krävs", { status: 400 });
   }
 
-  // kontroll medlemskap
   const { data: membership } = await supabase
     .from("league_members")
     .select("id")
@@ -92,41 +73,72 @@ export async function GET(request: Request) {
     return new NextResponse("Ej medlem", { status: 403 });
   }
 
-  // hämta predictions
-  const { data: predictions } = await supabase
-    .from("predictions")
-    .select(
-      "user_id, match_id, predicted_home_score, predicted_away_score"
-    )
-    .eq("league_id", leagueId);
-
-  // hämta matcher (med resultat)
-  const { data: matches } = await supabase
-    .from("matches")
-    .select("id, home_score, away_score");
-
-  // hämta profiler
-  const { data: members } = await supabase
-    .from("league_members")
+  // Bara användare som faktiskt har skickat in turneringstipset ska synas i tabellen.
+  const { data: submissions, error: submissionsError } = await supabase
+    .from("league_submissions")
     .select("user_id")
     .eq("league_id", leagueId);
 
-  const userIds = (members ?? []).map((m) => m.user_id);
+  if (submissionsError) {
+    return new NextResponse(
+      `Kunde inte hämta inskickade tips: ${submissionsError.message}`,
+      { status: 500 }
+    );
+  }
 
-  const { data: profiles } = await supabase
+  const submittedUserIds = (submissions ?? []).map((submission) => submission.user_id);
+  const submittedUserSet = new Set(submittedUserIds);
+
+  if (submittedUserIds.length === 0) {
+    return NextResponse.json({
+      success: true,
+      standings: [],
+    });
+  }
+
+  const { data: predictions, error: predictionsError } = await supabase
+    .from("predictions")
+    .select("user_id, match_id, predicted_home_score, predicted_away_score")
+    .eq("league_id", leagueId)
+    .in("user_id", submittedUserIds);
+
+  if (predictionsError) {
+    return new NextResponse(
+      `Kunde inte hämta tips: ${predictionsError.message}`,
+      { status: 500 }
+    );
+  }
+
+  const { data: matches, error: matchesError } = await supabase
+    .from("matches")
+    .select("id, home_score, away_score");
+
+  if (matchesError) {
+    return new NextResponse(
+      `Kunde inte hämta matcher: ${matchesError.message}`,
+      { status: 500 }
+    );
+  }
+
+  const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
     .select("id, display_name, email")
-    .in("id", userIds);
+    .in("id", submittedUserIds);
 
-  const matchMap = new Map(
-    (matches ?? []).map((m) => [m.id, m])
-  );
+  if (profilesError) {
+    return new NextResponse(
+      `Kunde inte hämta profiler: ${profilesError.message}`,
+      { status: 500 }
+    );
+  }
 
+  const matchMap = new Map((matches ?? []).map((match) => [match.id, match]));
   const scoreMap = new Map<string, number>();
 
   (predictions ?? []).forEach((prediction) => {
-    const match = matchMap.get(prediction.match_id);
+    if (!submittedUserSet.has(prediction.user_id)) return;
 
+    const match = matchMap.get(prediction.match_id);
     if (!match) return;
 
     const points = getMatchPoints(prediction, match);
@@ -137,11 +149,9 @@ export async function GET(request: Request) {
     );
   });
 
-  const profileMap = new Map(
-    (profiles ?? []).map((p) => [p.id, p])
-  );
+  const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
 
-  const standings = userIds.map((userId) => {
+  const standings = submittedUserIds.map((userId) => {
     const profile = profileMap.get(userId);
 
     return {

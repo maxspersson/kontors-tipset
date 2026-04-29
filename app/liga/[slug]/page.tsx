@@ -1,5 +1,5 @@
 import Container from "@/app/components/Container";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 import CopyInvite from "@/app/components/CopyInvite";
 import Link from "next/link";
 
@@ -46,6 +46,12 @@ type PredictionRow = {
 export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   const { slug } = await params;
 
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const { data: league, error: leagueError } = await supabase
     .from("leagues")
     .select("*")
@@ -54,7 +60,7 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
 
   if (leagueError || !league) {
     return (
-  <main className="min-h-screen bg-neutral-950 text-neutral-100">
+      <main className="min-h-screen bg-neutral-950 text-neutral-100">
         <Container>
           <h1 className="text-4xl font-bold tracking-tight">Liga hittades inte</h1>
           <p className="mt-4 text-neutral-400">
@@ -73,6 +79,21 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
 
   const userIds = (members ?? []).map((member) => member.user_id);
 
+  const { data: submissions } = await supabase
+    .from("league_submissions")
+    .select("user_id, submitted_at")
+    .eq("league_id", league.id);
+
+  const submittedUserIds = (submissions ?? []).map(
+    (submission) => submission.user_id
+  );
+
+  const submittedUserSet = new Set(submittedUserIds);
+
+  const currentUserHasSubmitted = user
+    ? submittedUserSet.has(user.id)
+    : false;
+
   let profiles: MemberProfile[] = [];
 
   if (userIds.length > 0) {
@@ -89,7 +110,8 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   const { data: predictions } = await supabase
     .from("predictions")
     .select("user_id, match_id, predicted_home_score, predicted_away_score")
-    .eq("league_id", league.id);
+    .eq("league_id", league.id)
+    .in("user_id", submittedUserIds.length > 0 ? submittedUserIds : [""]);
 
   const { data: matchesWithResults } = await supabase
     .from("matches")
@@ -146,7 +168,7 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
     );
   });
 
-  const standings: StandingRow[] = userIds.map((userId) => {
+  const standings: StandingRow[] = submittedUserIds.map((userId) => {
     const profile = profileMap.get(userId);
 
     return {
@@ -176,6 +198,32 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
           Här ser du tabellen, medlemmarna och länkar vidare till tipsen.
         </p>
 
+        <div className="mt-6 rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
+          <p className="text-sm font-semibold text-neutral-100">Din status</p>
+
+          {currentUserHasSubmitted ? (
+            <p className="mt-2 text-sm text-green-400">
+              Du är med i spelet. Ditt turneringstips är inskickat.
+            </p>
+          ) : (
+            <div>
+              <p className="mt-2 text-sm text-yellow-400">
+                Du är inte med i spelet ännu. Skicka in ditt turneringstips för
+                att räknas i leaderboarden.
+              </p>
+
+              <div className="mt-4">
+                <Link
+                  href={`/liga/${league.slug}/tippa`}
+                  className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black hover:opacity-90"
+                >
+                  Gå till tipsen
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="mt-6">
           <Link
             href={`/liga/${league.slug}/tippa`}
@@ -203,13 +251,15 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
             <div>
               <p className="text-sm text-neutral-400">Leaderboard</p>
               <h2 className="mt-1 text-xl font-semibold text-neutral-100">
-  Ställning i ligan
-</h2>
+                Ställning i ligan
+              </h2>
             </div>
           </div>
 
           {standings.length === 0 ? (
-            <p className="mt-4 text-neutral-400">Inga deltagare än</p>
+            <p className="mt-4 text-neutral-400">
+              Inga inskickade turneringstips än
+            </p>
           ) : (
             <div className="mt-4 overflow-hidden rounded-xl border border-neutral-800">
               <div className="grid grid-cols-[80px_1fr_110px] bg-neutral-950 px-4 py-3 text-xs uppercase tracking-[0.2em] text-neutral-500">
@@ -219,41 +269,48 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
               </div>
 
               <div className="divide-y divide-neutral-800">
-                {standings.map((row, index) => (
-                  <div
-                    key={row.user_id}
-                    className="grid grid-cols-[80px_1fr_110px] items-center px-4 py-4"
-                  >
-                    <div className="text-sm font-semibold text-neutral-300">
-                      {index + 1}
+                {standings.map((row, index) => {
+                  const isCurrentUser = user && row.user_id === user.id;
+
+                  return (
+                    <div
+                      key={row.user_id}
+                      className={`grid grid-cols-[80px_1fr_110px] items-center px-4 py-4 ${
+                        isCurrentUser ? "bg-neutral-800" : ""
+                      }`}
+                    >
+                      <div className="text-sm font-semibold text-neutral-300">
+                        {index + 1}
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-medium text-neutral-100">
+                          {row.display_name || row.email || "Okänd användare"}
+                          {isCurrentUser ? " (du)" : ""}
+                        </p>
+
+                        {row.email && (
+                          <p className="mt-1 text-xs text-neutral-500">
+                            {row.email}
+                          </p>
+                        )}
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <span className="rounded-full border border-neutral-700 bg-neutral-950 px-3 py-1 text-xs text-neutral-300">
+                            {row.scored_matches} rättade
+                          </span>
+                          <span className="rounded-full border border-neutral-700 bg-neutral-950 px-3 py-1 text-xs text-neutral-300">
+                            {row.submitted_predictions} tips
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="text-right text-lg font-bold text-neutral-100">
+                        {row.points}
+                      </div>
                     </div>
-
-                    <div>
-  <p className="text-sm font-medium text-neutral-100">
-    {row.display_name || row.email || "Okänd användare"}
-  </p>
-
-  {row.email && (
-    <p className="mt-1 text-xs text-neutral-500">
-      {row.email}
-    </p>
-  )}
-
-  <div className="mt-3 flex flex-wrap gap-2">
-    <span className="rounded-full border border-neutral-700 bg-neutral-950 px-3 py-1 text-xs text-neutral-300">
-      {row.scored_matches} rättade
-    </span>
-    <span className="rounded-full border border-neutral-700 bg-neutral-950 px-3 py-1 text-xs text-neutral-300">
-      {row.submitted_predictions} tips
-    </span>
-  </div>
-</div>
-
-                    <div className="text-right text-lg font-bold text-neutral-100">
-                      {row.points}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -284,9 +341,11 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                       {profile?.email || "Ingen e-post"}
                     </p>
 
-                    <p className="mt-3 text-sm text-neutral-400">User ID</p>
-                    <p className="mt-1 break-all text-xs text-neutral-500">
-                      {member.user_id}
+                    <p className="mt-3 text-sm text-neutral-400">Status</p>
+                    <p className="mt-1 text-sm text-neutral-100">
+                      {submittedUserSet.has(member.user_id)
+                        ? "Turneringstips inskickat"
+                        : "Inte inskickat än"}
                     </p>
                   </div>
                 );

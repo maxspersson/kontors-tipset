@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Container from "./components/Container";
 import { createClient } from "@/lib/supabase/server";
 
 type League = {
@@ -26,9 +25,7 @@ export default async function Home() {
         email: user.email,
         display_name: user.email?.split("@")[0] ?? null,
       },
-      {
-        onConflict: "id",
-      }
+      { onConflict: "id" }
     );
 
     const { data: memberships } = await supabase
@@ -36,7 +33,7 @@ export default async function Home() {
       .select("league_id")
       .eq("user_id", user.id);
 
-    const leagueIds = memberships?.map((membership) => membership.league_id) ?? [];
+    const leagueIds = memberships?.map((m) => m.league_id) ?? [];
 
     if (leagueIds.length > 0) {
       const { data: leagueRows } = await supabase
@@ -49,160 +46,347 @@ export default async function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-neutral-100">
-      <Container>
-        <section className="grid gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-neutral-500">
-              Kontors-tipset
-            </p>
+    <main
+      style={{
+        minHeight: "100vh",
+        background:
+          "radial-gradient(circle at 70% 20%, rgba(222,173,67,0.22), transparent 28%), linear-gradient(180deg, #05080c 0%, #020304 100%)",
+        color: "white",
+        overflow: "hidden",
+      }}
+    >
+      <section
+        style={{
+          position: "relative",
+          minHeight: "92vh",
+          backgroundImage:
+            "linear-gradient(90deg, rgba(2,3,4,0.96) 0%, rgba(2,3,4,0.78) 42%, rgba(2,3,4,0.45) 70%, rgba(2,3,4,0.96) 100%), url('/stadium.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1380,
+            margin: "0 auto",
+            padding: "90px 28px 42px",
+          }}
+        >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1.05fr 0.95fr",
+              gap: 48,
+              alignItems: "center",
+              minHeight: "72vh",
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  color: "#e5b94d",
+                  fontSize: 14,
+                  fontWeight: 900,
+                  letterSpacing: "0.16em",
+                  marginBottom: 20,
+                }}
+              >
+                VM 2026
+              </div>
 
-            <h1 className="mt-6 max-w-4xl text-5xl font-bold tracking-tight text-neutral-100 sm:text-6xl lg:text-7xl">
-              VM-tipset för kontoret.
-              <span className="block text-neutral-400">
-                Snyggare, smidigare och roligare än Excel.
-              </span>
-            </h1>
+              <h1
+                style={{
+                  fontSize: "clamp(56px, 7vw, 112px)",
+                  lineHeight: 0.88,
+                  letterSpacing: "-0.06em",
+                  fontWeight: 950,
+                  textTransform: "uppercase",
+                  margin: 0,
+                  maxWidth: 760,
+                }}
+              >
+                Tippa.
+                <br />
+                Utmana.
+                <br />
+                Vinn äran.
+              </h1>
 
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-neutral-400">
-              Skapa en liga, samla kollegorna, tippa matcherna och följ tabellen
-              under Fotbolls-VM 2026 i en upplevelse som känns mer klubbhus än
-              kalkylblad.
-            </p>
-
-            <div className="mt-6 rounded-2xl border border-neutral-800 bg-neutral-900 p-4">
-              <p className="text-sm text-neutral-400">Inloggad användare</p>
-              <p className="mt-2 text-neutral-100">
-                {user ? user.email : "Inte inloggad"}
+              <p
+                style={{
+                  marginTop: 28,
+                  maxWidth: 560,
+                  color: "rgba(255,255,255,0.72)",
+                  fontSize: 18,
+                  lineHeight: 1.7,
+                }}
+              >
+                Skapa din egen liga med polarna, tippa matcher och klättra i
+                tabellen. Vem blir bäst i gänget?
               </p>
 
-              {user && (
-                <p className="mt-2 break-all text-xs text-neutral-500">
-                  User ID: {user.id}
-                </p>
-              )}
-            </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 14,
+                  marginTop: 34,
+                  flexWrap: "wrap",
+                }}
+              >
+                <Link
+                  href={user ? "/liga" : "/login"}
+                  style={{
+                    height: 58,
+                    padding: "0 32px",
+                    borderRadius: 10,
+                    background: "linear-gradient(180deg, #f3cf69, #d9a935)",
+                    color: "#090909",
+                    fontWeight: 900,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textDecoration: "none",
+                    boxShadow: "0 18px 50px rgba(218,169,53,0.28)",
+                  }}
+                >
+                  {user ? "Skapa liga" : "Skapa konto"} →
+                </Link>
 
-            {user && (
-              <div className="mt-6 rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
-                <p className="text-sm text-neutral-400">Mina ligor</p>
+                <Link
+                  href="/regler"
+                  style={{
+                    height: 58,
+                    padding: "0 32px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    background: "rgba(255,255,255,0.05)",
+                    color: "white",
+                    fontWeight: 800,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textDecoration: "none",
+                    backdropFilter: "blur(14px)",
+                  }}
+                >
+                  Se regler
+                </Link>
+              </div>
 
-                {leagues.length === 0 ? (
-                  <p className="mt-3 text-neutral-400">
-                    Du är inte med i någon liga ännu
-                  </p>
-                ) : (
-                  <div className="mt-4 space-y-3">
-                    {leagues.map((league) => (
-                      <Link
-                        key={league.id}
-                        href={`/liga/${league.slug}`}
-                        className="block rounded-xl border border-neutral-800 bg-neutral-950 p-4 hover:border-neutral-700"
-                      >
-                        <p className="text-sm text-neutral-400">Liga</p>
-                        <p className="mt-1 text-lg font-medium text-neutral-100">
-                          {league.name}
-                        </p>
-                      </Link>
-                    ))}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                  gap: 16,
+                  marginTop: 72,
+                  maxWidth: 1180,
+                }}
+              >
+                {[
+                  ["👥", "Skapa din liga", "Starta en liga och bjud in vänner."],
+                  ["🏆", "Tippa matcher", "Sätt resultaten före deadline."],
+                  ["📊", "Klättra i tabellen", "Följ poängen live under VM."],
+                  ["🎁", "Vinn ära", "Skryt resten av sommaren."],
+                ].map(([icon, title, text]) => (
+                  <div
+                    key={title}
+                    style={{
+                      padding: 22,
+                      borderRadius: 16,
+                      background: "rgba(9,17,25,0.72)",
+                      border: "1px solid rgba(255,255,255,0.09)",
+                      boxShadow: "0 24px 80px rgba(0,0,0,0.35)",
+                      backdropFilter: "blur(18px)",
+                    }}
+                  >
+                    <div style={{ fontSize: 28 }}>{icon}</div>
+                    <h3 style={{ margin: "14px 0 6px", fontSize: 17 }}>
+                      {title}
+                    </h3>
+                    <p
+                      style={{
+                        margin: 0,
+                        color: "rgba(255,255,255,0.55)",
+                        fontSize: 14,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {text}
+                    </p>
                   </div>
-                )}
-              </div>
-            )}
-
-            <div className="mt-10 flex flex-wrap gap-4">
-  <Link
-    href="/liga"
-    className="rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-neutral-950 transition hover:opacity-90"
-  >
-    Skapa liga
-  </Link>
-
-  <Link
-    href="/tabell"
-    className="rounded-2xl border border-neutral-800 bg-neutral-900 px-6 py-3 text-sm font-semibold text-neutral-100 transition hover:border-neutral-700"
-  >
-    Se tabell
-  </Link>
-
-  {!user ? (
-    <Link
-      href="/login"
-      className="rounded-2xl border border-neutral-800 bg-neutral-900 px-6 py-3 text-sm font-semibold text-neutral-100 transition hover:border-neutral-700"
-    >
-      Logga in
-    </Link>
-  ) : (
-    <form action="/api/logout" method="POST">
-      <button
-        type="submit"
-        className="rounded-2xl border border-neutral-800 bg-neutral-900 px-6 py-3 text-sm font-semibold text-neutral-100 transition hover:border-neutral-700"
-      >
-        Logga ut
-      </button>
-    </form>
-  )}
-</div>
-          </div>
-
-          <div className="rounded-3xl border border-neutral-800 bg-neutral-900 p-6">
-            <p className="text-xs uppercase tracking-[0.24em] text-neutral-500">
-              Matchkväll
-            </p>
-
-            <div className="mt-6 rounded-2xl border border-neutral-800 bg-neutral-950 p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-neutral-500">Nästa match</p>
-                  <p className="mt-1 text-lg font-semibold text-neutral-100">
-                    Sverige vs Tyskland
-                  </p>
-                </div>
-                <p className="text-sm text-neutral-400">19:00</p>
-              </div>
-
-              <div className="mt-6 grid grid-cols-3 items-center text-center">
-                <div>
-                  <p className="text-sm text-neutral-500">Sverige</p>
-                  <p className="mt-2 text-3xl font-bold">2</p>
-                </div>
-
-                <div className="text-neutral-500">-</div>
-
-                <div>
-                  <p className="text-sm text-neutral-500">Tyskland</p>
-                  <p className="mt-2 text-3xl font-bold">1</p>
-                </div>
+                ))}
               </div>
             </div>
 
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">
-                  Liga
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  maxWidth: 420,
+                  padding: 22,
+                  borderRadius: 22,
+                  background: "rgba(5,12,18,0.78)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  boxShadow: "0 30px 100px rgba(0,0,0,0.55)",
+                  backdropFilter: "blur(18px)",
+                }}
+              >
+                <p
+                  style={{
+                    margin: 0,
+                    color: "#e5b94d",
+                    fontWeight: 900,
+                    fontSize: 13,
+                    letterSpacing: "0.14em",
+                  }}
+                >
+                  NÄSTA MATCH
                 </p>
-                <p className="mt-2 font-medium text-neutral-100">
-                  VM 2026 Kontoret
-                </p>
-              </div>
 
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">
-                  Deltagare
-                </p>
-                <p className="mt-2 font-medium text-neutral-100">18 personer</p>
-              </div>
+                <h2 style={{ margin: "10px 0 24px", fontSize: 28 }}>
+                  Argentina vs Frankrike
+                </h2>
 
-              <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">
-                  Ledare
-                </p>
-                <p className="mt-2 font-medium text-neutral-100">Max · 84 p</p>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto 1fr",
+                    gap: 14,
+                    alignItems: "center",
+                  }}
+                >
+                  <Team flag="🇦🇷" name="Argentina" />
+                  <strong style={{ color: "rgba(255,255,255,0.35)" }}>VS</strong>
+                  <Team flag="🇫🇷" name="Frankrike" align="right" />
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 20,
+                    padding: 16,
+                    borderRadius: 14,
+                    background: "rgba(229,185,77,0.12)",
+                    color: "#f3cf69",
+                    fontWeight: 800,
+                    fontSize: 14,
+                  }}
+                >
+                  Tips låses 60 minuter före matchstart
+                </div>
+
+                <div style={{ marginTop: 18 }}>
+                  {[
+                    ["1", "Max", "84 p"],
+                    ["2", "Linus", "78 p"],
+                    ["3", "Anton", "71 p"],
+                  ].map(([rank, name, points]) => (
+                    <div
+                      key={rank}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "13px 0",
+                        borderTop: "1px solid rgba(255,255,255,0.08)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 999,
+                          background: "#e5b94d",
+                          color: "#090909",
+                          display: "grid",
+                          placeItems: "center",
+                          fontWeight: 950,
+                        }}
+                      >
+                        {rank}
+                      </span>
+                      <strong style={{ flex: 1 }}>{name}</strong>
+                      <strong style={{ color: "#e5b94d" }}>{points}</strong>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </section>
-      </Container>
+
+          {user && leagues.length > 0 && (
+            <div
+              style={{
+                marginTop: 36,
+                padding: 24,
+                borderRadius: 22,
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                backdropFilter: "blur(18px)",
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: 26 }}>Dina ligor</h2>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                  gap: 16,
+                  marginTop: 18,
+                }}
+              >
+                {leagues.map((league) => (
+                  <Link
+                    key={league.id}
+                    href={`/liga/${league.slug}`}
+                    style={{
+                      padding: 20,
+                      borderRadius: 16,
+                      background: "rgba(0,0,0,0.3)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      color: "white",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <strong style={{ fontSize: 20 }}>{league.name}</strong>
+                    <p style={{ color: "#e5b94d", fontWeight: 800 }}>
+                      Öppna liga →
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
     </main>
+  );
+}
+
+function Team({
+  flag,
+  name,
+  align = "left",
+}: {
+  flag: string;
+  name: string;
+  align?: "left" | "right";
+}) {
+  return (
+    <div
+      style={{
+        padding: 18,
+        borderRadius: 18,
+        background: "rgba(255,255,255,0.06)",
+        textAlign: align,
+      }}
+    >
+      <div style={{ fontSize: 38 }}>{flag}</div>
+      <div style={{ marginTop: 10, fontWeight: 900 }}>{name}</div>
+    </div>
   );
 }
