@@ -1,4 +1,6 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/app/lib/supabase";
+
+const TOURNAMENT_ID = "3aadd8c0-9236-46a9-bd17-99653f3c2794";
 
 type Match = {
   id: string;
@@ -28,16 +30,31 @@ function formatKickoff(dateString: string) {
   }).format(new Date(dateString));
 }
 
-function formatStage(match: Match) {
-  if (match.stage === "group") return `Grupp ${match.group_name ?? ""}`;
-  return match.stage;
+function groupMatchesByGroup(matches: Match[]) {
+  return matches.reduce<Record<string, Match[]>>((acc, match) => {
+    const group = match.group_name ?? "Övrigt";
+
+    if (!acc[group]) {
+      acc[group] = [];
+    }
+
+    acc[group].push(match);
+    return acc;
+  }, {});
 }
 
 export default async function TippaPage() {
-  const { data: matches, error } = await supabase
+  const { data, error } = await supabase
     .from("matches")
     .select("*")
-    .order("kickoff_utc", { ascending: true });
+    .eq("tournament_id", TOURNAMENT_ID)
+    .eq("stage", "group")
+    .order("group_name", { ascending: true })
+    .order("fifa_match_number", { ascending: true });
+
+  const matches = (data ?? []) as Match[];
+  const groupedMatches = groupMatchesByGroup(matches);
+  const groupNames = Object.keys(groupedMatches).sort();
 
   return (
     <main className="tips-page">
@@ -45,25 +62,22 @@ export default async function TippaPage() {
         <div className="tips-wrap">
           <div className="tips-head">
             <div>
-              <p className="eyebrow">Matcher</p>
-              <h1>Tippa matcherna.</h1>
+              <p className="eyebrow">VM 2026</p>
+              <h1>Tippa gruppspelet.</h1>
               <p className="intro">
-                Här ser du alla matcher i VM. Snart lägger vi på själva
-                tipprutan, men redan nu får sidan känslan av en riktig
-                matchcentral.
+                Börja med gruppspelet. Dina resultat bygger tabellerna och blir
+                grunden för slutspelet längre fram.
               </p>
             </div>
 
             <div className="hero-panel">
               <p>Nästa deadline</p>
               <strong>60 min före avspark</strong>
-              <span>Tips kan ändras fram till låsning.</span>
+              <span>Tips kan ändras fram till varje match låses.</span>
             </div>
           </div>
 
-          {error && (
-            <div className="error-box">Kunde inte hämta matcher.</div>
-          )}
+          {error && <div className="error-box">Kunde inte hämta matcher.</div>}
 
           {!matches || matches.length === 0 ? (
             <div className="empty-box">
@@ -74,69 +88,81 @@ export default async function TippaPage() {
               <div className="match-toolbar">
                 <div>
                   <span>{matches.length}</span>
-                  <p>matcher inlästa</p>
+                  <p>gruppspelsmatcher</p>
                 </div>
                 <div>
-                  <span>VM 2026</span>
-                  <p>matchschema</p>
+                  <span>12</span>
+                  <p>grupper</p>
                 </div>
                 <div>
-                  <span>Live</span>
-                  <p>tabell kommer sen</p>
+                  <span>72</span>
+                  <p>tips att fylla i</p>
                 </div>
               </div>
 
-              <div className="match-list">
-                {matches.map((match: Match) => (
-                  <article key={match.id} className="match-card">
-                    <div className="match-top">
-                      <div className="match-meta">
-                        <span>{formatStage(match)}</span>
-                        {match.fifa_match_number && (
-                          <small>Match {match.fifa_match_number}</small>
-                        )}
-                      </div>
+              <div className="group-nav">
+                {groupNames.map((group) => (
+                  <a key={group} href={`#grupp-${group}`}>
+                    {group}
+                  </a>
+                ))}
+              </div>
 
-                      <time>{formatKickoff(match.kickoff_utc)}</time>
+              <div className="groups-list">
+                {groupNames.map((group) => (
+                  <section
+                    key={group}
+                    id={`grupp-${group}`}
+                    className="group-section"
+                  >
+                    <div className="group-title">
+                      <div>
+                        <p>Grupp</p>
+                        <h2>{group}</h2>
+                      </div>
+                      <span>{groupedMatches[group].length} matcher</span>
                     </div>
 
-                    <div className="teams">
-                      <div className="team home">
-                        <p>Hemmalag</p>
-                        <h2>{match.home_team}</h2>
-                        {match.home_team_code && (
-                          <span>{match.home_team_code}</span>
-                        )}
-                      </div>
+                    <div className="match-list compact">
+                      {groupedMatches[group].map((match) => (
+                        <article key={match.id} className="match-row">
+                          <div className="match-row-top">
+                            <span>
+                              Match {match.fifa_match_number ?? ""}
+                            </span>
+                            <time>{formatKickoff(match.kickoff_utc)}</time>
+                          </div>
 
-                      <div className="vs">
-                        <span>VS</span>
-                      </div>
+                          <div className="match-row-main">
+                            <div className="team-name">
+                              <strong>{match.home_team}</strong>
+                              {match.home_team_code && (
+                                <small>{match.home_team_code}</small>
+                              )}
+                            </div>
 
-                      <div className="team away">
-                        <p>Bortalag</p>
-                        <h2>{match.away_team}</h2>
-                        {match.away_team_code && (
-                          <span>{match.away_team_code}</span>
-                        )}
-                      </div>
+                            <div className="score-inputs">
+                              <input inputMode="numeric" placeholder="-" />
+                              <span>:</span>
+                              <input inputMode="numeric" placeholder="-" />
+                            </div>
+
+                            <div className="team-name away-team">
+                              <strong>{match.away_team}</strong>
+                              {match.away_team_code && (
+                                <small>{match.away_team_code}</small>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="match-row-bottom">
+                            <span>{match.city || "Arena kommer senare"}</span>
+                            <span>{match.status}</span>
+                          </div>
+                        </article>
+                      ))}
                     </div>
-
-                    <div className="match-bottom">
-                      <div>
-                        <p>Arena</p>
-                        <strong>{match.stadium || "Ej klart"}</strong>
-                      </div>
-                      <div>
-                        <p>Stad</p>
-                        <strong>{match.city || "Ej klart"}</strong>
-                      </div>
-                      <div>
-                        <p>Status</p>
-                        <strong>{match.status}</strong>
-                      </div>
-                    </div>
-                  </article>
+                  </section>
                 ))}
               </div>
             </>
@@ -216,7 +242,9 @@ export default async function TippaPage() {
               line-height: 1.65;
             }
 
-            .hero-panel {
+            .hero-panel,
+            .error-box,
+            .empty-box {
               padding: 22px;
               border-radius: 22px;
               background: rgba(5,12,18,0.78);
@@ -253,10 +281,6 @@ export default async function TippaPage() {
             .error-box,
             .empty-box {
               margin-top: 34px;
-              padding: 22px;
-              border-radius: 20px;
-              background: rgba(5,12,18,0.78);
-              border: 1px solid rgba(255,255,255,0.11);
               color: rgba(255,255,255,0.72);
             }
 
@@ -294,153 +318,169 @@ export default async function TippaPage() {
               font-size: 13px;
             }
 
-            .match-list {
-              display: grid;
-              gap: 18px;
-              margin-top: 18px;
-            }
-
-            .match-card {
-              padding: 24px;
-              border-radius: 26px;
-              background: rgba(5,12,18,0.78);
-              border: 1px solid rgba(255,255,255,0.11);
-              box-shadow: 0 22px 80px rgba(0,0,0,0.30);
+            .group-nav {
+              position: sticky;
+              top: 73px;
+              z-index: 10;
+              display: flex;
+              gap: 8px;
+              overflow-x: auto;
+              margin: 18px -24px 0;
+              padding: 14px 24px;
+              background: rgba(2,3,4,0.76);
               backdrop-filter: blur(18px);
+              border-top: 1px solid rgba(255,255,255,0.06);
+              border-bottom: 1px solid rgba(255,255,255,0.06);
             }
 
-            .match-top {
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              gap: 18px;
-            }
-
-            .match-meta {
-              display: flex;
-              align-items: center;
-              gap: 12px;
-              flex-wrap: wrap;
-            }
-
-            .match-meta span {
-              display: inline-flex;
-              align-items: center;
-              min-height: 30px;
-              padding: 0 12px;
+            .group-nav a {
+              flex: 0 0 auto;
+              display: grid;
+              place-items: center;
+              width: 42px;
+              height: 42px;
               border-radius: 999px;
-              background: rgba(229,185,77,0.12);
-              border: 1px solid rgba(229,185,77,0.22);
+              color: rgba(255,255,255,0.7);
+              text-decoration: none;
+              background: rgba(255,255,255,0.06);
+              border: 1px solid rgba(255,255,255,0.08);
+              font-size: 13px;
+              font-weight: 950;
+            }
+
+            .groups-list {
+              display: grid;
+              gap: 28px;
+              margin-top: 26px;
+            }
+
+            .group-section {
+              scroll-margin-top: 150px;
+            }
+
+            .group-title {
+              display: flex;
+              justify-content: space-between;
+              align-items: end;
+              gap: 16px;
+              margin-bottom: 12px;
+            }
+
+            .group-title p {
+              margin: 0;
               color: #e5b94d;
               font-size: 12px;
               font-weight: 950;
-              letter-spacing: 0.12em;
+              letter-spacing: 0.16em;
               text-transform: uppercase;
             }
 
-            .match-meta small,
-            .match-top time {
-              color: rgba(255,255,255,0.48);
+            .group-title h2 {
+              margin: 4px 0 0;
+              font-size: 34px;
+              line-height: 1;
+              letter-spacing: -0.05em;
+            }
+
+            .group-title span {
+              color: rgba(255,255,255,0.45);
               font-size: 13px;
-              font-weight: 700;
+              font-weight: 800;
             }
 
-            .teams {
+            .match-list.compact {
               display: grid;
-              grid-template-columns: 1fr 74px 1fr;
-              gap: 18px;
-              align-items: stretch;
-              margin-top: 22px;
+              gap: 10px;
             }
 
-            .team {
-              min-width: 0;
-              padding: 22px;
+            .match-row {
+              padding: 16px;
               border-radius: 20px;
-              background: rgba(255,255,255,0.055);
-              border: 1px solid rgba(255,255,255,0.07);
+              background: rgba(5,12,18,0.78);
+              border: 1px solid rgba(255,255,255,0.10);
+              box-shadow: 0 18px 60px rgba(0,0,0,0.24);
+              backdrop-filter: blur(18px);
             }
 
-            .team p {
-              margin: 0;
+            .match-row-top,
+            .match-row-bottom {
+              display: flex;
+              justify-content: space-between;
+              gap: 12px;
+              color: rgba(255,255,255,0.42);
+              font-size: 12px;
+              font-weight: 800;
+            }
+
+            .match-row-main {
+              display: grid;
+              grid-template-columns: 1fr 116px 1fr;
+              gap: 16px;
+              align-items: center;
+              margin-top: 12px;
+            }
+
+            .team-name {
+              min-width: 0;
+            }
+
+            .team-name strong {
+              display: block;
+              font-size: 18px;
+              line-height: 1.2;
+              letter-spacing: -0.03em;
+            }
+
+            .team-name small {
+              display: block;
+              margin-top: 4px;
               color: rgba(255,255,255,0.38);
               font-size: 12px;
               font-weight: 900;
-              letter-spacing: 0.14em;
-              text-transform: uppercase;
             }
 
-            .team h2 {
-              margin: 12px 0 0;
-              font-size: 28px;
-              line-height: 1.05;
-              letter-spacing: -0.04em;
-            }
-
-            .team span {
-              display: inline-flex;
-              margin-top: 12px;
-              color: rgba(255,255,255,0.44);
-              font-size: 13px;
-              font-weight: 900;
-            }
-
-            .away {
+            .away-team {
               text-align: right;
             }
 
-            .vs {
+            .score-inputs {
               display: grid;
-              place-items: center;
+              grid-template-columns: 42px 1fr 42px;
+              align-items: center;
+              gap: 6px;
             }
 
-            .vs span {
-              display: grid;
-              place-items: center;
-              width: 54px;
-              height: 54px;
-              border-radius: 999px;
-              background: linear-gradient(180deg, #f3cf69, #d9a935);
-              color: #090909;
-              font-size: 13px;
+            .score-inputs input {
+              width: 42px;
+              height: 42px;
+              border-radius: 13px;
+              border: 1px solid rgba(255,255,255,0.12);
+              background: rgba(255,255,255,0.08);
+              color: white;
+              text-align: center;
+              font-size: 18px;
               font-weight: 950;
-              box-shadow: 0 18px 50px rgba(218,169,53,0.22);
+              outline: none;
             }
 
-            .match-bottom {
-              display: grid;
-              grid-template-columns: repeat(3, 1fr);
-              gap: 12px;
-              margin-top: 14px;
+            .score-inputs input:focus {
+              border-color: rgba(229,185,77,0.7);
+              box-shadow: 0 0 0 3px rgba(229,185,77,0.12);
             }
 
-            .match-bottom div {
-              padding: 16px;
-              border-radius: 16px;
-              background: rgba(0,0,0,0.24);
-              border: 1px solid rgba(255,255,255,0.07);
+            .score-inputs span {
+              text-align: center;
+              color: rgba(255,255,255,0.42);
+              font-weight: 950;
             }
 
-            .match-bottom p {
-              margin: 0;
-              color: rgba(255,255,255,0.36);
-              font-size: 12px;
-              font-weight: 900;
-              letter-spacing: 0.14em;
-              text-transform: uppercase;
-            }
-
-            .match-bottom strong {
-              display: block;
-              margin-top: 8px;
-              color: rgba(255,255,255,0.82);
-              font-size: 14px;
-              line-height: 1.35;
+            .match-row-bottom {
+              margin-top: 12px;
             }
 
             @media (max-width: 900px) {
               .tips-wrap {
-                padding: 56px 18px 46px;
+                padding: 48px 16px 46px;
               }
 
               .tips-head {
@@ -450,7 +490,7 @@ export default async function TippaPage() {
 
               .tips-head h1 {
                 font-size: 46px;
-                max-width: 340px;
+                max-width: 360px;
               }
 
               .intro {
@@ -467,45 +507,24 @@ export default async function TippaPage() {
                 margin-top: 30px;
               }
 
-              .match-card {
-                padding: 18px;
-                border-radius: 22px;
+              .group-nav {
+                margin-left: -16px;
+                margin-right: -16px;
+                padding-left: 16px;
+                padding-right: 16px;
               }
 
-              .match-top {
-                align-items: flex-start;
-                flex-direction: column;
+              .match-row-main {
+                grid-template-columns: 1fr;
                 gap: 12px;
               }
 
-              .teams {
-                grid-template-columns: 1fr;
-                gap: 10px;
-              }
-
-              .away {
+              .away-team {
                 text-align: left;
               }
 
-              .vs {
-                height: 38px;
-              }
-
-              .vs span {
-                width: 44px;
-                height: 44px;
-              }
-
-              .team {
-                padding: 18px;
-              }
-
-              .team h2 {
-                font-size: 24px;
-              }
-
-              .match-bottom {
-                grid-template-columns: 1fr;
+              .score-inputs {
+                width: 116px;
               }
             }
           `,

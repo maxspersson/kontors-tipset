@@ -1,283 +1,299 @@
-export default function ReglerPage() {
+import Container from "@/app/components/Container";
+
+export default function RulesPage() {
   return (
     <main className="rules-page">
       <section className="rules-hero">
         <div className="rules-wrap">
-          <div className="rules-head">
-            <div>
-              <p className="eyebrow">Regler</p>
-              <h1>Poäng & spelregler.</h1>
-              <p className="intro">
-                Allt du behöver veta för att delta i VM-tipset. Enkelt att fatta –
-                svårt att vinna.
+          <p className="eyebrow">Regler</p>
+
+          <h1>Så funkar Kontors-tipset</h1>
+
+          <p className="intro">
+            Ett enkelt VM-tips där du tävlar mot dina kollegor. 
+            Sätt hela ditt tips innan turneringen startar – och jaga poäng match för match.
+          </p>
+        </div>
+      </section>
+
+      <section className="rules-content">
+        <Container>
+          {/* STEG */}
+          <div className="section">
+            <h2>1. Så spelar du</h2>
+
+            <div className="steps">
+              <div>
+                <span>01</span>
+                <h3>Fyll i alla matcher</h3>
+                <p>Tippa resultat för hela gruppspelet.</p>
+              </div>
+
+              <div>
+                <span>02</span>
+                <h3>Slutspelet skapas</h3>
+                <p>Slutspelsträdet baseras på dina gruppresultat.</p>
+              </div>
+
+              <div>
+                <span>03</span>
+                <h3>Bonusfrågor</h3>
+                <p>Välj vinnare, skyttekung och fler frågor.</p>
+              </div>
+
+              <div>
+                <span>04</span>
+                <h3>Lås ditt tips</h3>
+                <p>Allt måste vara klart innan deadline.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* DEADLINE */}
+          <div className="section highlight">
+            <h2>2. Viktiga deadlines</h2>
+
+            <div className="deadline-box">
+              <p className="big">10 juni 2026 · 23:59</p>
+              <p>
+                Hela ditt tips måste vara ifyllt – inklusive slutspel och bonusfrågor.
               </p>
             </div>
 
-            <div className="deadline-card">
-              <p>Tips låses</p>
-              <strong>10 juni 2026</strong>
-              <span>23:59</span>
-              <small>Slutspel & bonus låses helt</small>
+            <div className="sub-info">
+              <p>
+                Efter detta kan du fortfarande ändra matchresultat i gruppspelet fram till
+                <strong> 60 minuter före avspark.</strong>
+              </p>
             </div>
           </div>
 
-          {/* HOW IT WORKS */}
-          <div className="rules-section">
-            <h2>Så funkar det</h2>
+          {/* POÄNG */}
+          <div className="section">
+            <h2>3. Poängsystem</h2>
 
-            <div className="rules-grid">
-              <div className="rule-card">
-                <strong>1</strong>
-                <p>
-                  Du lämnar in hela ditt VM-tips senast{" "}
-                  <b>10 juni 2026 kl. 23:59</b>.
-                </p>
+            <div className="grid-2">
+              <div className="card">
+                <h3>Matcher</h3>
+                <ul>
+                  <li>Rätt mål per lag: 2 + 2 poäng</li>
+                  <li>Rätt tecken (1X2): 3 poäng</li>
+                  <li><strong>Max 7 poäng per match</strong></li>
+                </ul>
               </div>
 
-              <div className="rule-card">
-                <strong>2</strong>
-                <p>
-                  Efter deadline låses slutspel och bonusfrågor – men matcher kan
-                  fortfarande justeras.
-                </p>
-              </div>
+              <div className="card">
+  <h3>Slutspel</h3>
+  <ul>
+    <li>Rätt lag i åttondelsfinal: 2 poäng / lag</li>
+    <li>Rätt lag i kvartsfinal: 4 poäng / lag</li>
+    <li>Rätt lag i semifinal: 6 poäng / lag</li>
+    <li>Rätt lag i final: 8 poäng / lag</li>
+  </ul>
+</div>
 
-              <div className="rule-card">
-                <strong>3</strong>
-                <p>
-                  Varje match låses <b>60 minuter före avspark</b>. Därefter kan
-                  den inte ändras.
-                </p>
-              </div>
+              <div className="card">
+  <h3>Bonus</h3>
+  <ul>
+    <li>Skyttekung: 20 poäng</li>
+    <li>VM-vinnare: 20 poäng</li>
+    <li>Flest mål i gruppspelet: 10 poäng</li>
+    <li>Flest insläppta mål: 10 poäng</li>
+    <li>Egen bonusfråga 1: 15 poäng</li>
+    <li>Egen bonusfråga 2: 15 poäng</li>
+  </ul>
+</div>
             </div>
           </div>
 
-          {/* MATCH POINTS */}
-          <div className="rules-section">
-            <h2>Poäng per match</h2>
+          {/* VIKTIG REGEL */}
+          <div className="section warning">
+            <h2>4. Viktigt att förstå</h2>
 
-            <div className="points-card highlight">
-              <div className="points-main">
-                <span>7 p</span>
-                <p>max per match</p>
-              </div>
+            <div className="card">
+              <p>
+                Ditt slutspel baseras på dina gruppresultat vid deadline.
+              </p>
 
-              <div className="points-list">
-                <div>
-                  <strong>2 p</strong>
-                  <span>Rätt antal mål (hemmalag)</span>
-                </div>
-                <div>
-                  <strong>2 p</strong>
-                  <span>Rätt antal mål (bortalag)</span>
-                </div>
-                <div>
-                  <strong>3 p</strong>
-                  <span>Rätt tecken (1X2)</span>
-                </div>
-              </div>
-            </div>
-          </div>
+              <p>Om du ändrar matcher efter det:</p>
 
-          {/* PLAYOFF */}
-          <div className="rules-section">
-            <h2>Slutspel</h2>
-
-            <div className="points-grid">
-              {[
-                ["Åttondelsfinal", "2 p / lag"],
-                ["Kvartsfinal", "4 p / lag"],
-                ["Semifinal", "6 p / lag"],
-                ["Final", "8 p / lag"],
-              ].map(([label, value]) => (
-                <div key={label} className="points-box">
-                  <p>{label}</p>
-                  <strong>{value}</strong>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* BONUS */}
-          <div className="rules-section">
-            <h2>Bonusfrågor</h2>
-
-            <div className="points-grid">
-              {[
-                ["Skyttekung", "20 p"],
-                ["Världsmästare", "20 p"],
-                ["Flest mål i gruppspelet", "10 p"],
-                ["Släpper in flest mål", "10 p"],
-                ["Egen bonus 1", "15 p"],
-                ["Egen bonus 2", "15 p"],
-              ].map(([label, value]) => (
-                <div key={label} className="points-box">
-                  <p>{label}</p>
-                  <strong>{value}</strong>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* INFO */}
-          <div className="rules-section">
-            <h2>Bra att veta</h2>
-
-            <div className="info-box">
               <ul>
-                <li>
-                  Slutspelstips och bonusfrågor kan inte ändras efter deadline.
-                </li>
-                <li>
-                  Bonuspoäng delas ut när respektive del av turneringen är färdigspelad.
-                </li>
-                <li>
-                  Bestäm i förväg om matcher avgörs efter 90 min, förlängning eller straffar.
-                </li>
-                <li>
-                  Tipsgeneralen avgör eventuella specialfall.
-                </li>
+                <li>✔ Du får fortfarande poäng för matcherna</li>
+                <li>❌ Ditt slutspel ändras inte</li>
+              </ul>
+
+              <p className="note">
+                Du kan alltså fortsätta samla poäng – även om ditt slutspel inte längre stämmer.
+              </p>
+            </div>
+          </div>
+
+          {/* EXTRA */}
+          <div className="section">
+            <h2>5. Övrigt</h2>
+
+            <div className="card">
+              <ul>
+                <li>Tips låses 60 minuter före varje match</li>
+                <li>Bonuspoäng delas ut först när en hel spelomgång är färdigspelad (t.ex. gruppspel eller slutspel).</li>
+                <li>Resultat räknas efter ordinarie tid (90 min)</li>
               </ul>
             </div>
           </div>
-        </div>
+        </Container>
       </section>
 
       <style
         dangerouslySetInnerHTML={{
           __html: `
-            .rules-page {
-              min-height: 100vh;
-              background: #020304;
-              color: white;
+          .rules-page {
+            min-height: 100vh;
+            background: #020304;
+            color: white;
+          }
+
+          .rules-hero {
+            padding: 88px 20px 34px;
+            text-align: center;
+          }
+
+          .rules-wrap {
+            max-width: 700px;
+            margin: 0 auto;
+          }
+
+          .eyebrow {
+            color: #e5b94d;
+            letter-spacing: 0.2em;
+            font-size: 12px;
+            font-weight: 900;
+          }
+
+          h1 {
+            margin-top: 18px;
+            font-size: 48px;
+            font-weight: 950;
+            letter-spacing: -0.04em;
+          }
+
+          .intro {
+            margin-top: 18px;
+            color: rgba(255,255,255,0.7);
+            line-height: 1.6;
+          }
+
+          .rules-content {
+            padding: 10px 0 80px;
+          }
+
+          .section {
+            margin-top: 46px;
+          }
+
+          .section h2 {
+            font-size: 32px;
+            margin-bottom: 22px;
+            letter-spacing: -0.04em;
+          }
+
+          .steps {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+          }
+
+          .steps div {
+            padding: 24px;
+            border-radius: 20px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.035));
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 20px 70px rgba(0,0,0,0.22);
+          }
+
+          .steps span {
+            color: #e5b94d;
+            font-weight: 950;
+            font-size: 13px;
+            letter-spacing: 0.12em;
+          }
+
+          .steps h3 {
+            margin: 18px 0 8px;
+            font-size: 20px;
+            font-weight: 950;
+            letter-spacing: -0.03em;
+          }
+
+          .steps p {
+            margin: 0;
+            color: rgba(255,255,255,0.62);
+            font-size: 15px;
+          }
+
+          .deadline-box {
+            padding: 24px;
+            border-radius: 20px;
+            background: rgba(229,185,77,0.1);
+            border: 1px solid rgba(229,185,77,0.25);
+          }
+
+          .big {
+            font-size: 22px;
+            font-weight: 900;
+          }
+
+          .sub-info {
+            margin-top: 12px;
+            color: rgba(255,255,255,0.7);
+          }
+
+          .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+          }
+
+          .card {
+            padding: 20px;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.06);
+          }
+
+          .warning .card {
+            border: 1px solid rgba(229,185,77,0.3);
+          }
+
+          ul {
+            margin-top: 10px;
+            padding-left: 18px;
+            color: rgba(255,255,255,0.8);
+          }
+
+          li {
+            margin-bottom: 6px;
+          }
+
+          .note {
+            margin-top: 12px;
+            font-size: 14px;
+            color: rgba(255,255,255,0.6);
+          }
+
+          @media (max-width: 900px) {
+            .steps {
+              grid-template-columns: 1fr;
             }
 
-            .rules-hero {
-              background-image:
-                linear-gradient(180deg, rgba(2,3,4,0.74) 0%, rgba(2,3,4,0.96) 340px, #020304 100%),
-                url('/stadium.jpg');
-              background-size: cover;
-              background-position: center;
-            }
-
-            .rules-wrap {
-              max-width: 1100px;
-              margin: 0 auto;
-              padding: 72px 24px;
-            }
-
-            .rules-head {
-              display: grid;
-              grid-template-columns: 1fr 280px;
-              gap: 40px;
-              align-items: end;
-            }
-
-            .eyebrow {
-              color: #e5b94d;
-              font-size: 13px;
-              font-weight: 900;
-              letter-spacing: 0.16em;
+            .grid-2 {
+              grid-template-columns: 1fr;
             }
 
             h1 {
-              font-size: clamp(42px, 5vw, 72px);
-              margin: 10px 0;
+              font-size: 36px;
             }
-
-            .intro {
-              color: rgba(255,255,255,0.65);
-            }
-
-            .deadline-card {
-              padding: 20px;
-              border-radius: 20px;
-              background: rgba(5,12,18,0.8);
-              border: 1px solid rgba(255,255,255,0.1);
-            }
-
-            .deadline-card strong {
-              display: block;
-              font-size: 24px;
-              color: #e5b94d;
-            }
-
-            .rules-section {
-              margin-top: 60px;
-            }
-
-            .rules-grid {
-              display: grid;
-              gap: 16px;
-              margin-top: 20px;
-            }
-
-            .rule-card {
-              padding: 18px;
-              border-radius: 16px;
-              background: rgba(255,255,255,0.05);
-            }
-
-            .rule-card strong {
-              font-size: 20px;
-              color: #e5b94d;
-            }
-
-            .points-card {
-              padding: 24px;
-              border-radius: 20px;
-              background: rgba(5,12,18,0.8);
-              border: 1px solid rgba(255,255,255,0.1);
-              display: grid;
-              gap: 20px;
-            }
-
-            .points-main span {
-              font-size: 42px;
-              color: #e5b94d;
-            }
-
-            .points-list div {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 8px;
-            }
-
-            .points-grid {
-              display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-              gap: 14px;
-              margin-top: 20px;
-            }
-
-            .points-box {
-              padding: 18px;
-              border-radius: 14px;
-              background: rgba(255,255,255,0.05);
-            }
-
-            .points-box strong {
-              color: #e5b94d;
-            }
-
-            .info-box {
-              padding: 20px;
-              border-radius: 16px;
-              background: rgba(255,255,255,0.05);
-            }
-
-            ul {
-              margin: 0;
-              padding-left: 18px;
-              line-height: 1.6;
-            }
-
-            @media (max-width: 800px) {
-              .rules-head {
-                grid-template-columns: 1fr;
-              }
-            }
-          `,
+          }
+        `,
         }}
       />
     </main>

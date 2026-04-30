@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/app/lib/supabase/server";
 import CopyInvite from "@/app/components/CopyInvite";
 import Link from "next/link";
 
