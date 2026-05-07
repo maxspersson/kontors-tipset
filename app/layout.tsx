@@ -8,6 +8,27 @@ export const metadata = {
   description: "VM-tipset för kontoret",
 };
 
+function formatDisplayName(email?: string | null) {
+  if (!email) return "Spelare";
+
+  return email
+    .split("@")[0]
+    .replace(/[._-]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getInitials(name: string) {
+  const parts = name.trim().split(" ").filter(Boolean);
+
+  if (parts.length === 0) return "KT";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
 export default async function RootLayout({
   children,
 }: {
@@ -19,7 +40,21 @@ export default async function RootLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const initials = user?.email?.slice(0, 2).toUpperCase() ?? "MP";
+  let displayName = "";
+  let email = user?.email || null;
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name, email")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    email = profile?.email || user.email || null;
+    displayName = profile?.display_name || formatDisplayName(email);
+  }
+
+  const initials = user ? getInitials(displayName) : "KT";
 
   return (
     <html lang="sv">
@@ -42,9 +77,30 @@ export default async function RootLayout({
 
               {user ? (
                 <details className="user-menu desktop-user">
-                  <summary>{initials}</summary>
-                  <div className="dropdown">
+                  <summary>
+                    <span className="avatar-mini">{initials}</span>
+                    <span className="user-name">{displayName}</span>
+                    <span className="chevron">▾</span>
+                  </summary>
+
+                  <div className="dropdown account-dropdown">
+                    <div className="account-head">
+                      <div className="avatar-large">{initials}</div>
+                      <div>
+                        <strong>{displayName}</strong>
+                        {email && <span>{email}</span>}
+                      </div>
+                    </div>
+
+                    <div className="divider" />
+
+                    <Link href="/profil">Min profil</Link>
                     <Link href="/liga">Mina ligor</Link>
+                    <Link href="/tabell">Tabellen</Link>
+                    <Link href="/regler">Regler</Link>
+
+                    <div className="divider" />
+
                     <LogoutButton />
                   </div>
                 </details>
@@ -56,15 +112,34 @@ export default async function RootLayout({
 
               <details className="user-menu mobile-menu">
                 <summary>☰</summary>
+
                 <div className="dropdown mobile-dropdown">
+                  {user && (
+                    <>
+                      <div className="account-head">
+                        <div className="avatar-large">{initials}</div>
+                        <div>
+                          <strong>{displayName}</strong>
+                          {email && <span>{email}</span>}
+                        </div>
+                      </div>
+
+                      <div className="divider" />
+                    </>
+                  )}
+
                   <Link href="/tippa">Tippa</Link>
                   <Link href="/tabell">Tabell</Link>
                   <Link href="/liga">Liga</Link>
                   <Link href="/regler">Regler</Link>
+
                   <div className="divider" />
 
                   {user ? (
-                    <LogoutButton />
+                    <>
+                      <Link href="/profil">Min profil</Link>
+                      <LogoutButton />
+                    </>
                   ) : (
                     <Link href="/login">Logga in</Link>
                   )}
@@ -73,9 +148,35 @@ export default async function RootLayout({
             </div>
           </div>
         </header>
-
         {children}
 
+<script
+  dangerouslySetInnerHTML={{
+    __html: `
+      document.addEventListener("click", function(event) {
+        document.querySelectorAll("details.user-menu").forEach((detail) => {
+          const clickedInside = detail.contains(event.target);
+
+          if (!clickedInside) {
+            detail.removeAttribute("open");
+            return;
+          }
+
+          const target = event.target;
+
+          if (
+            target.closest("a") ||
+            target.closest("button")
+          ) {
+            detail.removeAttribute("open");
+          }
+        });
+      });
+    `,
+  }}
+/>
+
+<footer className="site-footer"></footer>
         <footer className="site-footer">
           <div className="footer-inner">
             <div>
@@ -117,7 +218,7 @@ export default async function RootLayout({
               .header-inner {
                 max-width: 1380px;
                 margin: 0 auto;
-                padding: 18px 28px;
+                padding: 16px 28px;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -125,11 +226,12 @@ export default async function RootLayout({
               }
 
               .logo {
-                color: rgba(255,255,255,0.58);
+                color: rgba(255,255,255,0.62);
                 text-decoration: none;
                 font-size: 14px;
-                font-weight: 900;
+                font-weight: 950;
                 letter-spacing: 0.28em;
+                white-space: nowrap;
               }
 
               .desktop-nav {
@@ -143,7 +245,7 @@ export default async function RootLayout({
                 color: rgba(255,255,255,0.55);
                 text-decoration: none;
                 font-size: 14px;
-                font-weight: 700;
+                font-weight: 750;
               }
 
               .desktop-nav a:hover,
@@ -158,25 +260,33 @@ export default async function RootLayout({
               }
 
               .season-pill {
-                border: 1px solid rgba(255,255,255,0.10);
-                background: rgba(0,0,0,0.35);
-                color: rgba(255,255,255,0.75);
-                padding: 6px 13px;
+                border: 1px solid rgba(229,185,77,0.18);
+                background: rgba(229,185,77,0.10);
+                color: #e5b94d;
+                padding: 7px 13px;
                 border-radius: 999px;
                 font-size: 12px;
-                font-weight: 800;
+                font-weight: 950;
                 white-space: nowrap;
               }
 
               .login-link {
-                color: rgba(255,255,255,0.75);
+                height: 40px;
+                padding: 0 16px;
+                border-radius: 999px;
+                background: rgba(255,255,255,0.06);
+                border: 1px solid rgba(255,255,255,0.12);
+                color: rgba(255,255,255,0.82);
                 text-decoration: none;
                 font-size: 14px;
-                font-weight: 800;
+                font-weight: 900;
+                display: inline-flex;
+                align-items: center;
               }
 
               .login-link:hover {
                 color: white;
+                background: rgba(255,255,255,0.10);
               }
 
               details > summary::-webkit-details-marker {
@@ -188,32 +298,104 @@ export default async function RootLayout({
               }
 
               .user-menu summary {
-                width: 38px;
-                height: 38px;
+                height: 42px;
                 border-radius: 999px;
-                display: grid;
-                place-items: center;
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
                 cursor: pointer;
                 list-style: none;
-                background: rgba(255,255,255,0.12);
+                background: rgba(255,255,255,0.07);
+                border: 1px solid rgba(255,255,255,0.12);
                 color: white;
                 font-size: 13px;
                 font-weight: 950;
                 user-select: none;
+                padding: 4px 11px 4px 4px;
+                transition: background 0.18s ease, border-color 0.18s ease;
+              }
+
+              .user-menu summary:hover {
+                background: rgba(255,255,255,0.10);
+                border-color: rgba(229,185,77,0.28);
+              }
+
+              .avatar-mini {
+                width: 34px;
+                height: 34px;
+                display: grid;
+                place-items: center;
+                border-radius: 999px;
+                background: linear-gradient(180deg, #f3cf69, #d9a935);
+                color: #090909;
+                font-size: 12px;
+                font-weight: 950;
+                box-shadow: 0 12px 32px rgba(218,169,53,0.20);
+              }
+
+              .user-name {
+                max-width: 120px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              }
+
+              .chevron {
+                color: rgba(255,255,255,0.46);
+                font-size: 11px;
+                margin-left: -2px;
               }
 
               .dropdown {
                 position: absolute;
                 right: 0;
-                top: 48px;
-                width: 170px;
-                padding: 8px;
-                border-radius: 16px;
-                background: rgba(6,9,13,0.96);
+                top: 52px;
+                width: 250px;
+                padding: 10px;
+                border-radius: 20px;
+                background: rgba(6,9,13,0.97);
                 border: 1px solid rgba(255,255,255,0.12);
-                box-shadow: 0 24px 80px rgba(0,0,0,0.45);
+                box-shadow: 0 24px 80px rgba(0,0,0,0.55);
                 backdrop-filter: blur(18px);
                 -webkit-backdrop-filter: blur(18px);
+              }
+
+              .account-head {
+                display: flex;
+                gap: 12px;
+                align-items: center;
+                padding: 10px;
+              }
+
+              .avatar-large {
+                width: 46px;
+                height: 46px;
+                display: grid;
+                place-items: center;
+                border-radius: 999px;
+                background: linear-gradient(180deg, #f3cf69, #d9a935);
+                color: #090909;
+                font-size: 15px;
+                font-weight: 950;
+                flex: 0 0 auto;
+              }
+
+              .account-head strong {
+                display: block;
+                color: white;
+                font-size: 15px;
+                line-height: 1.2;
+              }
+
+              .account-head span {
+                display: block;
+                margin-top: 4px;
+                max-width: 160px;
+                color: rgba(255,255,255,0.44);
+                font-size: 12px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
               }
 
               .dropdown a,
@@ -222,13 +404,13 @@ export default async function RootLayout({
                 display: block;
                 border: 0;
                 background: transparent;
-                color: rgba(255,255,255,0.72);
+                color: rgba(255,255,255,0.74);
                 text-align: left;
                 text-decoration: none;
                 font-size: 14px;
-                font-weight: 750;
+                font-weight: 800;
                 padding: 11px 12px;
-                border-radius: 11px;
+                border-radius: 12px;
                 cursor: pointer;
                 font-family: inherit;
               }
@@ -241,12 +423,19 @@ export default async function RootLayout({
 
               .divider {
                 height: 1px;
-                margin: 6px 4px;
+                margin: 7px 4px;
                 background: rgba(255,255,255,0.10);
               }
 
               .mobile-menu {
                 display: none;
+              }
+
+              .mobile-menu summary {
+                width: 42px;
+                padding: 0;
+                justify-content: center;
+                font-size: 19px;
               }
 
               .site-footer {
@@ -282,6 +471,16 @@ export default async function RootLayout({
                 gap: 22px;
               }
 
+              @media (max-width: 900px) {
+                .desktop-nav {
+                  gap: 22px;
+                }
+
+                .user-name {
+                  display: none;
+                }
+              }
+
               @media (max-width: 760px) {
                 .header-inner {
                   padding: 16px 18px;
@@ -303,7 +502,7 @@ export default async function RootLayout({
                 }
 
                 .mobile-dropdown {
-                  width: 210px;
+                  width: min(300px, calc(100vw - 32px));
                 }
 
                 .footer-inner {

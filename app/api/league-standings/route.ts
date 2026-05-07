@@ -155,7 +155,9 @@ export async function GET(request: Request) {
   const scoreMap = new Map<
     string,
     {
-      points: number;
+      matchPoints: number;
+      bracketPoints: number;
+      totalPoints: number;
       exactScores: number;
       playedMatches: number;
     }
@@ -163,7 +165,9 @@ export async function GET(request: Request) {
 
   for (const userId of submittedUserIds) {
     scoreMap.set(userId, {
-      points: 0,
+      matchPoints: 0,
+      bracketPoints: 0,
+      totalPoints: 0,
       exactScores: 0,
       playedMatches: 0,
     });
@@ -174,7 +178,6 @@ export async function GET(request: Request) {
     if (!match) continue;
 
     const hasResult = match.home_score !== null && match.away_score !== null;
-
     if (!hasResult) continue;
 
     const points = getMatchPoints(prediction, match);
@@ -182,7 +185,8 @@ export async function GET(request: Request) {
 
     if (!current) continue;
 
-    current.points += points;
+    current.matchPoints += points;
+    current.totalPoints += points;
     current.playedMatches += 1;
 
     if (points === 7) {
@@ -198,7 +202,11 @@ export async function GET(request: Request) {
       user_id: userId,
       display_name: profile?.display_name || profile?.email || "Spelare",
       email: profile?.email || null,
-      points: score?.points ?? 0,
+
+      points: score?.totalPoints ?? 0,
+      matchPoints: score?.matchPoints ?? 0,
+      bracketPoints: score?.bracketPoints ?? 0,
+
       exactScores: score?.exactScores ?? 0,
       playedMatches: score?.playedMatches ?? 0,
     };

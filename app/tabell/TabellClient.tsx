@@ -12,8 +12,14 @@ type Standing = {
   playedMatches: number;
 };
 
-export default function TabellClient({ leagues }: { leagues: LeagueOption[] }) {
-  const [selectedLeagueId, setSelectedLeagueId] = useState(leagues[0]?.id || "");
+export default function TabellClient({
+  leagues,
+  initialLeagueId,
+}: {
+  leagues: LeagueOption[];
+  initialLeagueId: string;
+}) {
+  const [selectedLeagueId, setSelectedLeagueId] = useState(initialLeagueId);
   const [standings, setStandings] = useState<Standing[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState("");

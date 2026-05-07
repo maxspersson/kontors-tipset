@@ -14,6 +14,11 @@ type League = {
   name: string;
   slug: string | null;
   invite_code: string | null;
+  created_at: string | null;
+};
+
+type MemberCountRow = {
+  league_id: string;
 };
 
 export default async function LigaPage() {
@@ -37,14 +42,28 @@ export default async function LigaPage() {
     .filter(Boolean);
 
   let leagues: League[] = [];
+  const memberCountByLeague = new Map<string, number>();
 
   if (leagueIds.length > 0) {
     const { data: leagueRows } = await supabase
       .from("leagues")
-      .select("id, name, slug, invite_code")
-      .in("id", leagueIds);
+      .select("id, name, slug, invite_code, created_at")
+      .in("id", leagueIds)
+      .order("created_at", { ascending: false });
 
     leagues = (leagueRows ?? []) as League[];
+
+    const { data: allMembers } = await supabase
+      .from("league_members")
+      .select("league_id")
+      .in("league_id", leagueIds);
+
+    for (const member of (allMembers ?? []) as MemberCountRow[]) {
+      memberCountByLeague.set(
+        member.league_id,
+        (memberCountByLeague.get(member.league_id) ?? 0) + 1
+      );
+    }
   }
 
   return (
@@ -57,12 +76,9 @@ export default async function LigaPage() {
               <h1>Mina ligor.</h1>
               <p className="intro">
                 Skapa en liga, gå med via kod eller välj vilken liga du vill
-                tippa i. Varje liga har egen tabell och egna inskickade tips.
+                tippa i. Varje liga har egen tabell, egen kod och egna
+                inskickade tips.
               </p>
-
-              <p style={{ marginTop: 16, color: "#e5b94d", fontSize: 12 }}>
-  Debug user id: {user.id}
-</p>
             </div>
 
             <div className="summary-card">
@@ -88,35 +104,53 @@ export default async function LigaPage() {
                 </div>
               ) : (
                 <div className="league-list">
-                  {leagues.map((league) => (
-                    <article key={league.id} className="league-card">
-                      <div>
-                        <p>VM 2026</p>
-                        <h3>{league.name}</h3>
+                  {leagues.map((league) => {
+                    const memberCount = memberCountByLeague.get(league.id) ?? 1;
 
-                        <div className="invite-code">
-                          <span>Invite code</span>
-                          <strong>{league.invite_code || "Saknas"}</strong>
+                    return (
+                      <article key={league.id} className="league-card">
+                        <div className="league-main">
+                          <div className="league-meta-row">
+                            <span>VM 2026</span>
+                            <span>
+                              {memberCount}{" "}
+                              {memberCount === 1 ? "medlem" : "medlemmar"}
+                            </span>
+                          </div>
+
+                          <h3>{league.name}</h3>
+
+                          <div className="invite-row">
+                            <div className="invite-code">
+                              <span>Ligakod</span>
+                              <strong>{league.invite_code || "Saknas"}</strong>
+                            </div>
+
+                            <p className="invite-help">
+                              Dela koden med kollegor eller vänner så kan de gå
+                              med i ligan.
+                            </p>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="league-actions">
-                        <Link
-                          className="primary-link"
-                          href={`/tippa?leagueId=${league.id}`}
-                        >
-                          Tippa
-                        </Link>
+                        <div className="league-actions">
+                          <Link
+                            className="primary-link"
+                            href={`/tippa?leagueId=${league.id}`}
+                          >
+                            Tippa
+                          </Link>
 
-                        <Link
-                          className="secondary-link"
-                          href={`/tabell?leagueId=${league.id}`}
-                        >
-                          Se tabell
-                        </Link>
-                      </div>
-                    </article>
-                  ))}
+                          <Link
+                            className="secondary-link"
+                            href={`/tabell?leagueId=${league.id}`}
+                          >
+                            Se tabell
+                          </Link>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -257,9 +291,9 @@ export default async function LigaPage() {
 
             .summary-card p,
             .section-head p,
-            .league-card p,
             .card-top p,
-            .invite-code span {
+            .invite-code span,
+            .league-meta-row span {
               margin: 0;
               color: rgba(255,255,255,0.42);
               font-size: 12px;
@@ -310,24 +344,38 @@ export default async function LigaPage() {
             .league-card {
               display: grid;
               grid-template-columns: 1fr auto;
-              gap: 18px;
+              gap: 22px;
               align-items: center;
-              padding: 22px;
-              border-radius: 24px;
+              padding: 24px;
+              border-radius: 26px;
+            }
+
+            .league-meta-row {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 14px;
             }
 
             .league-card h3 {
-              margin: 8px 0 0;
-              font-size: 26px;
-              letter-spacing: -0.04em;
+              margin: 10px 0 0;
+              font-size: 28px;
+              letter-spacing: -0.05em;
+            }
+
+            .invite-row {
+              display: flex;
+              align-items: center;
+              gap: 14px;
+              flex-wrap: wrap;
+              margin-top: 18px;
             }
 
             .invite-code {
               display: inline-flex;
               gap: 12px;
               align-items: center;
-              margin-top: 16px;
-              padding: 10px 12px;
+              padding: 10px 13px;
               border-radius: 999px;
               background: rgba(229,185,77,0.10);
               border: 1px solid rgba(229,185,77,0.20);
@@ -337,6 +385,14 @@ export default async function LigaPage() {
               color: #e5b94d;
               font-size: 14px;
               letter-spacing: 0.08em;
+            }
+
+            .invite-help {
+              max-width: 360px;
+              margin: 0;
+              color: rgba(255,255,255,0.48);
+              font-size: 13px;
+              line-height: 1.45;
             }
 
             .league-actions {
@@ -389,6 +445,8 @@ export default async function LigaPage() {
             .league-side {
               display: grid;
               gap: 16px;
+              position: sticky;
+              top: 100px;
             }
 
             .form-card {
@@ -478,6 +536,10 @@ export default async function LigaPage() {
                 grid-template-columns: 1fr;
               }
 
+              .league-side {
+                position: static;
+              }
+
               h1 {
                 font-size: 48px;
               }
@@ -494,6 +556,10 @@ export default async function LigaPage() {
               .primary-link,
               .secondary-link {
                 width: 100%;
+              }
+
+              .invite-help {
+                max-width: none;
               }
             }
           `,

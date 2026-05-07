@@ -7,16 +7,6 @@ export const revalidate = 0;
 
 type LeagueMemberRow = {
   league_id: string;
-  leagues:
-    | {
-        id: string;
-        name: string;
-      }
-    | {
-        id: string;
-        name: string;
-      }[]
-    | null;
 };
 
 export type LeagueOption = {
@@ -24,7 +14,13 @@ export type LeagueOption = {
   name: string;
 };
 
-export default async function TabellPage() {
+type TabellPageProps = {
+  searchParams?: Promise<{
+    leagueId?: string;
+  }>;
+};
+
+export default async function TabellPage({ searchParams }: TabellPageProps) {
   const supabase = await createClient();
 
   const {
@@ -35,23 +31,33 @@ export default async function TabellPage() {
     redirect("/login");
   }
 
+  const params = searchParams ? await searchParams : {};
+  const leagueIdFromUrl = params.leagueId;
+
   const { data: memberships } = await supabase
     .from("league_members")
-    .select("league_id, leagues(id, name)")
+    .select("league_id")
     .eq("user_id", user.id);
 
-  const leagues: LeagueOption[] = ((memberships ?? []) as LeagueMemberRow[])
-    .map((membership) => {
-      const league = Array.isArray(membership.leagues)
-        ? membership.leagues[0]
-        : membership.leagues;
+  const leagueIds = ((memberships ?? []) as LeagueMemberRow[])
+    .map((membership) => membership.league_id)
+    .filter(Boolean);
 
-      return {
-        id: league?.id || membership.league_id,
-        name: league?.name || "Min liga",
-      };
-    })
-    .filter((league) => league.id);
+  if (leagueIds.length === 0) {
+    redirect("/liga");
+  }
 
-  return <TabellClient leagues={leagues} />;
+  const { data: leagueRows } = await supabase
+    .from("leagues")
+    .select("id, name")
+    .in("id", leagueIds);
+
+  const leagues = (leagueRows ?? []) as LeagueOption[];
+
+  const initialLeagueId =
+    leagueIdFromUrl && leagueIds.includes(leagueIdFromUrl)
+      ? leagueIdFromUrl
+      : leagues[0]?.id || "";
+
+  return <TabellClient leagues={leagues} initialLeagueId={initialLeagueId} />;
 }

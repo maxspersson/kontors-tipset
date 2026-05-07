@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/app/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type League = {
   id: string;
   name: string;
@@ -8,6 +11,215 @@ type League = {
   invite_code: string;
   created_at: string;
 };
+
+type NextMatch = {
+  id: string;
+  home_team: string;
+  away_team: string;
+  home_team_code: string | null;
+  away_team_code: string | null;
+  kickoff_utc: string;
+} | null;
+
+type GlobalTopPlayer = {
+  user_id: string;
+  display_name: string;
+  points: number;
+  exactScores: number;
+};
+
+type MatchScoreRow = {
+  id: string;
+  home_score: number | null;
+  away_score: number | null;
+};
+
+type PredictionRow = {
+  league_id: string;
+  user_id: string;
+  match_id: string;
+  predicted_home_score: number | null;
+  predicted_away_score: number | null;
+};
+
+type ProfileRow = {
+  id: string;
+  display_name: string | null;
+  email: string | null;
+};
+
+function formatDisplayName(email?: string | null) {
+  if (!email) return null;
+
+  const namePart = email.split("@")[0];
+
+  return namePart
+    .replace(/[._-]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getFlagEmoji(code: string | null) {
+  if (!code) return "🏳️";
+
+  const map: Record<string, string> = {
+    ARG: "🇦🇷",
+    AUS: "🇦🇺",
+    AUT: "🇦🇹",
+    BEL: "🇧🇪",
+    BRA: "🇧🇷",
+    CAN: "🇨🇦",
+    CHI: "🇨🇱",
+    CHL: "🇨🇱",
+    COL: "🇨🇴",
+    CRC: "🇨🇷",
+    CRO: "🇭🇷",
+    CMR: "🇨🇲",
+    CPV: "🇨🇻",
+    CZE: "🇨🇿",
+    DEN: "🇩🇰",
+    ECU: "🇪🇨",
+    EGY: "🇪🇬",
+    ENG: "🏴",
+    FRA: "🇫🇷",
+    GAB: "🇬🇦",
+    GER: "🇩🇪",
+    GHA: "🇬🇭",
+    HAI: "🇭🇹",
+    ITA: "🇮🇹",
+    JPN: "🇯🇵",
+    KOR: "🇰🇷",
+    KSA: "🇸🇦",
+    MAR: "🇲🇦",
+    MEX: "🇲🇽",
+    MKD: "🇲🇰",
+    NED: "🇳🇱",
+    NGA: "🇳🇬",
+    NOR: "🇳🇴",
+    NZL: "🇳🇿",
+    PAN: "🇵🇦",
+    PAR: "🇵🇾",
+    PRY: "🇵🇾",
+    PER: "🇵🇪",
+    PHI: "🇵🇭",
+    POL: "🇵🇱",
+    POR: "🇵🇹",
+    RSA: "🇿🇦",
+    SAU: "🇸🇦",
+    SEN: "🇸🇳",
+    SRB: "🇷🇸",
+    ESP: "🇪🇸",
+    SUI: "🇨🇭",
+    SWE: "🇸🇪",
+    TUN: "🇹🇳",
+    TUR: "🇹🇷",
+    URU: "🇺🇾",
+    USA: "🇺🇸",
+    ZAF: "🇿🇦",
+  };
+
+  return map[code.toUpperCase()] ?? "🏳️";
+}
+
+function getSwedishTeamName(name: string) {
+  const normalizedName = name.trim().toLowerCase();
+
+  const map: Record<string, string> = {
+    argentina: "Argentina",
+    australia: "Australien",
+    austria: "Österrike",
+    belgium: "Belgien",
+    brazil: "Brasilien",
+    cameroon: "Kamerun",
+    canada: "Kanada",
+    "cape verde": "Kap Verde",
+    chile: "Chile",
+    colombia: "Colombia",
+    "costa rica": "Costa Rica",
+    croatia: "Kroatien",
+    czechia: "Tjeckien",
+    "czech republic": "Tjeckien",
+    denmark: "Danmark",
+    ecuador: "Ecuador",
+    egypt: "Egypten",
+    england: "England",
+    france: "Frankrike",
+    gabon: "Gabon",
+    germany: "Tyskland",
+    ghana: "Ghana",
+    haiti: "Haiti",
+    italy: "Italien",
+    japan: "Japan",
+    mexico: "Mexiko",
+    morocco: "Marocko",
+    netherlands: "Nederländerna",
+    nigeria: "Nigeria",
+    "north macedonia": "Nordmakedonien",
+    norway: "Norge",
+    "new zealand": "Nya Zeeland",
+    panama: "Panama",
+    paraguay: "Paraguay",
+    peru: "Peru",
+    philippines: "Filippinerna",
+    poland: "Polen",
+    portugal: "Portugal",
+    "saudi arabia": "Saudiarabien",
+    senegal: "Senegal",
+    serbia: "Serbien",
+    "south africa": "Sydafrika",
+    "south korea": "Sydkorea",
+    spain: "Spanien",
+    switzerland: "Schweiz",
+    sweden: "Sverige",
+    tunisia: "Tunisien",
+    turkey: "Turkiet",
+    türkiye: "Turkiet",
+    uruguay: "Uruguay",
+    "united states": "USA",
+    usa: "USA",
+  };
+
+  return map[normalizedName] ?? name;
+}
+
+function formatKickoff(dateString: string) {
+  return new Intl.DateTimeFormat("sv-SE", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(dateString));
+}
+
+function getMatchPoints(prediction: PredictionRow, match: MatchScoreRow) {
+  if (
+    match.home_score === null ||
+    match.away_score === null ||
+    prediction.predicted_home_score === null ||
+    prediction.predicted_away_score === null
+  ) {
+    return 0;
+  }
+
+  let points = 0;
+
+  if (prediction.predicted_home_score === match.home_score) points += 2;
+  if (prediction.predicted_away_score === match.away_score) points += 2;
+
+  const predictedDiff =
+    prediction.predicted_home_score - prediction.predicted_away_score;
+  const actualDiff = match.home_score - match.away_score;
+
+  const predictedSign = predictedDiff === 0 ? 0 : predictedDiff > 0 ? 1 : -1;
+  const actualSign = actualDiff === 0 ? 0 : actualDiff > 0 ? 1 : -1;
+
+  if (predictedSign === actualSign) points += 3;
+
+  return points;
+}
 
 export default async function Home() {
   const supabase = await createClient();
@@ -23,7 +235,7 @@ export default async function Home() {
       {
         id: user.id,
         email: user.email,
-        display_name: user.email?.split("@")[0] ?? null,
+        display_name: formatDisplayName(user.email),
       },
       { onConflict: "id" }
     );
@@ -43,6 +255,120 @@ export default async function Home() {
 
       leagues = (leagueRows ?? []) as League[];
     }
+  }
+
+  const now = new Date().toISOString();
+
+  const { data: nextMatchData } = await supabase
+    .from("matches")
+    .select(
+      "id, home_team, away_team, home_team_code, away_team_code, kickoff_utc"
+    )
+    .gte("kickoff_utc", now)
+    .order("kickoff_utc", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  const nextMatch = nextMatchData as NextMatch;
+
+  const { data: submissions } = await supabase
+    .from("league_submissions")
+    .select("league_id, user_id")
+    .not("submitted_at", "is", null);
+
+  const submittedUserIds = Array.from(
+    new Set((submissions ?? []).map((submission) => submission.user_id))
+  );
+
+  let globalTop: GlobalTopPlayer[] = [];
+
+  if (submittedUserIds.length > 0) {
+    const submissionKeys = new Set(
+      (submissions ?? []).map(
+        (submission) => `${submission.league_id}:${submission.user_id}`
+      )
+    );
+
+    const { data: predictions } = await supabase
+      .from("predictions")
+      .select(
+        "league_id, user_id, match_id, predicted_home_score, predicted_away_score"
+      )
+      .in("user_id", submittedUserIds);
+
+    const { data: matches } = await supabase
+      .from("matches")
+      .select("id, home_score, away_score");
+
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, display_name, email")
+      .in("id", submittedUserIds);
+
+    const matchMap = new Map<string, MatchScoreRow>(
+      ((matches ?? []) as MatchScoreRow[]).map((match) => [match.id, match])
+    );
+
+    const profileMap = new Map<string, ProfileRow>(
+      ((profiles ?? []) as ProfileRow[]).map((profile) => [profile.id, profile])
+    );
+
+    const scoreMap = new Map<
+      string,
+      {
+        user_id: string;
+        points: number;
+        exactScores: number;
+      }
+    >();
+
+    for (const submission of submissions ?? []) {
+      const key = `${submission.league_id}:${submission.user_id}`;
+
+      scoreMap.set(key, {
+        user_id: submission.user_id,
+        points: 0,
+        exactScores: 0,
+      });
+    }
+
+    for (const prediction of (predictions ?? []) as PredictionRow[]) {
+      const key = `${prediction.league_id}:${prediction.user_id}`;
+      if (!submissionKeys.has(key)) continue;
+
+      const match = matchMap.get(prediction.match_id);
+      if (!match) continue;
+
+      const points = getMatchPoints(prediction, match);
+      const current = scoreMap.get(key);
+      if (!current) continue;
+
+      current.points += points;
+      if (points === 7) current.exactScores += 1;
+    }
+
+    globalTop = Array.from(scoreMap.values())
+      .map((score) => {
+        const profile = profileMap.get(score.user_id);
+
+        return {
+          user_id: score.user_id,
+          display_name:
+            profile?.display_name ||
+            formatDisplayName(profile?.email) ||
+            "Spelare",
+          points: score.points,
+          exactScores: score.exactScores,
+        };
+      })
+      .sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.exactScores !== a.exactScores) {
+          return b.exactScores - a.exactScores;
+        }
+        return a.display_name.localeCompare(b.display_name);
+      })
+      .slice(0, 3);
   }
 
   return (
@@ -77,7 +403,7 @@ export default async function Home() {
               </div>
 
               <div className="mobile-match-card">
-                <MatchCard />
+                <MatchCard nextMatch={nextMatch} globalTop={globalTop} />
               </div>
 
               <div className="feature-grid">
@@ -97,7 +423,7 @@ export default async function Home() {
             </div>
 
             <div className="desktop-card">
-              <MatchCard />
+              <MatchCard nextMatch={nextMatch} globalTop={globalTop} />
             </div>
           </div>
 
@@ -110,20 +436,20 @@ export default async function Home() {
                 </div>
 
                 <Link href="/liga" className="small-gold-btn">
-                  Ny liga
+                  Mina ligor
                 </Link>
               </div>
 
               <div className="leagues-grid">
-                {leagues.map((league) => (
+                {leagues.slice(0, 3).map((league) => (
                   <Link
                     key={league.id}
-                    href={`/liga/${league.slug}`}
+                    href={`/tippa?leagueId=${league.id}`}
                     className="league-card"
                   >
                     <span>Liga</span>
                     <strong>{league.name}</strong>
-                    <p>Öppna liga →</p>
+                    <p>Fortsätt tippa →</p>
                   </Link>
                 ))}
               </div>
@@ -193,8 +519,8 @@ export default async function Home() {
             }
 
             .hero-title {
-  font-size: clamp(56px, 7vw, 112px);
-  line-height: 1.02;
+              font-size: clamp(56px, 7vw, 112px);
+              line-height: 1.02;
               letter-spacing: -0.06em;
               font-weight: 950;
               text-transform: uppercase;
@@ -271,9 +597,16 @@ export default async function Home() {
             }
 
             .match-title {
-              margin: 10px 0 24px;
+              margin: 10px 0 8px;
               font-size: 28px;
               line-height: 1.1;
+            }
+
+            .kickoff-text {
+              margin: 0 0 20px;
+              color: rgba(255,255,255,0.72);
+              font-size: 15px;
+              font-weight: 750;
             }
 
             .team-grid {
@@ -285,9 +618,13 @@ export default async function Home() {
 
             .team-card {
               min-width: 0;
+              min-height: 116px;
               padding: 18px;
               border-radius: 18px;
               background: rgba(255,255,255,0.06);
+              text-align: center;
+              display: grid;
+              place-items: center;
             }
 
             .team-flag {
@@ -311,6 +648,15 @@ export default async function Home() {
 
             .leaderboard {
               margin-top: 18px;
+            }
+
+            .leaderboard-label {
+              margin: 0 0 4px;
+              color: #e5b94d;
+              font-size: 12px;
+              font-weight: 950;
+              letter-spacing: 0.14em;
+              text-transform: uppercase;
             }
 
             .leader-row {
@@ -494,12 +840,12 @@ export default async function Home() {
                 margin-bottom: 18px;
               }
 
-             .hero-title {
-  font-size: 44px;
-  line-height: 1.05;
-  letter-spacing: -0.055em;
-  max-width: 330px;
-}
+              .hero-title {
+                font-size: 44px;
+                line-height: 1.05;
+                letter-spacing: -0.055em;
+                max-width: 330px;
+              }
 
               .hero-copy {
                 font-size: 16px;
@@ -539,7 +885,11 @@ export default async function Home() {
               .match-title {
                 font-size: 23px;
                 line-height: 1.15;
-                margin: 8px 0 16px;
+              }
+
+              .kickoff-text {
+                font-size: 14px;
+                margin-bottom: 16px;
               }
 
               .team-grid {
@@ -548,6 +898,7 @@ export default async function Home() {
               }
 
               .team-card {
+                min-height: 104px;
                 padding: 14px 10px;
                 border-radius: 16px;
               }
@@ -566,10 +917,6 @@ export default async function Home() {
                 font-size: 13px;
                 line-height: 1.4;
                 padding: 14px;
-              }
-
-              .leaderboard {
-                display: none;
               }
 
               .feature-grid {
@@ -652,53 +999,74 @@ export default async function Home() {
   );
 }
 
-function MatchCard() {
+function MatchCard({
+  nextMatch,
+  globalTop,
+}: {
+  nextMatch: NextMatch;
+  globalTop: GlobalTopPlayer[];
+}) {
+  const homeName = nextMatch ? getSwedishTeamName(nextMatch.home_team) : "";
+  const awayName = nextMatch ? getSwedishTeamName(nextMatch.away_team) : "";
+
+  const title = nextMatch
+    ? `${homeName} vs ${awayName}`
+    : "Nästa match kommer snart";
+
+  const kickoffText = nextMatch
+    ? `Avspark ${formatKickoff(nextMatch.kickoff_utc)}`
+    : null;
+
   return (
     <div className="match-card">
       <p className="match-label">NÄSTA MATCH</p>
 
-      <h2 className="match-title">Argentina vs Frankrike</h2>
+      <h2 className="match-title">{title}</h2>
 
-      <div className="team-grid">
-        <Team flag="🇦🇷" name="Argentina" />
-        <strong style={{ color: "rgba(255,255,255,0.35)" }}>VS</strong>
-        <Team flag="🇫🇷" name="Frankrike" align="right" />
-      </div>
+      {kickoffText && <p className="kickoff-text">{kickoffText}</p>}
 
-      <div className="deadline-box">
-        Tips låses 60 minuter före matchstart
-      </div>
+      {nextMatch ? (
+        <div className="team-grid">
+          <Team flag={getFlagEmoji(nextMatch.home_team_code)} name={homeName} />
+          <strong style={{ color: "rgba(255,255,255,0.35)" }}>VS</strong>
+          <Team flag={getFlagEmoji(nextMatch.away_team_code)} name={awayName} />
+        </div>
+      ) : (
+        <div className="deadline-box">Matchschemat laddas snart in.</div>
+      )}
+
+      <div className="deadline-box">Tips låses 60 minuter före matchstart</div>
 
       <div className="leaderboard">
-        {[
-          ["1", "Max", "84 p"],
-          ["2", "Linus", "78 p"],
-          ["3", "Anton", "71 p"],
-        ].map(([rank, name, points]) => (
-          <div key={rank} className="leader-row">
-            <span className="rank">{rank}</span>
-            <strong style={{ flex: 1 }}>{name}</strong>
-            <strong style={{ color: "#e5b94d" }}>{points}</strong>
+        <p className="leaderboard-label">Topplista</p>
+
+        {globalTop.length > 0 ? (
+          globalTop.map((player, index) => (
+            <div key={`${player.user_id}-${index}`} className="leader-row">
+              <span className="rank">{index + 1}</span>
+              <strong style={{ flex: 1 }}>{player.display_name}</strong>
+              <strong style={{ color: "#e5b94d" }}>{player.points} p</strong>
+            </div>
+          ))
+        ) : (
+          <div className="leader-row">
+            <strong style={{ flex: 1, color: "rgba(255,255,255,0.65)" }}>
+              Ingen leaderboard ännu
+            </strong>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
 }
 
-function Team({
-  flag,
-  name,
-  align = "left",
-}: {
-  flag: string;
-  name: string;
-  align?: "left" | "right";
-}) {
+function Team({ flag, name }: { flag: string; name: string }) {
   return (
-    <div className="team-card" style={{ textAlign: align }}>
-      <div className="team-flag">{flag}</div>
-      <div className="team-name">{name}</div>
+    <div className="team-card">
+      <div>
+        <div className="team-flag">{flag}</div>
+        <div className="team-name">{name}</div>
+      </div>
     </div>
   );
 }
