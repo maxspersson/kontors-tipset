@@ -10,14 +10,26 @@ type IncomingPrediction = {
 type MatchRow = {
   id: string;
   kickoff_utc: string;
+  stage: string;
 };
 
 const LOCK_MINUTES_BEFORE_KICKOFF = 60;
+const SUBMISSION_DEADLINE_UTC = Date.UTC(2026, 5, 10, 21, 59, 59, 999);
+
+function isAfterSubmissionDeadline() {
+  return Date.now() > SUBMISSION_DEADLINE_UTC;
+}
 
 function isPredictionLocked(kickoffUtc: string) {
   const kickoffTime = new Date(kickoffUtc).getTime();
   const lockTime = kickoffTime - LOCK_MINUTES_BEFORE_KICKOFF * 60 * 1000;
+
   return Date.now() >= lockTime;
+}
+
+function isValidScore(value: string | undefined) {
+  if (value === undefined || value === "") return false;
+  return /^\d+$/.test(value);
 }
 
 export async function POST(request: Request) {
@@ -39,22 +51,45 @@ export async function POST(request: Request) {
     return new NextResponse("Ogiltig payload", { status: 400 });
   }
 
+  const { data: membership } = await supabase
+    .from("league_members")
+    .select("id")
+    .eq("league_id", leagueId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!membership) {
+    return new NextResponse("Du är inte medlem i den här ligan.", {
+      status: 403,
+    });
+  }
+
+  const { data: submission } = await supabase
+    .from("league_submissions")
+    .select("id, submitted_at")
+    .eq("league_id", leagueId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const hasSubmitted = Boolean(submission?.submitted_at);
+  const isDeadlinePassed = isAfterSubmissionDeadline();
+
   const validPredictions = predictions.filter(
     (prediction) =>
       prediction.matchId &&
-      prediction.homeScore !== "" &&
-      prediction.awayScore !== ""
+      isValidScore(prediction.homeScore) &&
+      isValidScore(prediction.awayScore)
   );
 
   if (validPredictions.length === 0) {
-    return new NextResponse("Inga tips att spara", { status: 400 });
+    return new NextResponse("Inga giltiga tips att spara", { status: 400 });
   }
 
-  const matchIds = validPredictions.map((prediction) => prediction.matchId!) as string[];
+  const matchIds = validPredictions.map((prediction) => prediction.matchId!);
 
   const { data: matchRows, error: matchesError } = await supabase
     .from("matches")
-    .select("id, kickoff_utc")
+    .select("id, kickoff_utc, stage")
     .in("id", matchIds);
 
   if (matchesError) {
@@ -65,10 +100,19 @@ export async function POST(request: Request) {
 
   const openMatchMap = new Map<string, MatchRow>();
 
-  (matchRows ?? []).forEach((match) => {
-    if (!isPredictionLocked(match.kickoff_utc)) {
-      openMatchMap.set(match.id, match);
+  ((matchRows ?? []) as MatchRow[]).forEach((match) => {
+    const isGroupMatch = match.stage === "group";
+    const isPlayoffMatch = match.stage !== "group";
+
+    if (isGroupMatch && isPredictionLocked(match.kickoff_utc)) {
+      return;
     }
+
+    if (isPlayoffMatch && (hasSubmitted || isDeadlinePassed)) {
+      return;
+    }
+
+    openMatchMap.set(match.id, match);
   });
 
   const rows = validPredictions
@@ -84,7 +128,7 @@ export async function POST(request: Request) {
 
   if (rows.length === 0) {
     return new NextResponse(
-      `Alla valda matcher är låsta. Tips låses ${LOCK_MINUTES_BEFORE_KICKOFF} minuter före avspark.`,
+      "Inga tips kunde sparas. Gruppspelsmatcher låses 60 minuter före avspark och slutspelet är låst efter inskickat tips eller efter deadline.",
       { status: 400 }
     );
   }
@@ -104,5 +148,7 @@ export async function POST(request: Request) {
     savedCount: rows.length,
     skippedCount: validPredictions.length - rows.length,
     lockMinutesBeforeKickoff: LOCK_MINUTES_BEFORE_KICKOFF,
+    hasSubmitted,
+    isDeadlinePassed,
   });
 }

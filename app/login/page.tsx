@@ -92,7 +92,7 @@ export default function LoginPage() {
                   <p>VM 2026</p>
                   <h2>Logga in</h2>
                 </div>
-                <span>MP</span>
+                <span>KT</span>
               </div>
 
               <button
@@ -126,6 +126,10 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   required
                 />
+
+                <Link href="/forgot-password" className="forgot-link">
+                  Glömt lösenord?
+                </Link>
 
                 {errorMessage && <div className="error-box">{errorMessage}</div>}
 
@@ -379,6 +383,19 @@ export default function LoginPage() {
             form input:focus {
               border-color: rgba(229,185,77,0.65);
               box-shadow: 0 0 0 4px rgba(229,185,77,0.12);
+            }
+
+            .forgot-link {
+              display: inline-block;
+              margin-top: 12px;
+              color: rgba(255,255,255,0.62);
+              text-decoration: none;
+              font-size: 14px;
+              font-weight: 750;
+            }
+
+            .forgot-link:hover {
+              color: #e5b94d;
             }
 
             .submit-btn {

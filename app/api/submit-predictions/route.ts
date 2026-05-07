@@ -20,6 +20,13 @@ type SnapshotRow = PredictionRow & {
   match: MatchRow;
 };
 
+const TOTAL_REQUIRED_PREDICTIONS = 104;
+const SUBMISSION_DEADLINE_UTC = Date.UTC(2026, 5, 10, 21, 59, 59, 999);
+
+function isAfterSubmissionDeadline() {
+  return Date.now() > SUBMISSION_DEADLINE_UTC;
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient();
 
@@ -36,6 +43,37 @@ export async function POST(request: Request) {
 
   if (!leagueId) {
     return new NextResponse("leagueId saknas", { status: 400 });
+  }
+
+  if (isAfterSubmissionDeadline()) {
+    return new NextResponse(
+      "Deadline har passerat. Hela tipset skulle vara inskickat senast 10 juni 2026 kl. 23:59.",
+      { status: 403 }
+    );
+  }
+
+  const { data: membership } = await supabase
+    .from("league_members")
+    .select("id")
+    .eq("league_id", leagueId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!membership) {
+    return new NextResponse("Du är inte medlem i den här ligan.", {
+      status: 403,
+    });
+  }
+
+  const { data: existingSubmission } = await supabase
+    .from("league_submissions")
+    .select("id, submitted_at")
+    .eq("league_id", leagueId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existingSubmission?.submitted_at) {
+    return new NextResponse("Tipset är redan inskickat.", { status: 400 });
   }
 
   const { data: predictions, error: predictionsError } = await supabase
@@ -60,10 +98,11 @@ export async function POST(request: Request) {
       prediction.predicted_away_score !== null
   );
 
-  if (completePredictions.length === 0) {
-    return new NextResponse("Det finns inga kompletta tips att skicka in.", {
-      status: 400,
-    });
+  if (completePredictions.length < TOTAL_REQUIRED_PREDICTIONS) {
+    return new NextResponse(
+      `Du måste fylla i alla ${TOTAL_REQUIRED_PREDICTIONS} matcher innan du kan skicka in tipset. Just nu är ${completePredictions.length}/${TOTAL_REQUIRED_PREDICTIONS} ifyllda.`,
+      { status: 400 }
+    );
   }
 
   const matchIds = completePredictions.map((prediction) => prediction.match_id);
@@ -104,6 +143,13 @@ export async function POST(request: Request) {
       (a, b) =>
         (a.match.fifa_match_number ?? 0) - (b.match.fifa_match_number ?? 0)
     );
+
+  if (snapshotRows.length < TOTAL_REQUIRED_PREDICTIONS) {
+    return new NextResponse(
+      `Kunde inte skapa komplett snapshot. ${snapshotRows.length}/${TOTAL_REQUIRED_PREDICTIONS} matcher hittades.`,
+      { status: 400 }
+    );
+  }
 
   const groupSnapshot = snapshotRows.filter(
     (prediction) => prediction.match.stage === "group"

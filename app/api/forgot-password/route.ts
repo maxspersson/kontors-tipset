@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     return new NextResponse("E-post saknas", { status: 400 });
   }
 
-  const redirectTo = new URL("/reset-password", request.url).toString();
+  const redirectTo = new URL("/auth/reset-password", request.url).toString();
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,

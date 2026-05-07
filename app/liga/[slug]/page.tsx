@@ -1,6 +1,7 @@
 import { createClient } from "@/app/lib/supabase/server";
 import CopyInvite from "@/app/components/CopyInvite";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 type LeaguePageProps = {
   params: Promise<{
@@ -20,13 +21,19 @@ type LeagueMember = {
   created_at: string;
 };
 
+type SubmissionRow = {
+  user_id: string;
+  submitted_at: string | null;
+  total_predictions_count: number | null;
+};
+
 type StandingRow = {
   user_id: string;
   display_name: string | null;
   email: string | null;
   points: number;
-  scored_matches: number;
-  submitted_predictions: number;
+  exactScores: number;
+  playedMatches: number;
 };
 
 type MatchResultRow = {
@@ -38,61 +45,119 @@ type MatchResultRow = {
 type PredictionRow = {
   user_id: string;
   match_id: string;
-  predicted_home_score: number;
-  predicted_away_score: number;
+  predicted_home_score: number | null;
+  predicted_away_score: number | null;
 };
+
+function getDisplayName(profile?: MemberProfile) {
+  return profile?.display_name || profile?.email?.split("@")[0] || "Spelare";
+}
+
+function getInitials(name: string) {
+  const parts = name.trim().split(" ").filter(Boolean);
+
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
+function getMatchPoints(prediction: PredictionRow, match: MatchResultRow) {
+  if (
+    match.home_score === null ||
+    match.away_score === null ||
+    prediction.predicted_home_score === null ||
+    prediction.predicted_away_score === null
+  ) {
+    return 0;
+  }
+
+  let points = 0;
+
+  if (prediction.predicted_home_score === match.home_score) points += 2;
+  if (prediction.predicted_away_score === match.away_score) points += 2;
+
+  const predictedDiff =
+    prediction.predicted_home_score - prediction.predicted_away_score;
+
+  const actualDiff = match.home_score - match.away_score;
+
+  const predictedSign = predictedDiff === 0 ? 0 : predictedDiff > 0 ? 1 : -1;
+  const actualSign = actualDiff === 0 ? 0 : actualDiff > 0 ? 1 : -1;
+
+  if (predictedSign === actualSign) points += 3;
+
+  return points;
+}
 
 export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   const { slug } = await params;
-
   const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (!user) {
+    redirect("/login");
+  }
+
   const { data: league, error: leagueError } = await supabase
     .from("leagues")
-    .select("*")
+    .select("id, name, slug, invite_code")
     .eq("slug", slug)
-    .single();
+    .maybeSingle();
 
   if (leagueError || !league) {
     return (
       <main className="league-detail-page">
-        <div className="league-wrap">
-          <p className="eyebrow">Liga</p>
-          <h1>Liga hittades inte.</h1>
-          <p className="intro">
-            Vi kunde inte hitta någon liga med den här adressen.
-          </p>
-        </div>
+        <section className="league-detail-hero">
+          <div className="league-wrap">
+            <p className="eyebrow">Liga</p>
+            <h1>Ligan hittades inte.</h1>
+            <p className="intro">
+              Vi kunde inte hitta någon liga med den här adressen.
+            </p>
+            <Link href="/liga" className="gold-btn">
+              Till mina ligor
+            </Link>
+          </div>
+        </section>
       </main>
     );
   }
 
+  const { data: currentMembership } = await supabase
+    .from("league_members")
+    .select("id")
+    .eq("league_id", league.id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const isMember = !!currentMembership;
+
   const { data: members, error: membersError } = await supabase
     .from("league_members")
-    .select("*")
+    .select("id, user_id, created_at")
     .eq("league_id", league.id)
     .order("created_at", { ascending: true });
 
-  const userIds = (members ?? []).map((member) => member.user_id);
+  const memberRows = (members ?? []) as LeagueMember[];
+  const userIds = memberRows.map((member) => member.user_id);
 
   const { data: submissions } = await supabase
     .from("league_submissions")
-    .select("user_id, submitted_at")
-    .eq("league_id", league.id);
+    .select("user_id, submitted_at, total_predictions_count")
+    .eq("league_id", league.id)
+    .not("submitted_at", "is", null);
 
-  const submittedUserIds = (submissions ?? []).map(
-    (submission) => submission.user_id
-  );
-
+  const submissionRows = (submissions ?? []) as SubmissionRow[];
+  const submittedUserIds = submissionRows.map((submission) => submission.user_id);
   const submittedUserSet = new Set(submittedUserIds);
 
-  const currentUserHasSubmitted = user
-    ? submittedUserSet.has(user.id)
-    : false;
+  const currentUserSubmission = submissionRows.find(
+    (submission) => submission.user_id === user.id
+  );
 
   let profiles: MemberProfile[] = [];
 
@@ -102,82 +167,97 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
       .select("id, email, display_name")
       .in("id", userIds);
 
-    profiles = profileRows ?? [];
+    profiles = (profileRows ?? []) as MemberProfile[];
   }
 
   const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
 
-  const { data: predictions } = await supabase
-    .from("predictions")
-    .select("user_id, match_id, predicted_home_score, predicted_away_score")
-    .eq("league_id", league.id)
-    .in("user_id", submittedUserIds.length > 0 ? submittedUserIds : [""]);
+  let predictions: PredictionRow[] = [];
+
+  if (submittedUserIds.length > 0) {
+    const { data: predictionRows } = await supabase
+      .from("predictions")
+      .select("user_id, match_id, predicted_home_score, predicted_away_score")
+      .eq("league_id", league.id)
+      .in("user_id", submittedUserIds);
+
+    predictions = (predictionRows ?? []) as PredictionRow[];
+  }
 
   const { data: matchesWithResults } = await supabase
     .from("matches")
     .select("id, home_score, away_score");
 
-  const matchMap = new Map(
-    (matchesWithResults ?? []).map((match: MatchResultRow) => [match.id, match])
+  const matchMap = new Map<string, MatchResultRow>(
+    ((matchesWithResults ?? []) as MatchResultRow[]).map((match) => [
+      match.id,
+      match,
+    ])
   );
 
-  const pointsMap = new Map<string, number>();
-  const scoredMatchesMap = new Map<string, number>();
-  const submittedPredictionsMap = new Map<string, number>();
+  const scoreMap = new Map<
+    string,
+    {
+      points: number;
+      exactScores: number;
+      playedMatches: number;
+    }
+  >();
 
-  (predictions ?? []).forEach((prediction: PredictionRow) => {
-    submittedPredictionsMap.set(
-      prediction.user_id,
-      (submittedPredictionsMap.get(prediction.user_id) ?? 0) + 1
-    );
+  for (const userId of submittedUserIds) {
+    scoreMap.set(userId, {
+      points: 0,
+      exactScores: 0,
+      playedMatches: 0,
+    });
+  }
 
+  for (const prediction of predictions) {
     const match = matchMap.get(prediction.match_id);
+    if (!match) continue;
 
-    if (!match) return;
-    if (match.home_score === null || match.away_score === null) return;
+    const hasResult = match.home_score !== null && match.away_score !== null;
+    if (!hasResult) continue;
 
-    let points = 0;
+    const points = getMatchPoints(prediction, match);
+    const current = scoreMap.get(prediction.user_id);
 
-    if (prediction.predicted_home_score === match.home_score) points += 2;
-    if (prediction.predicted_away_score === match.away_score) points += 2;
+    if (!current) continue;
 
-    const predictedDiff =
-      prediction.predicted_home_score - prediction.predicted_away_score;
-    const actualDiff = match.home_score - match.away_score;
+    current.points += points;
+    current.playedMatches += 1;
 
-    const predictedSign = predictedDiff === 0 ? 0 : predictedDiff > 0 ? 1 : -1;
-    const actualSign = actualDiff === 0 ? 0 : actualDiff > 0 ? 1 : -1;
-
-    if (predictedSign === actualSign) points += 3;
-
-    pointsMap.set(
-      prediction.user_id,
-      (pointsMap.get(prediction.user_id) ?? 0) + points
-    );
-
-    scoredMatchesMap.set(
-      prediction.user_id,
-      (scoredMatchesMap.get(prediction.user_id) ?? 0) + 1
-    );
-  });
+    if (points === 7) {
+      current.exactScores += 1;
+    }
+  }
 
   const standings: StandingRow[] = submittedUserIds.map((userId) => {
     const profile = profileMap.get(userId);
+    const score = scoreMap.get(userId);
 
     return {
       user_id: userId,
       display_name: profile?.display_name || null,
       email: profile?.email || null,
-      points: pointsMap.get(userId) ?? 0,
-      scored_matches: scoredMatchesMap.get(userId) ?? 0,
-      submitted_predictions: submittedPredictionsMap.get(userId) ?? 0,
+      points: score?.points ?? 0,
+      exactScores: score?.exactScores ?? 0,
+      playedMatches: score?.playedMatches ?? 0,
     };
   });
 
-  standings.sort((a, b) => b.points - a.points);
+  standings.sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.exactScores !== a.exactScores) return b.exactScores - a.exactScores;
+
+    const nameA = a.display_name || a.email || "";
+    const nameB = b.display_name || b.email || "";
+
+    return nameA.localeCompare(nameB);
+  });
 
   const leader = standings[0];
-  const memberCount = members?.length ?? 0;
+  const memberCount = memberRows.length;
   const submittedCount = submittedUserIds.length;
 
   return (
@@ -189,28 +269,51 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
               <p className="eyebrow">Liga</p>
               <h1>{league.name}</h1>
               <p className="intro">
-                Din ligacentral för VM-tipset. Här ser du status, tabell,
-                medlemmar och vägen vidare till matchtipsen.
+                Ligacentralen för ert VM-tips. Här hittar du ligakoden,
+                deltagarna, tabellen och vägen vidare till dina tips.
               </p>
 
               <div className="hero-actions">
-                <Link href={`/liga/${league.slug}/tippa`} className="gold-btn">
-                  Tippa matcher →
-                </Link>
-                <Link href="/regler" className="dark-btn">
-                  Se regler
-                </Link>
+                {isMember ? (
+                  <>
+                    <Link
+                      href={`/tippa?leagueId=${league.id}`}
+                      className="gold-btn"
+                    >
+                      Tippa matcher →
+                    </Link>
+
+                    <Link
+                      href={`/tabell?leagueId=${league.id}`}
+                      className="dark-btn"
+                    >
+                      Se tabell
+                    </Link>
+                  </>
+                ) : (
+                  <Link href="/liga" className="gold-btn">
+                    Gå med via kod
+                  </Link>
+                )}
               </div>
             </div>
 
             <div className="status-card">
               <p>Din status</p>
 
-              {currentUserHasSubmitted ? (
+              {!isMember ? (
                 <>
-                  <strong>Klar för spel</strong>
+                  <strong>Inte medlem</strong>
+                  <span className="status-warning">
+                    Gå med i ligan med koden för att kunna tippa.
+                  </span>
+                </>
+              ) : currentUserSubmission ? (
+                <>
+                  <strong>Tipset inskickat</strong>
                   <span className="status-good">
-                    Turneringstipset är inskickat.
+                    {currentUserSubmission.total_predictions_count ?? 104}/104
+                    matcher låsta.
                   </span>
                 </>
               ) : (
@@ -237,7 +340,9 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
 
             <div className="stat-card">
               <p>Leder just nu</p>
-              <strong>{leader?.display_name || leader?.email || "Ingen än"}</strong>
+              <strong>
+                {leader?.display_name || leader?.email || "Ingen ännu"}
+              </strong>
             </div>
           </div>
 
@@ -252,12 +357,12 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
 
               {standings.length === 0 ? (
                 <div className="empty-state">
-                  Inga inskickade turneringstips än.
+                  Inga inskickade tips finns i ligan ännu.
                 </div>
               ) : (
                 <div className="leaderboard-list">
                   {standings.map((row, index) => {
-                    const isCurrentUser = user && row.user_id === user.id;
+                    const isCurrentUser = row.user_id === user.id;
 
                     return (
                       <div
@@ -270,13 +375,13 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
 
                         <div className="leader-user">
                           <strong>
-                            {row.display_name || row.email || "Okänd användare"}
+                            {row.display_name || row.email || "Spelare"}
                             {isCurrentUser ? " (du)" : ""}
                           </strong>
 
                           <span>
-                            {row.scored_matches} rättade ·{" "}
-                            {row.submitted_predictions} tips
+                            {row.playedMatches} räknade matcher ·{" "}
+                            {row.exactScores} fullträffar
                           </span>
                         </div>
 
@@ -293,14 +398,21 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                 <div className="panel-head">
                   <div>
                     <p>Bjud in</p>
-                    <h2>Invite code</h2>
+                    <h2>Ligakod</h2>
                   </div>
                 </div>
 
                 <div className="invite-code">{league.invite_code}</div>
 
+                <p className="invite-note">
+                  Dela koden med kollegor eller vänner så kan de gå med i ligan.
+                </p>
+
                 <div className="copy-wrap">
-                  <CopyInvite inviteCode={league.invite_code} slug={league.slug} />
+                  <CopyInvite
+                    inviteCode={league.invite_code}
+                    slug={league.slug}
+                  />
                 </div>
               </section>
 
@@ -316,27 +428,31 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                   <div className="error-state">Kunde inte hämta medlemmar.</div>
                 )}
 
-                {!members || members.length === 0 ? (
+                {memberRows.length === 0 ? (
                   <div className="empty-state">Inga medlemmar än.</div>
                 ) : (
                   <div className="member-list">
-                    {members.map((member: LeagueMember) => {
+                    {memberRows.map((member) => {
                       const profile = profileMap.get(member.user_id);
+                      const displayName = getDisplayName(profile);
                       const hasSubmitted = submittedUserSet.has(member.user_id);
+                      const isCurrentUser = member.user_id === user.id;
 
                       return (
-                        <div key={member.id} className="member-row">
+                        <div
+                          key={member.id}
+                          className={`member-row ${
+                            isCurrentUser ? "is-current-member" : ""
+                          }`}
+                        >
                           <div className="avatar">
-                            {(profile?.display_name ||
-                              profile?.email ||
-                              "?")
-                              .slice(0, 2)
-                              .toUpperCase()}
+                            {getInitials(displayName)}
                           </div>
 
                           <div>
                             <strong>
-                              {profile?.display_name || "Okänd användare"}
+                              {displayName}
+                              {isCurrentUser ? " (du)" : ""}
                             </strong>
                             <span>{profile?.email || "Ingen e-post"}</span>
                           </div>
@@ -474,10 +590,12 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
               border-radius: 24px;
             }
 
-            .status-card p {
+            .status-card p,
+            .stat-card p,
+            .panel-head p {
               margin: 0;
               color: rgba(255,255,255,0.42);
-              font-size: 13px;
+              font-size: 12px;
               font-weight: 900;
               letter-spacing: 0.14em;
               text-transform: uppercase;
@@ -517,15 +635,6 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
               border-radius: 20px;
             }
 
-            .stat-card p {
-              margin: 0;
-              color: rgba(255,255,255,0.42);
-              font-size: 12px;
-              font-weight: 900;
-              letter-spacing: 0.14em;
-              text-transform: uppercase;
-            }
-
             .stat-card strong {
               display: block;
               margin-top: 12px;
@@ -559,15 +668,6 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
               gap: 18px;
               align-items: flex-start;
               margin-bottom: 18px;
-            }
-
-            .panel-head p {
-              margin: 0;
-              color: rgba(255,255,255,0.42);
-              font-size: 12px;
-              font-weight: 900;
-              letter-spacing: 0.14em;
-              text-transform: uppercase;
             }
 
             .panel-head h2 {
@@ -657,6 +757,13 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
               letter-spacing: 0.12em;
             }
 
+            .invite-note {
+              margin: 12px 0 0;
+              color: rgba(255,255,255,0.52);
+              font-size: 13px;
+              line-height: 1.5;
+            }
+
             .copy-wrap {
               margin-top: 16px;
             }
@@ -675,6 +782,11 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
               border-radius: 16px;
               background: rgba(255,255,255,0.045);
               border: 1px solid rgba(255,255,255,0.07);
+            }
+
+            .member-row.is-current-member {
+              border-color: rgba(229,185,77,0.30);
+              background: rgba(229,185,77,0.07);
             }
 
             .avatar {

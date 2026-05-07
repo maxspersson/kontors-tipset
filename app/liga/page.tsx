@@ -112,10 +112,22 @@ export default async function LigaPage() {
                         <div className="league-main">
                           <div className="league-meta-row">
                             <span>VM 2026</span>
-                            <span>
-                              {memberCount}{" "}
-                              {memberCount === 1 ? "medlem" : "medlemmar"}
-                            </span>
+
+                            <div className="league-meta-right">
+                              <span>
+                                {memberCount}{" "}
+                                {memberCount === 1 ? "medlem" : "medlemmar"}
+                              </span>
+
+                              {league.slug && (
+                                <Link
+                                  href={`/liga/${league.slug}`}
+                                  className="league-open-link"
+                                >
+                                  Gå till liga →
+                                </Link>
+                              )}
+                            </div>
                           </div>
 
                           <h3>{league.name}</h3>
@@ -348,6 +360,16 @@ export default async function LigaPage() {
               align-items: center;
               padding: 24px;
               border-radius: 26px;
+              transition:
+                transform 180ms ease,
+                border-color 180ms ease,
+                background 180ms ease;
+            }
+
+            .league-card:hover {
+              transform: translateY(-2px);
+              border-color: rgba(229,185,77,0.28);
+              background: rgba(7,16,24,0.9);
             }
 
             .league-meta-row {
@@ -355,6 +377,40 @@ export default async function LigaPage() {
               align-items: center;
               justify-content: space-between;
               gap: 14px;
+            }
+
+            .league-meta-right {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+
+            .league-open-link {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              height: 30px;
+              padding: 0 12px;
+              border-radius: 999px;
+              background: rgba(229,185,77,0.10);
+              border: 1px solid rgba(229,185,77,0.22);
+              color: #e5b94d;
+              text-decoration: none;
+              font-size: 11px;
+              font-weight: 950;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              white-space: nowrap;
+              transition:
+                background 180ms ease,
+                border-color 180ms ease,
+                transform 180ms ease;
+            }
+
+            .league-open-link:hover {
+              background: rgba(229,185,77,0.16);
+              border-color: rgba(229,185,77,0.40);
+              transform: translateY(-1px);
             }
 
             .league-card h3 {
@@ -546,6 +602,16 @@ export default async function LigaPage() {
 
               .intro {
                 font-size: 16px;
+              }
+
+              .league-meta-row {
+                align-items: flex-start;
+              }
+
+              .league-meta-right {
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 8px;
               }
 
               .league-actions {
