@@ -4,8 +4,8 @@ import { createClient } from "@/app/lib/supabase/server";
 type PredictionRow = {
   user_id: string;
   match_id: string;
-  predicted_home_score: number;
-  predicted_away_score: number;
+  predicted_home_score: number | null;
+  predicted_away_score: number | null;
 };
 
 type MatchRow = {
@@ -14,8 +14,19 @@ type MatchRow = {
   away_score: number | null;
 };
 
+type ProfileRow = {
+  id: string;
+  display_name: string | null;
+  email: string | null;
+};
+
 function getMatchPoints(prediction: PredictionRow, match: MatchRow) {
-  if (match.home_score === null || match.away_score === null) {
+  if (
+    match.home_score === null ||
+    match.away_score === null ||
+    prediction.predicted_home_score === null ||
+    prediction.predicted_away_score === null
+  ) {
     return 0;
   }
 
@@ -70,14 +81,14 @@ export async function GET(request: Request) {
     .maybeSingle();
 
   if (!membership) {
-    return new NextResponse("Ej medlem", { status: 403 });
+    return new NextResponse("Ej medlem i ligan", { status: 403 });
   }
 
-  // Bara användare som faktiskt har skickat in turneringstipset ska synas i tabellen.
   const { data: submissions, error: submissionsError } = await supabase
     .from("league_submissions")
     .select("user_id")
-    .eq("league_id", leagueId);
+    .eq("league_id", leagueId)
+    .not("submitted_at", "is", null);
 
   if (submissionsError) {
     return new NextResponse(
@@ -86,8 +97,9 @@ export async function GET(request: Request) {
     );
   }
 
-  const submittedUserIds = (submissions ?? []).map((submission) => submission.user_id);
-  const submittedUserSet = new Set(submittedUserIds);
+  const submittedUserIds = Array.from(
+    new Set((submissions ?? []).map((submission) => submission.user_id))
+  );
 
   if (submittedUserIds.length === 0) {
     return NextResponse.json({
@@ -132,37 +144,71 @@ export async function GET(request: Request) {
     );
   }
 
-  const matchMap = new Map((matches ?? []).map((match) => [match.id, match]));
-  const scoreMap = new Map<string, number>();
+  const matchMap = new Map<string, MatchRow>(
+    ((matches ?? []) as MatchRow[]).map((match) => [match.id, match])
+  );
 
-  (predictions ?? []).forEach((prediction) => {
-    if (!submittedUserSet.has(prediction.user_id)) return;
+  const profileMap = new Map<string, ProfileRow>(
+    ((profiles ?? []) as ProfileRow[]).map((profile) => [profile.id, profile])
+  );
 
+  const scoreMap = new Map<
+    string,
+    {
+      points: number;
+      exactScores: number;
+      playedMatches: number;
+    }
+  >();
+
+  for (const userId of submittedUserIds) {
+    scoreMap.set(userId, {
+      points: 0,
+      exactScores: 0,
+      playedMatches: 0,
+    });
+  }
+
+  for (const prediction of (predictions ?? []) as PredictionRow[]) {
     const match = matchMap.get(prediction.match_id);
-    if (!match) return;
+    if (!match) continue;
+
+    const hasResult = match.home_score !== null && match.away_score !== null;
+
+    if (!hasResult) continue;
 
     const points = getMatchPoints(prediction, match);
+    const current = scoreMap.get(prediction.user_id);
 
-    scoreMap.set(
-      prediction.user_id,
-      (scoreMap.get(prediction.user_id) ?? 0) + points
-    );
-  });
+    if (!current) continue;
 
-  const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+    current.points += points;
+    current.playedMatches += 1;
+
+    if (points === 7) {
+      current.exactScores += 1;
+    }
+  }
 
   const standings = submittedUserIds.map((userId) => {
     const profile = profileMap.get(userId);
+    const score = scoreMap.get(userId);
 
     return {
       user_id: userId,
-      display_name: profile?.display_name || null,
+      display_name: profile?.display_name || profile?.email || "Spelare",
       email: profile?.email || null,
-      points: scoreMap.get(userId) ?? 0,
+      points: score?.points ?? 0,
+      exactScores: score?.exactScores ?? 0,
+      playedMatches: score?.playedMatches ?? 0,
     };
   });
 
-  standings.sort((a, b) => b.points - a.points);
+  standings.sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.exactScores !== a.exactScores) return b.exactScores - a.exactScores;
+    return a.display_name.localeCompare(b.display_name);
+  });
 
   return NextResponse.json({
     success: true,

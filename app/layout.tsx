@@ -1,16 +1,26 @@
 import "./globals.css";
 import Link from "next/link";
+import LogoutButton from "@/app/components/LogoutButton";
+import { createClient } from "@/app/lib/supabase/server";
 
 export const metadata = {
   title: "Kontors-tipset",
   description: "VM-tipset för kontoret",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const initials = user?.email?.slice(0, 2).toUpperCase() ?? "MP";
+
   return (
     <html lang="sv">
       <body>
@@ -30,15 +40,19 @@ export default function RootLayout({
             <div className="header-right">
               <span className="season-pill">VM 2026</span>
 
-              <details className="user-menu desktop-user">
-                <summary>MP</summary>
-                <div className="dropdown">
-                  <Link href="/liga">Mina ligor</Link>
-                  <form action="/api/logout" method="POST">
-                    <button type="submit">Logga ut</button>
-                  </form>
-                </div>
-              </details>
+              {user ? (
+                <details className="user-menu desktop-user">
+                  <summary>{initials}</summary>
+                  <div className="dropdown">
+                    <Link href="/liga">Mina ligor</Link>
+                    <LogoutButton />
+                  </div>
+                </details>
+              ) : (
+                <Link href="/login" className="login-link desktop-user">
+                  Logga in
+                </Link>
+              )}
 
               <details className="user-menu mobile-menu">
                 <summary>☰</summary>
@@ -48,9 +62,12 @@ export default function RootLayout({
                   <Link href="/liga">Liga</Link>
                   <Link href="/regler">Regler</Link>
                   <div className="divider" />
-                  <form action="/api/logout" method="POST">
-                    <button type="submit">Logga ut</button>
-                  </form>
+
+                  {user ? (
+                    <LogoutButton />
+                  ) : (
+                    <Link href="/login">Logga in</Link>
+                  )}
                 </div>
               </details>
             </div>
@@ -149,6 +166,17 @@ export default function RootLayout({
                 font-size: 12px;
                 font-weight: 800;
                 white-space: nowrap;
+              }
+
+              .login-link {
+                color: rgba(255,255,255,0.75);
+                text-decoration: none;
+                font-size: 14px;
+                font-weight: 800;
+              }
+
+              .login-link:hover {
+                color: white;
               }
 
               details > summary::-webkit-details-marker {

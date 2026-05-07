@@ -1,75 +1,170 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createClient } from "@/app/lib/supabase/server";
 
-export default function CreateLeaguePage() {
-  const [name, setName] = useState("");
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+type LeagueMemberRow = {
+  league_id: string;
+};
+
+type League = {
+  id: string;
+  name: string;
+  slug: string | null;
+  invite_code: string | null;
+};
+
+export default async function LigaPage() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: memberships } = await supabase
+    .from("league_members")
+    .select("league_id")
+    .eq("user_id", user.id);
+
+  const leagueIds = ((memberships ?? []) as LeagueMemberRow[])
+    .map((membership) => membership.league_id)
+    .filter(Boolean);
+
+  let leagues: League[] = [];
+
+  if (leagueIds.length > 0) {
+    const { data: leagueRows } = await supabase
+      .from("leagues")
+      .select("id, name, slug, invite_code")
+      .in("id", leagueIds);
+
+    leagues = (leagueRows ?? []) as League[];
+  }
 
   return (
     <main className="league-page">
       <section className="league-hero">
         <div className="league-wrap">
-          <div className="league-grid">
+          <div className="league-head">
             <div>
-              <p className="eyebrow">Ny liga</p>
-
-              <h1>Skapa din VM-liga.</h1>
-
+              <p className="eyebrow">Liga</p>
+              <h1>Mina ligor.</h1>
               <p className="intro">
-                Starta en privat liga för kontoret, kompisgänget eller familjen.
-                Bjud in andra med en kod och låt tabellen avgöra vem som får
-                skryta hela sommaren.
+                Skapa en liga, gå med via kod eller välj vilken liga du vill
+                tippa i. Varje liga har egen tabell och egna inskickade tips.
               </p>
 
-              <div className="info-grid">
-                <div>
-                  <span>01</span>
-                  <strong>Skapa liga</strong>
-                  <p>Ge ligan ett namn.</p>
-                </div>
-                <div>
-                  <span>02</span>
-                  <strong>Dela koden</strong>
-                  <p>Bjud in deltagarna.</p>
-                </div>
-                <div>
-                  <span>03</span>
-                  <strong>Börja tippa</strong>
-                  <p>Följ poängen live.</p>
-                </div>
-              </div>
+              <p style={{ marginTop: 16, color: "#e5b94d", fontSize: 12 }}>
+  Debug user id: {user.id}
+</p>
             </div>
 
-            <div className="form-card">
-              <div className="card-top">
-                <div>
-                  <p>Kontors-tipset</p>
-                  <h2>Ny liga</h2>
-                </div>
-                <span>VM 2026</span>
-              </div>
-
-              <form action="/api/create-league" method="POST">
-                <label>Namn på ligan</label>
-
-                <input
-                  type="text"
-                  name="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Till exempel: Marknadsteamet VM 2026"
-                  required
-                />
-
-                <button type="submit">Skapa liga →</button>
-              </form>
-
-              <div className="helper">
-                <p>Redan med i en liga?</p>
-                <Link href="/">Gå till startsidan</Link>
-              </div>
+            <div className="summary-card">
+              <p>Aktiva ligor</p>
+              <strong>{leagues.length}</strong>
+              <span>kopplade till ditt konto</span>
             </div>
+          </div>
+
+          <div className="league-layout">
+            <section className="my-leagues">
+              <div className="section-head">
+                <p>Dina ligor</p>
+                <h2>Välj liga</h2>
+              </div>
+
+              {leagues.length === 0 ? (
+                <div className="empty-card">
+                  <h3>Du är inte med i någon liga ännu.</h3>
+                  <p>
+                    Skapa en ny liga eller gå med i en befintlig med en kod.
+                  </p>
+                </div>
+              ) : (
+                <div className="league-list">
+                  {leagues.map((league) => (
+                    <article key={league.id} className="league-card">
+                      <div>
+                        <p>VM 2026</p>
+                        <h3>{league.name}</h3>
+
+                        <div className="invite-code">
+                          <span>Invite code</span>
+                          <strong>{league.invite_code || "Saknas"}</strong>
+                        </div>
+                      </div>
+
+                      <div className="league-actions">
+                        <Link
+                          className="primary-link"
+                          href={`/tippa?leagueId=${league.id}`}
+                        >
+                          Tippa
+                        </Link>
+
+                        <Link
+                          className="secondary-link"
+                          href={`/tabell?leagueId=${league.id}`}
+                        >
+                          Se tabell
+                        </Link>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <aside className="league-side">
+              <div className="form-card">
+                <div className="card-top">
+                  <div>
+                    <p>Kontors-tipset</p>
+                    <h2>Skapa liga</h2>
+                  </div>
+                  <span>VM 2026</span>
+                </div>
+
+                <form action="/api/create-league" method="POST">
+                  <label>Namn på ligan</label>
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Till exempel: Marknadsteamet"
+                    required
+                  />
+
+                  <button type="submit">Skapa liga</button>
+                </form>
+              </div>
+
+              <div className="form-card join-card">
+                <div className="card-top">
+                  <div>
+                    <p>Bjuden?</p>
+                    <h2>Gå med</h2>
+                  </div>
+                </div>
+
+                <form action="/api/join-league" method="POST">
+                  <label>Ligakod</label>
+                  <input
+                    type="text"
+                    name="code"
+                    placeholder="Till exempel: X7K92A"
+                    required
+                  />
+
+                  <button type="submit">Gå med i liga</button>
+                </form>
+              </div>
+            </aside>
           </div>
         </div>
       </section>
@@ -88,10 +183,11 @@ export default function CreateLeaguePage() {
               min-height: calc(100vh - 73px);
               position: relative;
               background-image:
-                linear-gradient(90deg, rgba(2,3,4,0.96) 0%, rgba(2,3,4,0.82) 48%, rgba(2,3,4,0.58) 100%),
+                linear-gradient(180deg, rgba(2,3,4,0.76), #020304 560px),
+                linear-gradient(90deg, rgba(2,3,4,0.96), rgba(2,3,4,0.68)),
                 url('/stadium.jpg');
               background-size: cover;
-              background-position: center;
+              background-position: center top;
             }
 
             .league-hero::before {
@@ -99,8 +195,8 @@ export default function CreateLeaguePage() {
               position: absolute;
               inset: 0;
               background:
-                radial-gradient(circle at 78% 24%, rgba(229,185,77,0.22), transparent 28%),
-                radial-gradient(circle at 20% 20%, rgba(255,255,255,0.07), transparent 22%);
+                radial-gradient(circle at 78% 18%, rgba(229,185,77,0.22), transparent 28%),
+                radial-gradient(circle at 20% 18%, rgba(255,255,255,0.07), transparent 22%);
               pointer-events: none;
             }
 
@@ -109,18 +205,18 @@ export default function CreateLeaguePage() {
               z-index: 1;
               max-width: 1180px;
               margin: 0 auto;
-              padding: 92px 24px;
+              padding: 72px 24px;
             }
 
-            .league-grid {
+            .league-head {
               display: grid;
-              grid-template-columns: 1fr 460px;
-              gap: 56px;
-              align-items: center;
+              grid-template-columns: 1fr 340px;
+              gap: 40px;
+              align-items: end;
             }
 
             .eyebrow {
-              margin: 0 0 18px;
+              margin: 0 0 16px;
               color: #e5b94d;
               font-size: 13px;
               font-weight: 950;
@@ -130,65 +226,178 @@ export default function CreateLeaguePage() {
 
             h1 {
               margin: 0;
-              max-width: 650px;
-              font-size: clamp(48px, 6vw, 86px);
-              line-height: 0.98;
+              font-size: clamp(46px, 6vw, 82px);
+              line-height: 1;
               letter-spacing: -0.06em;
               font-weight: 950;
             }
 
             .intro {
-              margin: 26px 0 0;
-              max-width: 570px;
+              margin: 22px 0 0;
+              max-width: 620px;
               color: rgba(255,255,255,0.68);
               font-size: 17px;
-              line-height: 1.7;
+              line-height: 1.65;
             }
 
-            .info-grid {
-              display: grid;
-              grid-template-columns: repeat(3, 1fr);
-              gap: 14px;
-              margin-top: 44px;
-              max-width: 680px;
-            }
-
-            .info-grid div {
-              min-height: 150px;
-              padding: 18px;
-              border-radius: 18px;
-              background: rgba(9,17,25,0.68);
-              border: 1px solid rgba(255,255,255,0.09);
+            .summary-card,
+            .form-card,
+            .league-card,
+            .empty-card {
+              background: rgba(5,12,18,0.82);
+              border: 1px solid rgba(255,255,255,0.11);
+              box-shadow: 0 28px 90px rgba(0,0,0,0.42);
               backdrop-filter: blur(18px);
-              box-shadow: 0 24px 70px rgba(0,0,0,0.28);
             }
 
-            .info-grid span {
-              color: #e5b94d;
+            .summary-card {
+              padding: 22px;
+              border-radius: 22px;
+            }
+
+            .summary-card p,
+            .section-head p,
+            .league-card p,
+            .card-top p,
+            .invite-code span {
+              margin: 0;
+              color: rgba(255,255,255,0.42);
               font-size: 12px;
               font-weight: 950;
+              letter-spacing: 0.14em;
+              text-transform: uppercase;
             }
 
-            .info-grid strong {
+            .summary-card strong {
               display: block;
-              margin-top: 28px;
-              font-size: 17px;
+              margin-top: 12px;
+              color: #e5b94d;
+              font-size: 34px;
+              letter-spacing: -0.04em;
             }
 
-            .info-grid p {
-              margin: 8px 0 0;
-              color: rgba(255,255,255,0.52);
+            .summary-card span {
+              display: block;
+              margin-top: 8px;
+              color: rgba(255,255,255,0.54);
               font-size: 14px;
-              line-height: 1.45;
+              line-height: 1.5;
+            }
+
+            .league-layout {
+              display: grid;
+              grid-template-columns: 1fr 390px;
+              gap: 22px;
+              align-items: start;
+              margin-top: 46px;
+            }
+
+            .section-head {
+              margin-bottom: 16px;
+            }
+
+            .section-head h2 {
+              margin: 6px 0 0;
+              font-size: 34px;
+              letter-spacing: -0.05em;
+            }
+
+            .league-list {
+              display: grid;
+              gap: 14px;
+            }
+
+            .league-card {
+              display: grid;
+              grid-template-columns: 1fr auto;
+              gap: 18px;
+              align-items: center;
+              padding: 22px;
+              border-radius: 24px;
+            }
+
+            .league-card h3 {
+              margin: 8px 0 0;
+              font-size: 26px;
+              letter-spacing: -0.04em;
+            }
+
+            .invite-code {
+              display: inline-flex;
+              gap: 12px;
+              align-items: center;
+              margin-top: 16px;
+              padding: 10px 12px;
+              border-radius: 999px;
+              background: rgba(229,185,77,0.10);
+              border: 1px solid rgba(229,185,77,0.20);
+            }
+
+            .invite-code strong {
+              color: #e5b94d;
+              font-size: 14px;
+              letter-spacing: 0.08em;
+            }
+
+            .league-actions {
+              display: flex;
+              gap: 10px;
+              align-items: center;
+            }
+
+            .primary-link,
+            .secondary-link {
+              height: 46px;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              padding: 0 18px;
+              border-radius: 999px;
+              text-decoration: none;
+              font-size: 14px;
+              font-weight: 950;
+              white-space: nowrap;
+            }
+
+            .primary-link {
+              background: linear-gradient(180deg, #f3cf69, #d9a935);
+              color: #090909;
+            }
+
+            .secondary-link {
+              background: rgba(255,255,255,0.06);
+              border: 1px solid rgba(255,255,255,0.12);
+              color: rgba(255,255,255,0.8);
+            }
+
+            .empty-card {
+              padding: 24px;
+              border-radius: 24px;
+            }
+
+            .empty-card h3 {
+              margin: 0;
+              font-size: 22px;
+            }
+
+            .empty-card p {
+              margin: 10px 0 0;
+              color: rgba(255,255,255,0.58);
+              line-height: 1.5;
+            }
+
+            .league-side {
+              display: grid;
+              gap: 16px;
             }
 
             .form-card {
-              padding: 26px;
-              border-radius: 28px;
-              background: rgba(5,12,18,0.82);
-              border: 1px solid rgba(255,255,255,0.12);
-              box-shadow: 0 34px 110px rgba(0,0,0,0.58);
-              backdrop-filter: blur(20px);
+              padding: 22px;
+              border-radius: 26px;
+            }
+
+            .join-card {
+              background: rgba(5,12,18,0.66);
             }
 
             .card-top {
@@ -196,21 +405,12 @@ export default function CreateLeaguePage() {
               justify-content: space-between;
               gap: 20px;
               align-items: flex-start;
-              margin-bottom: 34px;
-            }
-
-            .card-top p {
-              margin: 0;
-              color: rgba(255,255,255,0.38);
-              font-size: 12px;
-              font-weight: 900;
-              letter-spacing: 0.16em;
-              text-transform: uppercase;
+              margin-bottom: 24px;
             }
 
             .card-top h2 {
               margin: 8px 0 0;
-              font-size: 32px;
+              font-size: 28px;
               letter-spacing: -0.04em;
             }
 
@@ -235,7 +435,7 @@ export default function CreateLeaguePage() {
 
             form input {
               width: 100%;
-              height: 58px;
+              height: 54px;
               padding: 0 16px;
               border-radius: 16px;
               border: 1px solid rgba(255,255,255,0.12);
@@ -256,8 +456,8 @@ export default function CreateLeaguePage() {
 
             form button {
               width: 100%;
-              height: 58px;
-              margin-top: 18px;
+              height: 54px;
+              margin-top: 14px;
               border: 0;
               border-radius: 16px;
               background: linear-gradient(180deg, #f3cf69, #d9a935);
@@ -265,87 +465,35 @@ export default function CreateLeaguePage() {
               font-size: 15px;
               font-weight: 950;
               cursor: pointer;
-              box-shadow: 0 18px 50px rgba(218,169,53,0.25);
-            }
-
-            .helper {
-              display: flex;
-              justify-content: space-between;
-              gap: 18px;
-              align-items: center;
-              margin-top: 22px;
-              padding-top: 20px;
-              border-top: 1px solid rgba(255,255,255,0.08);
-            }
-
-            .helper p {
-              margin: 0;
-              color: rgba(255,255,255,0.42);
-              font-size: 14px;
-            }
-
-            .helper a {
-              color: #e5b94d;
-              text-decoration: none;
-              font-size: 14px;
-              font-weight: 900;
             }
 
             @media (max-width: 900px) {
-              .league-hero {
-                min-height: auto;
-                background-image:
-                  linear-gradient(180deg, rgba(2,3,4,0.66) 0%, rgba(2,3,4,0.88) 45%, rgba(2,3,4,0.98) 100%),
-                  url('/stadium.jpg');
-                background-position: center top;
-              }
-
               .league-wrap {
-                padding: 64px 18px 40px;
+                padding: 56px 18px 42px;
               }
 
-              .league-grid {
+              .league-head,
+              .league-layout,
+              .league-card {
                 grid-template-columns: 1fr;
-                gap: 30px;
               }
 
               h1 {
                 font-size: 48px;
-                line-height: 1.02;
-                max-width: 360px;
               }
 
               .intro {
                 font-size: 16px;
-                max-width: 350px;
               }
 
-              .info-grid {
-                grid-template-columns: 1fr;
-                margin-top: 30px;
-              }
-
-              .info-grid div {
-                min-height: auto;
-              }
-
-              .info-grid strong {
-                margin-top: 16px;
-              }
-
-              .form-card {
-                padding: 20px;
-                border-radius: 24px;
-              }
-
-              .card-top h2 {
-                font-size: 28px;
-              }
-
-              .helper {
-                align-items: flex-start;
+              .league-actions {
                 flex-direction: column;
-                gap: 8px;
+                align-items: stretch;
+              }
+
+              .primary-link,
+              .secondary-link {
+                width: 100%;
               }
             }
           `,

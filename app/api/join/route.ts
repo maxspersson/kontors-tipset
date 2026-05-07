@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
-  const code = formData.get("code")?.toString().trim();
+  const code = formData.get("code")?.toString().trim().toUpperCase();
 
   if (!code) {
     return new NextResponse("Ingen kod skickades med", { status: 400 });
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
   const { data: league, error: leagueError } = await supabase
     .from("leagues")
-    .select("*")
+    .select("id")
     .eq("invite_code", code)
     .single();
 
@@ -29,23 +29,21 @@ export async function POST(request: Request) {
     return new NextResponse("Kunde inte hitta ligan", { status: 404 });
   }
 
-  const { error: insertError } = await supabase
-    .from("league_members")
-    .upsert(
-      {
-        league_id: league.id,
-        user_id: user.id,
-      },
-      {
-        onConflict: "league_id,user_id",
-      }
-    );
+  const { error: insertError } = await supabase.from("league_members").upsert(
+    {
+      league_id: league.id,
+      user_id: user.id,
+    },
+    {
+      onConflict: "league_id,user_id",
+    }
+  );
 
   if (insertError) {
-    return new NextResponse(`Insert error: ${insertError.message}`, {
+    return new NextResponse(`Kunde inte gå med i ligan: ${insertError.message}`, {
       status: 500,
     });
   }
 
-  return NextResponse.redirect(new URL(`/liga/${league.slug}`, request.url));
+  return NextResponse.redirect(new URL("/liga", request.url));
 }

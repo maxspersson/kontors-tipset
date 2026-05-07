@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL("/login", request.url), 303);
   }
 
   const formData = await request.formData();
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     return new NextResponse("Ligan måste ha ett namn", { status: 400 });
   }
 
-  const baseSlug = slugify(rawName);
+  const baseSlug = slugify(rawName) || "liga";
   let finalSlug = baseSlug;
   let slugCounter = 1;
 
@@ -52,9 +52,7 @@ export async function POST(request: Request) {
       .eq("slug", finalSlug)
       .maybeSingle();
 
-    if (!existingLeague) {
-      break;
-    }
+    if (!existingLeague) break;
 
     slugCounter += 1;
     finalSlug = `${baseSlug}-${slugCounter}`;
@@ -69,9 +67,7 @@ export async function POST(request: Request) {
       .eq("invite_code", inviteCode)
       .maybeSingle();
 
-    if (!existingInvite) {
-      break;
-    }
+    if (!existingInvite) break;
 
     inviteCode = generateInviteCode();
   }
@@ -83,7 +79,7 @@ export async function POST(request: Request) {
       slug: finalSlug,
       invite_code: inviteCode,
     })
-    .select()
+    .select("id")
     .single();
 
   if (leagueError || !league) {
@@ -93,29 +89,23 @@ export async function POST(request: Request) {
     );
   }
 
-  const membershipPayload = {
+  const { error: membershipError } = await supabase
+  .from("league_members")
+  .insert({
     id: crypto.randomUUID(),
     league_id: league.id,
     user_id: user.id,
     created_at: new Date().toISOString(),
-  };
+  });
 
-  const { data: membership, error: membershipError } = await supabase
-    .from("league_members")
-    .insert(membershipPayload)
-    .select()
-    .single();
-
-  if (membershipError || !membership) {
+  if (membershipError) {
     await supabase.from("leagues").delete().eq("id", league.id);
 
     return new NextResponse(
-      `Kunde inte lägga till dig i ligan: ${
-        membershipError?.message ?? "okänt fel"
-      }`,
+      `Kunde inte lägga till dig i ligan: ${membershipError.message}`,
       { status: 500 }
     );
   }
 
-  return NextResponse.redirect(new URL(`/liga/${league.slug}`, request.url));
+  return NextResponse.redirect(new URL("/liga", request.url), 303);
 }
