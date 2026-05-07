@@ -48,9 +48,10 @@ export default async function TabellPage({ searchParams }: TabellPageProps) {
   }
 
   const { data: leagueRows } = await supabase
-    .from("leagues")
-    .select("id, name")
-    .in("id", leagueIds);
+  .from("leagues")
+  .select("id, name")
+  .in("id", leagueIds)
+  .eq("is_archived", false);
 
   const leagues = (leagueRows ?? []) as LeagueOption[];
 

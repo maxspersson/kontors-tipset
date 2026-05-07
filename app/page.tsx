@@ -1,5 +1,14 @@
 import Link from "next/link";
 import { createClient } from "@/app/lib/supabase/server";
+import { formatKickoff } from "./lib/formatDate";
+import {
+  calculateStandings,
+  type LeagueRow,
+  type MatchRow,
+  type PredictionRow,
+  type ProfileRow,
+  type SubmissionRow,
+} from "@/app/lib/scoring";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,29 +32,11 @@ type NextMatch = {
 
 type GlobalTopPlayer = {
   user_id: string;
+  league_id: string;
+  league_name: string | null;
   display_name: string;
   points: number;
   exactScores: number;
-};
-
-type MatchScoreRow = {
-  id: string;
-  home_score: number | null;
-  away_score: number | null;
-};
-
-type PredictionRow = {
-  league_id: string;
-  user_id: string;
-  match_id: string;
-  predicted_home_score: number | null;
-  predicted_away_score: number | null;
-};
-
-type ProfileRow = {
-  id: string;
-  display_name: string | null;
-  email: string | null;
 };
 
 function formatDisplayName(email?: string | null) {
@@ -184,43 +175,6 @@ function getSwedishTeamName(name: string) {
   return map[normalizedName] ?? name;
 }
 
-function formatKickoff(dateString: string) {
-  return new Intl.DateTimeFormat("sv-SE", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(dateString));
-}
-
-function getMatchPoints(prediction: PredictionRow, match: MatchScoreRow) {
-  if (
-    match.home_score === null ||
-    match.away_score === null ||
-    prediction.predicted_home_score === null ||
-    prediction.predicted_away_score === null
-  ) {
-    return 0;
-  }
-
-  let points = 0;
-
-  if (prediction.predicted_home_score === match.home_score) points += 2;
-  if (prediction.predicted_away_score === match.away_score) points += 2;
-
-  const predictedDiff =
-    prediction.predicted_home_score - prediction.predicted_away_score;
-  const actualDiff = match.home_score - match.away_score;
-
-  const predictedSign = predictedDiff === 0 ? 0 : predictedDiff > 0 ? 1 : -1;
-  const actualSign = actualDiff === 0 ? 0 : actualDiff > 0 ? 1 : -1;
-
-  if (predictedSign === actualSign) points += 3;
-
-  return points;
-}
-
 export default async function Home() {
   const supabase = await createClient();
 
@@ -249,9 +203,10 @@ export default async function Home() {
 
     if (leagueIds.length > 0) {
       const { data: leagueRows } = await supabase
-        .from("leagues")
-        .select("*")
-        .in("id", leagueIds);
+  .from("leagues")
+  .select("*")
+  .in("id", leagueIds)
+  .eq("is_archived", false);
 
       leagues = (leagueRows ?? []) as League[];
     }
@@ -273,102 +228,54 @@ export default async function Home() {
 
   const { data: submissions } = await supabase
     .from("league_submissions")
-    .select("league_id, user_id")
+    .select("league_id, user_id, group_snapshot, playoff_snapshot")
     .not("submitted_at", "is", null);
 
+  const submissionRows = (submissions ?? []) as SubmissionRow[];
+
   const submittedUserIds = Array.from(
-    new Set((submissions ?? []).map((submission) => submission.user_id))
+    new Set(submissionRows.map((submission) => submission.user_id))
+  );
+
+  const submittedLeagueIds = Array.from(
+    new Set(submissionRows.map((submission) => submission.league_id))
   );
 
   let globalTop: GlobalTopPlayer[] = [];
 
-  if (submittedUserIds.length > 0) {
-    const submissionKeys = new Set(
-      (submissions ?? []).map(
-        (submission) => `${submission.league_id}:${submission.user_id}`
-      )
-    );
-
+  if (submittedUserIds.length > 0 && submittedLeagueIds.length > 0) {
     const { data: predictions } = await supabase
       .from("predictions")
       .select(
         "league_id, user_id, match_id, predicted_home_score, predicted_away_score"
       )
-      .in("user_id", submittedUserIds);
+      .in("user_id", submittedUserIds)
+      .in("league_id", submittedLeagueIds);
 
     const { data: matches } = await supabase
       .from("matches")
-      .select("id, home_score, away_score");
+      .select(
+        "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score"
+      );
 
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, display_name, email")
       .in("id", submittedUserIds);
 
-    const matchMap = new Map<string, MatchScoreRow>(
-      ((matches ?? []) as MatchScoreRow[]).map((match) => [match.id, match])
-    );
+    const { data: globalLeagues } = await supabase
+      .from("leagues")
+      .select("id, name")
+      .in("id", submittedLeagueIds);
 
-    const profileMap = new Map<string, ProfileRow>(
-      ((profiles ?? []) as ProfileRow[]).map((profile) => [profile.id, profile])
-    );
-
-    const scoreMap = new Map<
-      string,
-      {
-        user_id: string;
-        points: number;
-        exactScores: number;
-      }
-    >();
-
-    for (const submission of submissions ?? []) {
-      const key = `${submission.league_id}:${submission.user_id}`;
-
-      scoreMap.set(key, {
-        user_id: submission.user_id,
-        points: 0,
-        exactScores: 0,
-      });
-    }
-
-    for (const prediction of (predictions ?? []) as PredictionRow[]) {
-      const key = `${prediction.league_id}:${prediction.user_id}`;
-      if (!submissionKeys.has(key)) continue;
-
-      const match = matchMap.get(prediction.match_id);
-      if (!match) continue;
-
-      const points = getMatchPoints(prediction, match);
-      const current = scoreMap.get(key);
-      if (!current) continue;
-
-      current.points += points;
-      if (points === 7) current.exactScores += 1;
-    }
-
-    globalTop = Array.from(scoreMap.values())
-      .map((score) => {
-        const profile = profileMap.get(score.user_id);
-
-        return {
-          user_id: score.user_id,
-          display_name:
-            profile?.display_name ||
-            formatDisplayName(profile?.email) ||
-            "Spelare",
-          points: score.points,
-          exactScores: score.exactScores,
-        };
-      })
-      .sort((a, b) => {
-        if (b.points !== a.points) return b.points - a.points;
-        if (b.exactScores !== a.exactScores) {
-          return b.exactScores - a.exactScores;
-        }
-        return a.display_name.localeCompare(b.display_name);
-      })
-      .slice(0, 3);
+    globalTop = calculateStandings({
+      submissions: submissionRows,
+      predictions: (predictions ?? []) as PredictionRow[],
+      matches: (matches ?? []) as MatchRow[],
+      profiles: (profiles ?? []) as ProfileRow[],
+      leagues: (globalLeagues ?? []) as LeagueRow[],
+      limit: 5,
+    });
   }
 
   return (
@@ -665,6 +572,17 @@ export default async function Home() {
               gap: 12px;
               padding: 13px 0;
               border-top: 1px solid rgba(255,255,255,0.08);
+            }
+
+            .leader-league {
+              display: block;
+              margin-top: 3px;
+              color: rgba(255,255,255,0.45);
+              font-size: 12px;
+              font-weight: 750;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
             }
 
             .rank {
@@ -1038,13 +956,25 @@ function MatchCard({
       <div className="deadline-box">Tips låses 60 minuter före matchstart</div>
 
       <div className="leaderboard">
-        <p className="leaderboard-label">Topplista</p>
+        <p className="leaderboard-label">Global topplista</p>
 
         {globalTop.length > 0 ? (
           globalTop.map((player, index) => (
-            <div key={`${player.user_id}-${index}`} className="leader-row">
+            <div
+              key={`${player.league_id}-${player.user_id}-${index}`}
+              className="leader-row"
+            >
               <span className="rank">{index + 1}</span>
-              <strong style={{ flex: 1 }}>{player.display_name}</strong>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <strong>{player.display_name}</strong>
+                {player.league_name && (
+                  <small className="leader-league">
+                    Liga: {player.league_name}
+                  </small>
+                )}
+              </div>
+
               <strong style={{ color: "#e5b94d" }}>{player.points} p</strong>
             </div>
           ))

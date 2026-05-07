@@ -87,10 +87,11 @@ export default async function TippaPage({ searchParams }: TippaPageProps) {
 
     if (leagueIds.length > 0) {
       const { data: leagueRows } = await supabase
-        .from("leagues")
-        .select("id, name, slug, invite_code, created_at")
-        .in("id", leagueIds)
-        .order("created_at", { ascending: false });
+  .from("leagues")
+  .select("id, name, slug, invite_code, created_at")
+  .in("id", leagueIds)
+  .eq("is_archived", false)
+  .order("created_at", { ascending: false });
 
       leagues = (leagueRows ?? []) as League[];
     }
@@ -410,15 +411,26 @@ export default async function TippaPage({ searchParams }: TippaPageProps) {
   }
 
   const { data: membership } = await supabase
-    .from("league_members")
-    .select("id")
-    .eq("league_id", leagueId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  .from("league_members")
+  .select("id")
+  .eq("league_id", leagueId)
+  .eq("user_id", user.id)
+  .maybeSingle();
 
-  if (!membership) {
-    redirect("/liga");
-  }
+if (!membership) {
+  redirect("/liga");
+}
+
+const { data: activeLeague } = await supabase
+  .from("leagues")
+  .select("id")
+  .eq("id", leagueId)
+  .eq("is_archived", false)
+  .maybeSingle();
+
+if (!activeLeague) {
+  redirect("/liga");
+}
 
   const { data: matches, error: matchesError } = await supabase
     .from("matches")

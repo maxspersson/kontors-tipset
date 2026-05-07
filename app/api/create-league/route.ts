@@ -75,10 +75,11 @@ export async function POST(request: Request) {
   const { data: league, error: leagueError } = await supabase
     .from("leagues")
     .insert({
-      name: rawName,
-      slug: finalSlug,
-      invite_code: inviteCode,
-    })
+  name: rawName,
+  slug: finalSlug,
+  invite_code: inviteCode,
+  owner_user_id: user.id,
+})
     .select("id")
     .single();
 

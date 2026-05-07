@@ -2,6 +2,13 @@ import { createClient } from "@/app/lib/supabase/server";
 import CopyInvite from "@/app/components/CopyInvite";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import {
+  calculateStandings,
+  type MatchRow,
+  type PredictionRow,
+  type ProfileRow,
+  type SubmissionRow,
+} from "@/app/lib/scoring";
 
 type LeaguePageProps = {
   params: Promise<{
@@ -21,32 +28,9 @@ type LeagueMember = {
   created_at: string;
 };
 
-type SubmissionRow = {
-  user_id: string;
+type LeagueSubmissionRow = SubmissionRow & {
   submitted_at: string | null;
   total_predictions_count: number | null;
-};
-
-type StandingRow = {
-  user_id: string;
-  display_name: string | null;
-  email: string | null;
-  points: number;
-  exactScores: number;
-  playedMatches: number;
-};
-
-type MatchResultRow = {
-  id: string;
-  home_score: number | null;
-  away_score: number | null;
-};
-
-type PredictionRow = {
-  user_id: string;
-  match_id: string;
-  predicted_home_score: number | null;
-  predicted_away_score: number | null;
 };
 
 function getDisplayName(profile?: MemberProfile) {
@@ -62,34 +46,6 @@ function getInitials(name: string) {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
-function getMatchPoints(prediction: PredictionRow, match: MatchResultRow) {
-  if (
-    match.home_score === null ||
-    match.away_score === null ||
-    prediction.predicted_home_score === null ||
-    prediction.predicted_away_score === null
-  ) {
-    return 0;
-  }
-
-  let points = 0;
-
-  if (prediction.predicted_home_score === match.home_score) points += 2;
-  if (prediction.predicted_away_score === match.away_score) points += 2;
-
-  const predictedDiff =
-    prediction.predicted_home_score - prediction.predicted_away_score;
-
-  const actualDiff = match.home_score - match.away_score;
-
-  const predictedSign = predictedDiff === 0 ? 0 : predictedDiff > 0 ? 1 : -1;
-  const actualSign = actualDiff === 0 ? 0 : actualDiff > 0 ? 1 : -1;
-
-  if (predictedSign === actualSign) points += 3;
-
-  return points;
-}
-
 export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   const { slug } = await params;
   const supabase = await createClient();
@@ -103,10 +59,11 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   }
 
   const { data: league, error: leagueError } = await supabase
-    .from("leagues")
-    .select("id, name, slug, invite_code")
-    .eq("slug", slug)
-    .maybeSingle();
+  .from("leagues")
+  .select("id, name, slug, invite_code")
+  .eq("slug", slug)
+  .eq("is_archived", false)
+  .maybeSingle();
 
   if (leagueError || !league) {
     return (
@@ -147,11 +104,13 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
 
   const { data: submissions } = await supabase
     .from("league_submissions")
-    .select("user_id, submitted_at, total_predictions_count")
+    .select(
+      "league_id, user_id, group_snapshot, playoff_snapshot, submitted_at, total_predictions_count"
+    )
     .eq("league_id", league.id)
     .not("submitted_at", "is", null);
 
-  const submissionRows = (submissions ?? []) as SubmissionRow[];
+  const submissionRows = (submissions ?? []) as LeagueSubmissionRow[];
   const submittedUserIds = submissionRows.map((submission) => submission.user_id);
   const submittedUserSet = new Set(submittedUserIds);
 
@@ -177,83 +136,26 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   if (submittedUserIds.length > 0) {
     const { data: predictionRows } = await supabase
       .from("predictions")
-      .select("user_id, match_id, predicted_home_score, predicted_away_score")
+      .select(
+        "league_id, user_id, match_id, predicted_home_score, predicted_away_score"
+      )
       .eq("league_id", league.id)
       .in("user_id", submittedUserIds);
 
     predictions = (predictionRows ?? []) as PredictionRow[];
   }
 
-  const { data: matchesWithResults } = await supabase
+  const { data: matches } = await supabase
     .from("matches")
-    .select("id, home_score, away_score");
+    .select(
+      "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score"
+    );
 
-  const matchMap = new Map<string, MatchResultRow>(
-    ((matchesWithResults ?? []) as MatchResultRow[]).map((match) => [
-      match.id,
-      match,
-    ])
-  );
-
-  const scoreMap = new Map<
-    string,
-    {
-      points: number;
-      exactScores: number;
-      playedMatches: number;
-    }
-  >();
-
-  for (const userId of submittedUserIds) {
-    scoreMap.set(userId, {
-      points: 0,
-      exactScores: 0,
-      playedMatches: 0,
-    });
-  }
-
-  for (const prediction of predictions) {
-    const match = matchMap.get(prediction.match_id);
-    if (!match) continue;
-
-    const hasResult = match.home_score !== null && match.away_score !== null;
-    if (!hasResult) continue;
-
-    const points = getMatchPoints(prediction, match);
-    const current = scoreMap.get(prediction.user_id);
-
-    if (!current) continue;
-
-    current.points += points;
-    current.playedMatches += 1;
-
-    if (points === 7) {
-      current.exactScores += 1;
-    }
-  }
-
-  const standings: StandingRow[] = submittedUserIds.map((userId) => {
-    const profile = profileMap.get(userId);
-    const score = scoreMap.get(userId);
-
-    return {
-      user_id: userId,
-      display_name: profile?.display_name || null,
-      email: profile?.email || null,
-      points: score?.points ?? 0,
-      exactScores: score?.exactScores ?? 0,
-      playedMatches: score?.playedMatches ?? 0,
-    };
-  });
-
-  standings.sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
-    if (b.exactScores !== a.exactScores) return b.exactScores - a.exactScores;
-
-    const nameA = a.display_name || a.email || "";
-    const nameB = b.display_name || b.email || "";
-
-    return nameA.localeCompare(nameB);
+  const standings = calculateStandings({
+    submissions: submissionRows,
+    predictions,
+    matches: (matches ?? []) as MatchRow[],
+    profiles: profiles as ProfileRow[],
   });
 
   const leader = standings[0];
@@ -340,9 +242,7 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
 
             <div className="stat-card">
               <p>Leder just nu</p>
-              <strong>
-                {leader?.display_name || leader?.email || "Ingen ännu"}
-              </strong>
+              <strong>{leader?.display_name || "Ingen ännu"}</strong>
             </div>
           </div>
 
@@ -375,13 +275,14 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
 
                         <div className="leader-user">
                           <strong>
-                            {row.display_name || row.email || "Spelare"}
+                            {row.display_name}
                             {isCurrentUser ? " (du)" : ""}
                           </strong>
 
                           <span>
                             {row.playedMatches} räknade matcher ·{" "}
-                            {row.exactScores} fullträffar
+                            {row.exactScores} fullträffar ·{" "}
+                            {row.bracketPoints} slutspelspoäng
                           </span>
                         </div>
 

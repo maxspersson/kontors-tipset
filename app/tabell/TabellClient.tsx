@@ -8,6 +8,8 @@ type Standing = {
   display_name: string;
   email: string | null;
   points: number;
+  matchPoints: number;
+  bracketPoints: number;
   exactScores: number;
   playedMatches: number;
 };
@@ -73,8 +75,8 @@ export default function TabellClient({
               <p className="eyebrow">Leaderboard</p>
               <h1>Tabellen.</h1>
               <p className="intro">
-                Ställningen i ligan just nu. Poängen uppdateras utifrån spelade
-                matcher och inskickade tips.
+                Följ ställningen i ligan. Totalpoängen består av matchpoäng,
+                slutspelspoäng och fullträffar från inskickade tips.
               </p>
 
               {leagues.length > 1 && (
@@ -129,7 +131,9 @@ export default function TabellClient({
                     <div className="rank-badge">{index + 1}</div>
                     <h2>{player.display_name}</h2>
                     <p>{player.points} p</p>
-                    <span>{player.exactScores} fullträffar</span>
+                    <span>
+                      {player.matchPoints} matchp · {player.bracketPoints} slutspel
+                    </span>
                   </div>
                 ))}
               </div>
@@ -137,8 +141,10 @@ export default function TabellClient({
               <div className="table-card">
                 <div className="table-row table-header">
                   <span>Placering</span>
-                  <span>Namn</span>
-                  <span>Poäng</span>
+                  <span>Spelare</span>
+                  <span>Total</span>
+                  <span>Matcher</span>
+                  <span>Slutspel</span>
                   <span>Fullträffar</span>
                 </div>
 
@@ -155,7 +161,20 @@ export default function TabellClient({
 
                     <div className="points">{player.points}</div>
 
-                    <div className="exacts">{player.exactScores}</div>
+                    <div className="stat-cell">
+                      <strong>{player.matchPoints}</strong>
+                      <small>matchp</small>
+                    </div>
+
+                    <div className="stat-cell">
+                      <strong>{player.bracketPoints}</strong>
+                      <small>slutspel</small>
+                    </div>
+
+                    <div className="stat-cell">
+                      <strong>{player.exactScores}</strong>
+                      <small>fullträffar</small>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -395,8 +414,8 @@ export default function TabellClient({
 
             .table-row {
               display: grid;
-              grid-template-columns: 140px 1fr 160px 160px;
-              gap: 18px;
+              grid-template-columns: 110px 1.3fr 110px 120px 120px 120px;
+              gap: 16px;
               align-items: center;
               padding: 18px 24px;
               border-bottom: 1px solid rgba(255,255,255,0.075);
@@ -432,7 +451,8 @@ export default function TabellClient({
               font-size: 17px;
             }
 
-            .player small {
+            .player small,
+            .stat-cell small {
               display: block;
               margin-top: 4px;
               color: rgba(255,255,255,0.38);
@@ -442,13 +462,14 @@ export default function TabellClient({
 
             .points {
               color: #e5b94d;
-              font-size: 22px;
+              font-size: 24px;
               font-weight: 950;
             }
 
-            .exacts {
-              color: rgba(255,255,255,0.72);
-              font-weight: 850;
+            .stat-cell strong {
+              color: rgba(255,255,255,0.82);
+              font-size: 17px;
+              font-weight: 950;
             }
 
             @media (max-width: 900px) {
@@ -490,20 +511,20 @@ export default function TabellClient({
               }
 
               .table-row {
-                grid-template-columns: 48px 1fr auto;
+                grid-template-columns: 46px 1fr auto;
                 gap: 12px;
                 padding: 16px;
               }
 
               .player small {
-                display: none;
+                display: block;
               }
 
               .points {
-                font-size: 20px;
+                font-size: 22px;
               }
 
-              .exacts {
+              .stat-cell {
                 display: none;
               }
             }

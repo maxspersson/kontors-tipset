@@ -46,10 +46,10 @@ export default async function LigaPage() {
 
   if (leagueIds.length > 0) {
     const { data: leagueRows } = await supabase
-      .from("leagues")
-      .select("id, name, slug, invite_code, created_at")
-      .in("id", leagueIds)
-      .order("created_at", { ascending: false });
+  .from("leagues")
+  .select("id, name, slug, invite_code, created_at")
+  .in("id", leagueIds)
+  .eq("is_archived", false);
 
     leagues = (leagueRows ?? []) as League[];
 

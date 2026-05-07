@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { formatKickoff } from "../lib/formatDate";
 import type { LeagueSubmission, Match, SavedPrediction } from "./page";
 
 const groups = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
@@ -176,16 +177,6 @@ const laterRoundSlots: Record<number, [SeedSlot, SeedSlot]> = {
     { type: "winner", matchNumber: 102, label: "W102" },
   ],
 };
-
-function formatKickoff(dateString: string) {
-  return new Intl.DateTimeFormat("sv-SE", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(dateString));
-}
 
 function isMatchLocked(kickoffUtc: string) {
   const kickoff = new Date(kickoffUtc).getTime();
@@ -460,9 +451,13 @@ export default function TippaClient({
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("A");
   const [saveStatus, setSaveStatus] = useState<string>("");
+  const [autoSaveStatus, setAutoSaveStatus] = useState<string>("");
   const [submitStatus, setSubmitStatus] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(isLocked);
+
+  const hasMounted = useRef(false);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isPlayoffLocked = hasSubmitted;
 
@@ -484,6 +479,61 @@ export default function TippaClient({
 
     return initial;
   });
+
+  useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+
+    if (autoSaveTimer.current) {
+      clearTimeout(autoSaveTimer.current);
+    }
+
+    const payload = Object.entries(predictions)
+      .filter(([, value]) => value.home !== "" && value.away !== "")
+      .map(([matchId, value]) => ({
+        matchId,
+        homeScore: value.home,
+        awayScore: value.away,
+      }));
+
+    if (payload.length === 0) return;
+
+    setAutoSaveStatus("Sparar automatiskt...");
+
+    autoSaveTimer.current = setTimeout(async () => {
+      try {
+        const response = await fetch("/api/save-predictions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            leagueId,
+            predictions: payload,
+          }),
+        });
+
+        const text = await response.text();
+
+        if (!response.ok) {
+          setAutoSaveStatus(text || "Kunde inte autospara.");
+          return;
+        }
+
+        setAutoSaveStatus("Autosparat ✓");
+      } catch {
+        setAutoSaveStatus("Kunde inte autospara.");
+      }
+    }, 1000);
+
+    return () => {
+      if (autoSaveTimer.current) {
+        clearTimeout(autoSaveTimer.current);
+      }
+    };
+  }, [predictions, leagueId]);
 
   const activeMatches = groupMatches.filter(
     (match) => match.group_name === activeTab
@@ -574,6 +624,7 @@ export default function TippaClient({
     }));
 
     setSaveStatus("");
+    setAutoSaveStatus("");
     setSubmitStatus("");
   }
 
@@ -952,8 +1003,10 @@ export default function TippaClient({
                   </button>
                 </div>
 
-                {(saveStatus || submitStatus) && (
-                  <p className="submit-status">{submitStatus || saveStatus}</p>
+                {(saveStatus || submitStatus || autoSaveStatus) && (
+                  <p className="submit-status">
+                    {submitStatus || saveStatus || autoSaveStatus}
+                  </p>
                 )}
               </div>
             </section>
@@ -1085,7 +1138,9 @@ export default function TippaClient({
 
               <div className="save-bar">
                 <button onClick={savePredictions}>Spara tips</button>
-                {saveStatus && <p>{saveStatus}</p>}
+                {(saveStatus || autoSaveStatus) && (
+                  <p>{saveStatus || autoSaveStatus}</p>
+                )}
               </div>
             </section>
           )}
