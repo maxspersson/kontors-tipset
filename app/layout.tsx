@@ -148,35 +148,35 @@ export default async function RootLayout({
             </div>
           </div>
         </header>
+
         {children}
 
-<script
-  dangerouslySetInnerHTML={{
-    __html: `
-      document.addEventListener("click", function(event) {
-        document.querySelectorAll("details.user-menu").forEach((detail) => {
-          const clickedInside = detail.contains(event.target);
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              document.addEventListener("click", function(event) {
+                document.querySelectorAll("details.user-menu").forEach((detail) => {
+                  const clickedInside = detail.contains(event.target);
 
-          if (!clickedInside) {
-            detail.removeAttribute("open");
-            return;
-          }
+                  if (!clickedInside) {
+                    detail.removeAttribute("open");
+                    return;
+                  }
 
-          const target = event.target;
+                  const target = event.target;
 
-          if (
-            target.closest("a") ||
-            target.closest("button")
-          ) {
-            detail.removeAttribute("open");
-          }
-        });
-      });
-    `,
-  }}
-/>
+                  if (
+                    target.closest("a") ||
+                    target.closest("button")
+                  ) {
+                    detail.removeAttribute("open");
+                  }
+                });
+              });
+            `,
+          }}
+        />
 
-<footer className="site-footer"></footer>
         <footer className="site-footer">
           <div className="footer-inner">
             <div>
@@ -506,9 +506,27 @@ export default async function RootLayout({
                 }
 
                 .footer-inner {
-                  padding: 30px 18px;
+                  padding: 34px 18px 38px;
                   flex-direction: column;
-                  align-items: flex-start;
+                  align-items: center;
+                  justify-content: center;
+                  text-align: center;
+                  gap: 18px;
+                }
+
+                .footer-logo {
+                  margin-bottom: 8px;
+                  letter-spacing: 0.22em;
+                }
+
+                .footer-inner p {
+                  margin-bottom: 0;
+                }
+
+                .footer-links {
+                  justify-content: center;
+                  gap: 24px;
+                  flex-wrap: wrap;
                 }
               }
             `,
