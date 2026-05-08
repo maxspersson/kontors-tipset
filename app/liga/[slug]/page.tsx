@@ -37,6 +37,7 @@ type LeagueSubmissionRow = SubmissionRow & {
 
 type LeagueMatch = MatchRow & {
   kickoff_utc: string;
+  status: string | null;
 };
 
 function getDisplayName(profile?: MemberProfile) {
@@ -216,8 +217,8 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   const { data: matches } = await supabase
     .from("matches")
     .select(
-      "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score, kickoff_utc"
-    );
+  "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score, kickoff_utc, status"
+);
 
   const matchRows = ((matches ?? []) as LeagueMatch[]).sort(
     (a, b) =>
@@ -238,11 +239,27 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
     matchRows.find((match) => new Date(match.kickoff_utc).getTime() > nowTime) ??
     null;
 
-  const featuredMatch = latestStartedMatch ?? nextUpcomingMatch;
+  const liveMatch =
+  matchRows.find((match) => match.status === "live") ?? null;
 
-  const hasFeaturedMatchStarted = featuredMatch
-    ? new Date(featuredMatch.kickoff_utc).getTime() <= nowTime
-    : false;
+const finishedMatch =
+  [...matchRows]
+    .filter((match) => match.status === "finished")
+    .sort(
+      (a, b) =>
+        new Date(b.kickoff_utc).getTime() -
+        new Date(a.kickoff_utc).getTime()
+    )[0] ?? null;
+
+const featuredMatch =
+  liveMatch ?? finishedMatch ?? latestStartedMatch ?? nextUpcomingMatch;
+
+const hasFeaturedMatchStarted = featuredMatch
+  ? new Date(featuredMatch.kickoff_utc).getTime() <= nowTime
+  : false;
+
+const isLiveMatch = featuredMatch?.status === "live";
+const isFinishedMatch = featuredMatch?.status === "finished";
 
   const predictionMap = new Map(
     predictions.map((prediction) => [
@@ -413,10 +430,14 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                   <div className="panel-head">
                     <div>
                       <p>
-                        {hasFeaturedMatchStarted
-                          ? "Aktuell match"
-                          : "Nästa match"}
-                      </p>
+  {isLiveMatch
+    ? "Live nu"
+    : isFinishedMatch
+      ? "Senaste resultat"
+      : hasFeaturedMatchStarted
+        ? "Aktuell match"
+        : "Nästa match"}
+</p>
                       <h2>
                         {getSwedishTeamName(featuredMatch.home_team)} vs{" "}
                         {getSwedishTeamName(featuredMatch.away_team)}
@@ -424,9 +445,22 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                     </div>
                   </div>
 
-                  <p className="match-time">
-                    Avspark {formatKickoff(featuredMatch.kickoff_utc)}
-                  </p>
+                  <p className={isLiveMatch ? "match-time match-live-time" : "match-time"}>
+  {isLiveMatch ? (
+    <>
+      <span className="live-dot-small" />
+      LIVE · {featuredMatch.home_score ?? 0}–
+      {featuredMatch.away_score ?? 0}
+    </>
+  ) : isFinishedMatch ? (
+    <>
+      Slutresultat · {featuredMatch.home_score ?? 0}–
+      {featuredMatch.away_score ?? 0}
+    </>
+  ) : (
+    <>Avspark {formatKickoff(featuredMatch.kickoff_utc)}</>
+  )}
+</p>
 
                   {!hasFeaturedMatchStarted ? (
                     <div className="locked-picks">
@@ -1176,6 +1210,37 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
               .points {
                 grid-column: 2;
               }
+
+              .match-live-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #fca5a5;
+  font-weight: 950;
+}
+
+.live-dot-small {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #ef4444;
+  box-shadow: 0 0 0 rgba(239,68,68,0.75);
+  animation: leagueLivePulse 1.4s infinite;
+}
+
+@keyframes leagueLivePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239,68,68,0.72);
+  }
+
+  70% {
+    box-shadow: 0 0 0 8px rgba(239,68,68,0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(239,68,68,0);
+  }
+}
 
               .member-row span {
                 max-width: 190px;
