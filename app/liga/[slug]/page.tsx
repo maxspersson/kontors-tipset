@@ -149,6 +149,8 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   }
 
   const isOwner = league.owner_user_id === user.id;
+  const invitePath = `/join/${league.invite_code}`;
+  const inviteDisplayUrl = `kontorstipset.se${invitePath}`;
 
   const { data: currentMembership } = await supabase
     .from("league_members")
@@ -276,19 +278,13 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
               <div className="hero-actions">
                 {isMember ? (
                   <>
-                   <Link
-  href={`/liga/${league.slug}/tippa`}
-  className="gold-btn"
->
-  Tippa matcher →
-</Link>
+                    <Link href={`/liga/${league.slug}/tippa`} className="gold-btn">
+                      Tippa matcher →
+                    </Link>
 
-<Link
-  href={`/liga/${league.slug}/tabell`}
-  className="dark-btn"
->
-  Se tabell
-</Link>
+                    <Link href={`/liga/${league.slug}/tabell`} className="dark-btn">
+                      Se tabell
+                    </Link>
                   </>
                 ) : (
                   <Link href="/liga" className="gold-btn">
@@ -326,6 +322,25 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
               )}
             </div>
           </div>
+
+          {isMember && (
+            <section className="invite-hero-card">
+              <div className="invite-hero-copy">
+                <p>Bjud in kollegor</p>
+                <h2>Få igång ligan på 2 sekunder.</h2>
+                <span>
+                  Dela länken i Teams, Slack eller Messenger. Nya spelare hamnar
+                  direkt i rätt liga.
+                </span>
+
+                <div className="invite-link-preview">{inviteDisplayUrl}</div>
+              </div>
+
+              <div className="invite-hero-action">
+                <CopyInvite inviteCode={league.invite_code} slug={league.slug} />
+              </div>
+            </section>
+          )}
 
           <div className="stats-grid">
             <div className="stat-card">
@@ -468,14 +483,14 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                 <div className="invite-code">{league.invite_code}</div>
 
                 <p className="invite-note">
-                  Dela koden med kollegor eller vänner så kan de gå med i ligan.
+                  Dela koden eller länken med kollegor och vänner så kan de gå
+                  med i ligan direkt.
                 </p>
 
+                <div className="invite-small-link">{inviteDisplayUrl}</div>
+
                 <div className="copy-wrap">
-                  <CopyInvite
-                    inviteCode={league.invite_code}
-                    slug={league.slug}
-                  />
+                  <CopyInvite inviteCode={league.invite_code} slug={league.slug} />
                 </div>
               </section>
 
@@ -674,7 +689,8 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
 
             .status-card,
             .panel,
-            .stat-card {
+            .stat-card,
+            .invite-hero-card {
               background: rgba(5,12,18,0.78);
               border: 1px solid rgba(255,255,255,0.11);
               box-shadow: 0 22px 80px rgba(0,0,0,0.30);
@@ -719,11 +735,87 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
               color: #f3cf69;
             }
 
+            .invite-hero-card {
+              position: relative;
+              overflow: hidden;
+              margin-top: 36px;
+              padding: 26px;
+              border-radius: 28px;
+              display: grid;
+              grid-template-columns: 1fr auto;
+              gap: 24px;
+              align-items: center;
+              border-color: rgba(229,185,77,0.22);
+            }
+
+            .invite-hero-card::before {
+              content: "";
+              position: absolute;
+              inset: -80px -120px auto auto;
+              width: 260px;
+              height: 260px;
+              border-radius: 999px;
+              background: rgba(229,185,77,0.16);
+              filter: blur(34px);
+              pointer-events: none;
+            }
+
+            .invite-hero-copy {
+              position: relative;
+            }
+
+            .invite-hero-copy p {
+              margin: 0 0 10px;
+              color: #e5b94d;
+              font-size: 12px;
+              font-weight: 950;
+              letter-spacing: 0.16em;
+              text-transform: uppercase;
+            }
+
+            .invite-hero-copy h2 {
+              margin: 0;
+              max-width: 560px;
+              font-size: clamp(28px, 3vw, 42px);
+              line-height: 1.05;
+              letter-spacing: -0.055em;
+            }
+
+            .invite-hero-copy span {
+              display: block;
+              margin-top: 12px;
+              max-width: 560px;
+              color: rgba(255,255,255,0.58);
+              font-size: 15px;
+              line-height: 1.55;
+              font-weight: 750;
+            }
+
+            .invite-link-preview,
+            .invite-small-link {
+              margin-top: 16px;
+              padding: 12px 14px;
+              border-radius: 16px;
+              background: rgba(0,0,0,0.24);
+              border: 1px solid rgba(255,255,255,0.08);
+              color: rgba(255,255,255,0.72);
+              font-size: 13px;
+              font-weight: 850;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .invite-hero-action {
+              position: relative;
+              min-width: 210px;
+            }
+
             .stats-grid {
               display: grid;
               grid-template-columns: repeat(3, 1fr);
               gap: 16px;
-              margin-top: 42px;
+              margin-top: 18px;
             }
 
             .stat-card {
@@ -933,6 +1025,11 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
               line-height: 1.5;
             }
 
+            .invite-small-link {
+              margin-top: 12px;
+              font-size: 12px;
+            }
+
             .copy-wrap {
               margin-top: 16px;
             }
@@ -1028,7 +1125,9 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                 padding: 56px 18px 46px;
               }
 
-              .league-head {
+              .league-head,
+              .content-grid,
+              .invite-hero-card {
                 grid-template-columns: 1fr;
                 gap: 24px;
               }
@@ -1052,8 +1151,17 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                 width: 100%;
               }
 
-              .stats-grid,
-              .content-grid {
+              .invite-hero-card {
+                margin-top: 28px;
+                padding: 22px;
+              }
+
+              .invite-hero-action {
+                min-width: 0;
+                width: 100%;
+              }
+
+              .stats-grid {
                 grid-template-columns: 1fr;
               }
 
