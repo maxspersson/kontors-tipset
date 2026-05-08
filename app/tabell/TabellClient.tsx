@@ -6,12 +6,16 @@ import type { LeagueOption } from "./page";
 type Standing = {
   user_id: string;
   display_name: string;
-  email: string | null;
+  email: string |null;
   points: number;
   matchPoints: number;
   bracketPoints: number;
   exactScores: number;
   playedMatches: number;
+
+  rank: number;
+  previousRank: number | null;
+  movement: number;
 };
 
 export default function TabellClient({
@@ -173,9 +177,30 @@ export default function TabellClient({
                     </div>
 
                     <div className="player">
-                      <strong>{player.display_name}</strong>
-                      <small>{player.playedMatches} räknade matcher</small>
-                    </div>
+  <div className="player-top">
+    <strong>{player.display_name}</strong>
+
+    {player.movement > 0 && (
+      <span className="movement up">
+        ↑ {player.movement}
+      </span>
+    )}
+
+    {player.movement < 0 && (
+      <span className="movement down">
+        ↓ {Math.abs(player.movement)}
+      </span>
+    )}
+
+    {player.movement === 0 && player.previousRank && (
+      <span className="movement same">
+        —
+      </span>
+    )}
+  </div>
+
+  <small>{player.playedMatches} räknade matcher</small>
+</div>
 
                     <div className="points">{player.points}</div>
 
@@ -507,10 +532,16 @@ export default function TabellClient({
               font-weight: 950;
             }
 
-            .player strong {
-              display: block;
-              font-size: 17px;
-            }
+            .player-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.player strong {
+  display: block;
+  font-size: 17px;
+}
 
             .player small,
             .stat-cell small {
@@ -532,6 +563,37 @@ export default function TabellClient({
               font-size: 17px;
               font-weight: 950;
             }
+
+            .movement {
+  height: 24px;
+  min-width: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+}
+
+.movement.up {
+  background: rgba(34,197,94,0.16);
+  color: #4ade80;
+  border: 1px solid rgba(34,197,94,0.25);
+}
+
+.movement.down {
+  background: rgba(239,68,68,0.14);
+  color: #f87171;
+  border: 1px solid rgba(239,68,68,0.24);
+}
+
+.movement.same {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.48);
+  border: 1px solid rgba(255,255,255,0.08);
+}
 
             @media (max-width: 900px) {
               .table-wrap {

@@ -45,6 +45,12 @@ type SnapshotPrediction = {
   };
 };
 
+type StandingSnapshot = {
+  user_id: string;
+  rank: number;
+  created_at: string;
+};
+
 type TeamRow = {
   team: string;
   group: string;
@@ -766,8 +772,48 @@ export async function GET(request: Request) {
     return a.display_name.localeCompare(b.display_name);
   });
 
+      const { data: snapshots } = await supabase
+    .from("league_standing_snapshots")
+    .select("user_id, rank, created_at")
+    .eq("league_id", leagueId)
+    .in("user_id", submittedUserIds)
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  const snapshotRows = (snapshots ?? []) as StandingSnapshot[];
+
+  const snapshotTimes = Array.from(
+    new Set(snapshotRows.map((snapshot) => snapshot.created_at))
+  ).sort(
+    (a, b) => new Date(b).getTime() - new Date(a).getTime()
+  );
+
+  const comparisonTime = snapshotTimes[1] ?? snapshotTimes[0] ?? null;
+
+  const previousRankByUserId = new Map<string, number>();
+
+  if (comparisonTime) {
+    snapshotRows
+      .filter((snapshot) => snapshot.created_at === comparisonTime)
+      .forEach((snapshot) => {
+        previousRankByUserId.set(snapshot.user_id, snapshot.rank);
+      });
+  }
+
+  const standingsWithMovement = standings.map((player, index) => {
+    const currentRank = index + 1;
+    const previousRank = previousRankByUserId.get(player.user_id) ?? null;
+
+    return {
+      ...player,
+      rank: currentRank,
+      previousRank,
+      movement: previousRank ? previousRank - currentRank : 0,
+    };
+  });
+
   return NextResponse.json({
     success: true,
-    standings,
+    standings: standingsWithMovement,
   });
 }

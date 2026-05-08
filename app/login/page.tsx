@@ -133,15 +133,20 @@ export default function LoginPage() {
               </div>
 
               <button
-                type="button"
-                onClick={handleGoogleLogin}
-                disabled={googleLoading}
-                className="google-btn"
-              >
-                {googleLoading ? "Öppnar Google..." : "Fortsätt med Google"}
-              </button>
+  type="button"
+  onClick={handleGoogleLogin}
+  disabled={googleLoading}
+  className="google-btn"
+>
+  {googleLoading ? "Öppnar Google..." : "Fortsätt med Google"}
+</button>
 
-              <div className="divider">
+<p className="login-browser-note">
+  Google-inloggning kan blockeras i Messenger. Öppna sidan i Safari eller
+  Chrome om det inte fungerar.
+</p>
+
+<div className="divider">
                 <span>eller</span>
               </div>
 
@@ -377,6 +382,13 @@ export default function LoginPage() {
             .google-btn:hover {
               background: rgba(255,255,255,0.10);
             }
+
+            .login-browser-note {
+  margin: 10px 2px 0;
+  color: rgba(255,255,255,0.46);
+  font-size: 12px;
+  line-height: 1.45;
+}
 
             .google-btn:disabled,
             .submit-btn:disabled {
