@@ -9,20 +9,49 @@ export default function LoginPage() {
   const supabase = createClient();
   const router = useRouter();
 
+  const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
+  async function handleEmailAuth(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setErrorMessage("");
+    setSuccessMessage("");
 
-    const { error } = await supabase.auth.signInWithPassword({
+    if (mode === "login") {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setErrorMessage(
+          error.message === "Invalid login credentials"
+            ? "Fel e-post eller lösenord. Om du är ny behöver du skapa ett konto först."
+            : error.message
+        );
+        setLoading(false);
+        return;
+      }
+
+      router.push("/");
+      router.refresh();
+      return;
+    }
+
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+    const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: `${origin}/auth/callback`,
+      },
     });
 
     if (error) {
@@ -31,13 +60,17 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/");
-    router.refresh();
+    setSuccessMessage(
+      "Kontot är skapat. Kontrollera din e-post och verifiera kontot innan du loggar in."
+    );
+    setMode("login");
+    setLoading(false);
   }
 
   async function handleGoogleLogin() {
     setGoogleLoading(true);
     setErrorMessage("");
+    setSuccessMessage("");
 
     const origin = typeof window !== "undefined" ? window.location.origin : "";
 
@@ -61,7 +94,11 @@ export default function LoginPage() {
           <div className="login-grid">
             <div className="login-copy">
               <p className="eyebrow">Kontors-tipset</p>
-              <h1>Logga in och börja tippa.</h1>
+              <h1>
+                {mode === "login"
+                  ? "Logga in och börja tippa."
+                  : "Skapa konto och starta tipset."}
+              </h1>
               <p className="intro">
                 Skapa ligor, gå med i kompisgängets VM-tips och håll koll på
                 tabellen hela vägen till final.
@@ -90,7 +127,7 @@ export default function LoginPage() {
               <div className="card-top">
                 <div>
                   <p>VM 2026</p>
-                  <h2>Logga in</h2>
+                  <h2>{mode === "login" ? "Logga in" : "Skapa konto"}</h2>
                 </div>
                 <span>KT</span>
               </div>
@@ -108,7 +145,7 @@ export default function LoginPage() {
                 <span>eller</span>
               </div>
 
-              <form onSubmit={handleLogin}>
+              <form onSubmit={handleEmailAuth}>
                 <label>E-post</label>
                 <input
                   type="email"
@@ -127,20 +164,40 @@ export default function LoginPage() {
                   required
                 />
 
-                <Link href="/forgot-password" className="forgot-link">
-                  Glömt lösenord?
-                </Link>
+                {mode === "login" && (
+                  <Link href="/forgot-password" className="forgot-link">
+                    Glömt lösenord?
+                  </Link>
+                )}
 
                 {errorMessage && <div className="error-box">{errorMessage}</div>}
+                {successMessage && (
+                  <div className="success-box">{successMessage}</div>
+                )}
 
                 <button type="submit" disabled={loading} className="submit-btn">
-                  {loading ? "Loggar in..." : "Logga in med e-post →"}
+                  {loading
+                    ? mode === "login"
+                      ? "Loggar in..."
+                      : "Skapar konto..."
+                    : mode === "login"
+                    ? "Logga in med e-post →"
+                    : "Skapa konto med e-post →"}
                 </button>
               </form>
 
               <div className="helper">
-                <p>Ny här?</p>
-                <Link href="/liga">Skapa en liga</Link>
+                <p>{mode === "login" ? "Ny här?" : "Har du redan konto?"}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode(mode === "login" ? "signup" : "login");
+                    setErrorMessage("");
+                    setSuccessMessage("");
+                  }}
+                >
+                  {mode === "login" ? "Skapa konto" : "Logga in"}
+                </button>
               </div>
             </div>
           </div>
@@ -405,14 +462,25 @@ export default function LoginPage() {
               box-shadow: 0 18px 50px rgba(218,169,53,0.25);
             }
 
-            .error-box {
+            .error-box,
+            .success-box {
               margin-top: 16px;
               padding: 14px;
               border-radius: 14px;
+              font-size: 14px;
+              line-height: 1.45;
+            }
+
+            .error-box {
               border: 1px solid rgba(248,113,113,0.30);
               background: rgba(248,113,113,0.08);
               color: #fca5a5;
-              font-size: 14px;
+            }
+
+            .success-box {
+              border: 1px solid rgba(74,222,128,0.30);
+              background: rgba(74,222,128,0.08);
+              color: #86efac;
             }
 
             .helper {
@@ -431,11 +499,20 @@ export default function LoginPage() {
               font-size: 14px;
             }
 
-            .helper a {
+            .helper button {
+              padding: 0;
+              border: 0;
+              background: transparent;
               color: #e5b94d;
               text-decoration: none;
               font-size: 14px;
               font-weight: 900;
+              font-family: inherit;
+              cursor: pointer;
+            }
+
+            .helper button:hover {
+              color: #f3cf69;
             }
 
             @media (max-width: 900px) {
@@ -452,24 +529,44 @@ export default function LoginPage() {
               }
 
               .login-grid {
-                grid-template-columns: 1fr;
-                gap: 30px;
+                display: flex;
+                flex-direction: column;
+                gap: 26px;
+              }
+
+              .login-copy {
+                display: contents;
+              }
+
+              .eyebrow {
+                order: 1;
               }
 
               .login-copy h1 {
+                order: 2;
                 font-size: 48px;
                 line-height: 1.04;
                 max-width: 360px;
               }
 
               .intro {
+                order: 3;
                 font-size: 16px;
                 max-width: 350px;
               }
 
+              .login-card {
+                order: 4;
+                padding: 20px;
+                border-radius: 24px;
+                width: 100%;
+              }
+
               .mini-grid {
+                order: 5;
                 grid-template-columns: 1fr;
-                margin-top: 30px;
+                margin-top: 4px;
+                width: 100%;
               }
 
               .mini-grid div {
@@ -478,11 +575,6 @@ export default function LoginPage() {
 
               .mini-grid strong {
                 margin-top: 16px;
-              }
-
-              .login-card {
-                padding: 20px;
-                border-radius: 24px;
               }
 
               .card-top h2 {

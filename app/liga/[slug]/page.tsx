@@ -1,4 +1,6 @@
+import LeagueDangerAction from "@/app/components/LeagueDangerAction";
 import { createClient } from "@/app/lib/supabase/server";
+import { formatKickoff } from "@/app/lib/formatDate";
 import CopyInvite from "@/app/components/CopyInvite";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -33,6 +35,10 @@ type LeagueSubmissionRow = SubmissionRow & {
   total_predictions_count: number | null;
 };
 
+type LeagueMatch = MatchRow & {
+  kickoff_utc: string;
+};
+
 function getDisplayName(profile?: MemberProfile) {
   return profile?.display_name || profile?.email?.split("@")[0] || "Spelare";
 }
@@ -44,6 +50,64 @@ function getInitials(name: string) {
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
 
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
+function getSwedishTeamName(name: string) {
+  const normalizedName = name.trim().toLowerCase();
+
+  const map: Record<string, string> = {
+    mexico: "Mexiko",
+    "south africa": "Sydafrika",
+    germany: "Tyskland",
+    sweden: "Sverige",
+    france: "Frankrike",
+    england: "England",
+    brazil: "Brasilien",
+    argentina: "Argentina",
+    portugal: "Portugal",
+    spain: "Spanien",
+    netherlands: "Nederländerna",
+    switzerland: "Schweiz",
+    belgium: "Belgien",
+    norway: "Norge",
+    denmark: "Danmark",
+    japan: "Japan",
+    australia: "Australien",
+    canada: "Kanada",
+    croatia: "Kroatien",
+    ghana: "Ghana",
+    panama: "Panama",
+    uruguay: "Uruguay",
+    "saudi arabia": "Saudiarabien",
+    iraq: "Irak",
+    senegal: "Senegal",
+    qatar: "Qatar",
+    ecuador: "Ecuador",
+    tunisia: "Tunisien",
+    morocco: "Marocko",
+    scotland: "Skottland",
+    haiti: "Haiti",
+    colombia: "Colombia",
+    "congo dr": "Kongo DR",
+    uzbekistan: "Uzbekistan",
+    austria: "Österrike",
+    jordan: "Jordanien",
+    algeria: "Algeriet",
+    "bosnia-herzegovina": "Bosnien-Hercegovina",
+    "korea republic": "Sydkorea",
+    czechia: "Tjeckien",
+    egypt: "Egypten",
+    "new zealand": "Nya Zeeland",
+    "ir iran": "Iran",
+    türkiye: "Turkiet",
+    usa: "USA",
+    paraguay: "Paraguay",
+    curaçao: "Curacao",
+    "côte d'ivoire": "Elfenbenskusten",
+    "cabo verde": "Kap Verde",
+  };
+
+  return map[normalizedName] ?? name;
 }
 
 export default async function LeagueDetailPage({ params }: LeaguePageProps) {
@@ -59,11 +123,11 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   }
 
   const { data: league, error: leagueError } = await supabase
-  .from("leagues")
-  .select("id, name, slug, invite_code")
-  .eq("slug", slug)
-  .eq("is_archived", false)
-  .maybeSingle();
+    .from("leagues")
+    .select("id, name, slug, invite_code, owner_user_id")
+    .eq("slug", slug)
+    .eq("is_archived", false)
+    .maybeSingle();
 
   if (leagueError || !league) {
     return (
@@ -83,6 +147,8 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
       </main>
     );
   }
+
+  const isOwner = league.owner_user_id === user.id;
 
   const { data: currentMembership } = await supabase
     .from("league_members")
@@ -148,13 +214,45 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   const { data: matches } = await supabase
     .from("matches")
     .select(
-      "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score"
+      "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score, kickoff_utc"
     );
+
+  const matchRows = ((matches ?? []) as LeagueMatch[]).sort(
+    (a, b) =>
+      new Date(a.kickoff_utc).getTime() - new Date(b.kickoff_utc).getTime()
+  );
+
+  const nowTime = Date.now();
+
+  const latestStartedMatch =
+    [...matchRows]
+      .filter((match) => new Date(match.kickoff_utc).getTime() <= nowTime)
+      .sort(
+        (a, b) =>
+          new Date(b.kickoff_utc).getTime() - new Date(a.kickoff_utc).getTime()
+      )[0] ?? null;
+
+  const nextUpcomingMatch =
+    matchRows.find((match) => new Date(match.kickoff_utc).getTime() > nowTime) ??
+    null;
+
+  const featuredMatch = latestStartedMatch ?? nextUpcomingMatch;
+
+  const hasFeaturedMatchStarted = featuredMatch
+    ? new Date(featuredMatch.kickoff_utc).getTime() <= nowTime
+    : false;
+
+  const predictionMap = new Map(
+    predictions.map((prediction) => [
+      `${prediction.user_id}-${prediction.match_id}`,
+      prediction,
+    ])
+  );
 
   const standings = calculateStandings({
     submissions: submissionRows,
     predictions,
-    matches: (matches ?? []) as MatchRow[],
+    matches: matchRows as MatchRow[],
     profiles: profiles as ProfileRow[],
   });
 
@@ -295,6 +393,70 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
             </section>
 
             <aside className="side-stack">
+              {featuredMatch && (
+                <section className="panel match-picks-panel">
+                  <div className="panel-head">
+                    <div>
+                      <p>
+                        {hasFeaturedMatchStarted
+                          ? "Aktuell match"
+                          : "Nästa match"}
+                      </p>
+                      <h2>
+                        {getSwedishTeamName(featuredMatch.home_team)} vs{" "}
+                        {getSwedishTeamName(featuredMatch.away_team)}
+                      </h2>
+                    </div>
+                  </div>
+
+                  <p className="match-time">
+                    Avspark {formatKickoff(featuredMatch.kickoff_utc)}
+                  </p>
+
+                  {!hasFeaturedMatchStarted ? (
+                    <div className="locked-picks">
+                      Tipsen visas när matchen har börjat.
+                    </div>
+                  ) : (
+                    <details className="picks-details">
+                      <summary>Så här tippade ligan</summary>
+
+                      <div className="picks-list">
+                        {memberRows.map((member) => {
+                          const profile = profileMap.get(member.user_id);
+                          const displayName = getDisplayName(profile);
+                          const hasSubmitted = submittedUserSet.has(
+                            member.user_id
+                          );
+                          const prediction = predictionMap.get(
+                            `${member.user_id}-${featuredMatch.id}`
+                          );
+
+                          return (
+                            <div key={member.id} className="pick-row">
+                              <div>
+                                <strong>{displayName}</strong>
+                                <span>
+                                  {hasSubmitted
+                                    ? "Inskickat tips"
+                                    : "Inte inskickat"}
+                                </span>
+                              </div>
+
+                              <em>
+                                {hasSubmitted && prediction
+                                  ? `${prediction.predicted_home_score}–${prediction.predicted_away_score}`
+                                  : "—"}
+                              </em>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  )}
+                </section>
+              )}
+
               <section className="panel invite-panel">
                 <div className="panel-head">
                   <div>
@@ -367,6 +529,39 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                   </div>
                 )}
               </section>
+
+              {isMember && (
+                <section className="panel danger-panel">
+                  <div className="panel-head">
+                    <div>
+                      <p>Ligainställningar</p>
+                      <h2>{isOwner ? "Ägare" : "Medlem"}</h2>
+                    </div>
+                  </div>
+
+                  {isOwner ? (
+                    <>
+                      <p className="danger-note">
+                        Arkivera ligan om den är skapad av misstag eller inte
+                        längre ska användas. Den tas bort från alla listor men
+                        datan raderas inte.
+                      </p>
+
+                      <LeagueDangerAction leagueId={league.id} action="archive" />
+                    </>
+                  ) : (
+                    <>
+                      <p className="danger-note">
+                        Om du lämnar ligan försvinner den från dina ligor. Dina
+                        gamla tips kan finnas kvar i databasen, men du ser inte
+                        längre ligan.
+                      </p>
+
+                      <LeagueDangerAction leagueId={league.id} action="leave" />
+                    </>
+                  )}
+                </section>
+              )}
             </aside>
           </div>
         </div>
@@ -577,6 +772,78 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
               letter-spacing: -0.04em;
             }
 
+            .match-time {
+              margin: -6px 0 14px;
+              color: rgba(255,255,255,0.56);
+              font-size: 13px;
+              font-weight: 800;
+            }
+
+            .locked-picks {
+              padding: 15px;
+              border-radius: 16px;
+              background: rgba(229,185,77,0.10);
+              border: 1px solid rgba(229,185,77,0.18);
+              color: #f3cf69;
+              font-size: 13px;
+              font-weight: 850;
+              line-height: 1.45;
+            }
+
+            .picks-details {
+              border-radius: 16px;
+              background: rgba(255,255,255,0.045);
+              border: 1px solid rgba(255,255,255,0.08);
+              overflow: hidden;
+            }
+
+            .picks-details summary {
+              padding: 15px;
+              color: #e5b94d;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 950;
+              list-style-position: inside;
+            }
+
+            .picks-list {
+              display: grid;
+              gap: 8px;
+              padding: 0 12px 12px;
+            }
+
+            .pick-row {
+              display: grid;
+              grid-template-columns: 1fr auto;
+              gap: 12px;
+              align-items: center;
+              padding: 12px;
+              border-radius: 14px;
+              background: rgba(0,0,0,0.22);
+              border: 1px solid rgba(255,255,255,0.06);
+            }
+
+            .pick-row strong {
+              display: block;
+              font-size: 13px;
+            }
+
+            .pick-row span {
+              display: block;
+              margin-top: 4px;
+              color: rgba(255,255,255,0.38);
+              font-size: 11px;
+              font-weight: 800;
+            }
+
+            .pick-row em {
+              color: #e5b94d;
+              font-style: normal;
+              font-size: 18px;
+              font-weight: 950;
+              white-space: nowrap;
+            }
+
             .empty-state,
             .error-state {
               padding: 18px;
@@ -658,7 +925,8 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
               letter-spacing: 0.12em;
             }
 
-            .invite-note {
+            .invite-note,
+            .danger-note {
               margin: 12px 0 0;
               color: rgba(255,255,255,0.52);
               font-size: 13px;
@@ -731,6 +999,28 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
 
             .pending {
               color: #f3cf69;
+            }
+
+            .danger-panel {
+              border-color: rgba(248,113,113,0.20);
+              background: rgba(22,7,10,0.50);
+            }
+
+            .danger-button {
+              width: 100%;
+              height: 48px;
+              margin-top: 16px;
+              border: 1px solid rgba(248,113,113,0.35);
+              border-radius: 14px;
+              background: rgba(248,113,113,0.10);
+              color: #fca5a5;
+              font-size: 14px;
+              font-weight: 950;
+              cursor: pointer;
+            }
+
+            .danger-button:hover {
+              background: rgba(248,113,113,0.16);
             }
 
             @media (max-width: 900px) {
