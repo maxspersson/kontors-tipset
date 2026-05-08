@@ -6,17 +6,97 @@ import type { LeagueOption } from "./page";
 type Standing = {
   user_id: string;
   display_name: string;
-  email: string |null;
+  email: string | null;
   points: number;
   matchPoints: number;
   bracketPoints: number;
   exactScores: number;
   playedMatches: number;
-
   rank: number;
   previousRank: number | null;
   movement: number;
 };
+
+const demoStandings: Standing[] = [
+  {
+    user_id: "demo-1",
+    display_name: "Maja",
+    email: null,
+    points: 31,
+    matchPoints: 31,
+    bracketPoints: 0,
+    exactScores: 3,
+    playedMatches: 7,
+    rank: 1,
+    previousRank: 3,
+    movement: 2,
+  },
+  {
+    user_id: "demo-2",
+    display_name: "Johan",
+    email: null,
+    points: 28,
+    matchPoints: 28,
+    bracketPoints: 0,
+    exactScores: 2,
+    playedMatches: 7,
+    rank: 2,
+    previousRank: 1,
+    movement: -1,
+  },
+  {
+    user_id: "demo-3",
+    display_name: "Sara",
+    email: null,
+    points: 24,
+    matchPoints: 24,
+    bracketPoints: 0,
+    exactScores: 2,
+    playedMatches: 7,
+    rank: 3,
+    previousRank: 2,
+    movement: -1,
+  },
+  {
+    user_id: "demo-4",
+    display_name: "Alex",
+    email: null,
+    points: 19,
+    matchPoints: 19,
+    bracketPoints: 0,
+    exactScores: 1,
+    playedMatches: 7,
+    rank: 4,
+    previousRank: 4,
+    movement: 0,
+  },
+  {
+    user_id: "demo-5",
+    display_name: "Nina",
+    email: null,
+    points: 16,
+    matchPoints: 16,
+    bracketPoints: 0,
+    exactScores: 1,
+    playedMatches: 7,
+    rank: 5,
+    previousRank: 6,
+    movement: 1,
+  },
+  {
+    user_id: "demo-6",
+    display_name: "Oskar",
+    email: null,
+    points: 12,
+    matchPoints: 12,
+    bracketPoints: 0,
+    exactScores: 0,
+    playedMatches: 7,
+    rank: 6,
+    previousRank: 5,
+    movement: -1,
+  },
+];
 
 export default function TabellClient({
   leagues,
@@ -29,26 +109,36 @@ export default function TabellClient({
   const [standings, setStandings] = useState<Standing[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState("");
+  const [isDemoMovement, setIsDemoMovement] = useState(false);
 
   const leader = standings[0];
 
   useEffect(() => {
-    if (!selectedLeagueId) return;
+    const params = new URLSearchParams(window.location.search);
+    const demoMode = params.get("demoMovement") === "1";
+
+    setIsDemoMovement(demoMode);
+
+    if (demoMode) {
+      setStandings(demoStandings);
+      setStatus("");
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!selectedLeagueId || isDemoMovement) return;
 
     let isActive = true;
 
     async function loadStandings(showLoading = false) {
-      if (showLoading) {
-        setIsLoading(true);
-      }
+      if (showLoading) setIsLoading(true);
 
       setStatus("");
 
       const response = await fetch(
         `/api/league-standings?leagueId=${selectedLeagueId}`,
-        {
-          cache: "no-store",
-        }
+        { cache: "no-store" }
       );
 
       const text = await response.text();
@@ -83,11 +173,28 @@ export default function TabellClient({
       isActive = false;
       window.clearInterval(interval);
     };
-  }, [selectedLeagueId]);
+  }, [selectedLeagueId, isDemoMovement]);
 
   const selectedLeagueName = useMemo(() => {
+    if (isDemoMovement) return "Demo League";
     return leagues.find((league) => league.id === selectedLeagueId)?.name;
-  }, [leagues, selectedLeagueId]);
+  }, [leagues, selectedLeagueId, isDemoMovement]);
+
+  function renderMovement(player: Standing) {
+    if (player.movement > 0) {
+      return <span className="movement up">↑ {player.movement}</span>;
+    }
+
+    if (player.movement < 0) {
+      return <span className="movement down">↓ {Math.abs(player.movement)}</span>;
+    }
+
+    if (player.previousRank) {
+      return <span className="movement same">—</span>;
+    }
+
+    return null;
+  }
 
   return (
     <main className="table-page">
@@ -102,15 +209,19 @@ export default function TabellClient({
                 slutspelspoäng och fullträffar från inskickade tips.
               </p>
 
-              {leagues.length > 1 && (
+              {isDemoMovement && (
+                <div className="demo-notice">
+                  Demo-läge: movement visas med fejkade spelare. Databasen påverkas inte.
+                </div>
+              )}
+
+              {!isDemoMovement && leagues.length > 1 && (
                 <div className="league-switcher">
                   <label htmlFor="league-select">Välj liga</label>
                   <select
                     id="league-select"
                     value={selectedLeagueId}
-                    onChange={(event) =>
-                      setSelectedLeagueId(event.target.value)
-                    }
+                    onChange={(event) => setSelectedLeagueId(event.target.value)}
                   >
                     {leagues.map((league) => (
                       <option key={league.id} value={league.id}>
@@ -121,12 +232,19 @@ export default function TabellClient({
                 </div>
               )}
 
-              {leagues.length === 1 && (
+              {(isDemoMovement || leagues.length === 1) && (
                 <p className="selected-league">{selectedLeagueName}</p>
               )}
             </div>
 
-            <strong>{leader ? leader.display_name : "Ingen ännu"}</strong>
+            <div className="leader-card">
+              <p>Leder just nu</p>
+              <strong>{leader ? leader.display_name : "Ingen ännu"}</strong>
+              <span>{leader ? `${leader.points} poäng` : "0 poäng"}</span>
+              <small className="live-refresh">
+                {isDemoMovement ? "Demo-data" : "Uppdateras automatiskt"}
+              </small>
+            </div>
           </div>
 
           {isLoading && <div className="table-status">Hämtar tabellen...</div>}
@@ -177,30 +295,12 @@ export default function TabellClient({
                     </div>
 
                     <div className="player">
-  <div className="player-top">
-    <strong>{player.display_name}</strong>
-
-    {player.movement > 0 && (
-      <span className="movement up">
-        ↑ {player.movement}
-      </span>
-    )}
-
-    {player.movement < 0 && (
-      <span className="movement down">
-        ↓ {Math.abs(player.movement)}
-      </span>
-    )}
-
-    {player.movement === 0 && player.previousRank && (
-      <span className="movement same">
-        —
-      </span>
-    )}
-  </div>
-
-  <small>{player.playedMatches} räknade matcher</small>
-</div>
+                      <div className="player-top">
+                        <strong>{player.display_name}</strong>
+                        {renderMovement(player)}
+                      </div>
+                      <small>{player.playedMatches} räknade matcher</small>
+                    </div>
 
                     <div className="points">{player.points}</div>
 
@@ -297,6 +397,19 @@ export default function TabellClient({
               line-height: 1.65;
             }
 
+            .demo-notice {
+              margin-top: 22px;
+              max-width: 560px;
+              padding: 14px 16px;
+              border-radius: 18px;
+              background: rgba(229,185,77,0.10);
+              border: 1px solid rgba(229,185,77,0.24);
+              color: rgba(255,255,255,0.78);
+              font-size: 14px;
+              font-weight: 750;
+              line-height: 1.5;
+            }
+
             .league-switcher {
               margin-top: 24px;
               display: flex;
@@ -366,23 +479,23 @@ export default function TabellClient({
             }
 
             .live-refresh {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 14px;
-  color: rgba(255,255,255,0.46);
-  font-size: 12px;
-  font-weight: 850;
-}
+              display: inline-flex;
+              align-items: center;
+              gap: 7px;
+              margin-top: 14px;
+              color: rgba(255,255,255,0.46);
+              font-size: 12px;
+              font-weight: 850;
+            }
 
-.live-refresh::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: #86efac;
-  box-shadow: 0 0 18px rgba(134,239,172,0.55);
-}
+            .live-refresh::before {
+              content: "";
+              width: 7px;
+              height: 7px;
+              border-radius: 999px;
+              background: #86efac;
+              box-shadow: 0 0 18px rgba(134,239,172,0.55);
+            }
 
             .table-status {
               margin-top: 32px;
@@ -475,41 +588,38 @@ export default function TabellClient({
             }
 
             .table-row {
-  display: grid;
-  grid-template-columns: 110px 1.3fr 110px 120px 120px 120px;
-  gap: 16px;
-  align-items: center;
-  padding: 18px 24px;
-  border-bottom: 1px solid rgba(255,255,255,0.075);
-  transition:
-    background 160ms ease,
-    transform 160ms ease,
-    border-color 160ms ease;
-}
+              display: grid;
+              grid-template-columns: 110px 1.3fr 110px 120px 120px 120px;
+              gap: 16px;
+              align-items: center;
+              padding: 18px 24px;
+              border-bottom: 1px solid rgba(255,255,255,0.075);
+              transition: background 160ms ease, transform 160ms ease, border-color 160ms ease;
+            }
 
-.table-row:last-child {
-  border-bottom: 0;
-}
+            .table-row:last-child {
+              border-bottom: 0;
+            }
 
-.table-row:hover {
-  transform: translateX(4px);
-  background: rgba(255,255,255,0.055);
-}
+            .table-row:hover {
+              transform: translateX(4px);
+              background: rgba(255,255,255,0.055);
+            }
 
-.table-row.top-1 {
-  background: rgba(229,185,77,0.10);
-  border-left: 3px solid #f3cf69;
-}
+            .table-row.top-1 {
+              background: rgba(229,185,77,0.10);
+              border-left: 3px solid #f3cf69;
+            }
 
-.table-row.top-2 {
-  background: rgba(255,255,255,0.055);
-  border-left: 3px solid #d1d5db;
-}
+            .table-row.top-2 {
+              background: rgba(255,255,255,0.055);
+              border-left: 3px solid #d1d5db;
+            }
 
-.table-row.top-3 {
-  background: rgba(180,120,60,0.08);
-  border-left: 3px solid #c08457;
-}
+            .table-row.top-3 {
+              background: rgba(180,120,60,0.08);
+              border-left: 3px solid #c08457;
+            }
 
             .table-header {
               color: rgba(255,255,255,0.38);
@@ -533,15 +643,16 @@ export default function TabellClient({
             }
 
             .player-top {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              flex-wrap: wrap;
+            }
 
-.player strong {
-  display: block;
-  font-size: 17px;
-}
+            .player strong {
+              display: block;
+              font-size: 17px;
+            }
 
             .player small,
             .stat-cell small {
@@ -565,35 +676,35 @@ export default function TabellClient({
             }
 
             .movement {
-  height: 24px;
-  min-width: 24px;
-  padding: 0 9px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 950;
-  letter-spacing: 0.04em;
-}
+              height: 24px;
+              min-width: 24px;
+              padding: 0 9px;
+              border-radius: 999px;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 11px;
+              font-weight: 950;
+              letter-spacing: 0.04em;
+            }
 
-.movement.up {
-  background: rgba(34,197,94,0.16);
-  color: #4ade80;
-  border: 1px solid rgba(34,197,94,0.25);
-}
+            .movement.up {
+              background: rgba(34,197,94,0.16);
+              color: #4ade80;
+              border: 1px solid rgba(34,197,94,0.25);
+            }
 
-.movement.down {
-  background: rgba(239,68,68,0.14);
-  color: #f87171;
-  border: 1px solid rgba(239,68,68,0.24);
-}
+            .movement.down {
+              background: rgba(239,68,68,0.14);
+              color: #f87171;
+              border: 1px solid rgba(239,68,68,0.24);
+            }
 
-.movement.same {
-  background: rgba(255,255,255,0.06);
-  color: rgba(255,255,255,0.48);
-  border: 1px solid rgba(255,255,255,0.08);
-}
+            .movement.same {
+              background: rgba(255,255,255,0.06);
+              color: rgba(255,255,255,0.48);
+              border: 1px solid rgba(255,255,255,0.08);
+            }
 
             @media (max-width: 900px) {
               .table-wrap {
@@ -637,10 +748,6 @@ export default function TabellClient({
                 grid-template-columns: 46px 1fr auto;
                 gap: 12px;
                 padding: 16px;
-              }
-
-              .player small {
-                display: block;
               }
 
               .points {

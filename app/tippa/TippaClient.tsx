@@ -185,11 +185,29 @@ const laterRoundSlots: Record<number, [SeedSlot, SeedSlot]> = {
   ],
 };
 
-function isMatchLocked(kickoffUtc: string) {
-  const kickoff = new Date(kickoffUtc).getTime();
+function isLiveMatch(match: Match) {
+  return match.status === "live";
+}
+
+function isFinishedMatch(match: Match) {
+  return match.status === "finished";
+}
+
+function isMatchLocked(match: Match) {
+  if (isLiveMatch(match)) return true;
+  if (isFinishedMatch(match)) return true;
+
+  const kickoff = new Date(match.kickoff_utc).getTime();
   const lockTime = kickoff - 60 * 60 * 1000;
 
   return Date.now() >= lockTime;
+}
+
+function getMatchStatusText(match: Match, matchLocked: boolean) {
+  if (isLiveMatch(match)) return "Matchen spelas nu";
+  if (isFinishedMatch(match)) return "Slutspelad";
+  if (matchLocked) return "Låst 60 min före avspark";
+  return "Öppen för tips";
 }
 
 function isCompletePrediction(prediction?: { home: string; away: string }) {
@@ -259,21 +277,10 @@ function getSwedishTeamName(name: string) {
 }
 
 function getFriendlySlotLabel(label: string) {
-  if (/^W\d+$/.test(label)) {
-    return `Vinnare match ${label.replace("W", "")}`;
-  }
-
-  if (/^1[A-L]$/.test(label)) {
-    return `Vinnare grupp ${label.replace("1", "")}`;
-  }
-
-  if (/^2[A-L]$/.test(label)) {
-    return `Tvåa grupp ${label.replace("2", "")}`;
-  }
-
-  if (/^3[A-L]+$/.test(label)) {
-    return "Bästa grupptrea";
-  }
+  if (/^W\d+$/.test(label)) return `Vinnare match ${label.replace("W", "")}`;
+  if (/^1[A-L]$/.test(label)) return `Vinnare grupp ${label.replace("1", "")}`;
+  if (/^2[A-L]$/.test(label)) return `Tvåa grupp ${label.replace("2", "")}`;
+  if (/^3[A-L]+$/.test(label)) return "Bästa grupptrea";
 
   return "Ej klart";
 }
@@ -701,7 +708,7 @@ export default function TippaClient({
 
     if (!match) return;
 
-    if (match.stage === "group" && isMatchLocked(match.kickoff_utc)) return;
+    if (match.stage === "group" && isMatchLocked(match)) return;
     if (match.stage !== "group" && isPlayoffLocked) return;
 
     const onlyNumbers = value.replace(/\D/g, "");
@@ -1177,13 +1184,36 @@ export default function TippaClient({
 
               <div className="match-list">
                 {activeMatches.map((match) => {
-                  const matchLocked = isMatchLocked(match.kickoff_utc);
+                  const matchLocked = isMatchLocked(match);
 
                   return (
-                    <article key={match.id} className="match-card">
+                    <article
+                      key={match.id}
+                      className={[
+                        "match-card",
+                        isLiveMatch(match) ? "match-card-live" : "",
+                        isFinishedMatch(match) ? "match-card-finished" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    >
                       <div className="match-top">
                         <span>Match {match.fifa_match_number}</span>
-                        <time>{formatKickoff(match.kickoff_utc)}</time>
+
+                        <div className="match-top-right">
+                          {isLiveMatch(match) && (
+                            <span className="live-badge">
+                              <span className="live-dot" />
+                              LIVE
+                            </span>
+                          )}
+
+                          {isFinishedMatch(match) && (
+                            <span className="finished-badge">Klar</span>
+                          )}
+
+                          <time>{formatKickoff(match.kickoff_utc)}</time>
+                        </div>
                       </div>
 
                       <div className="match-main">
@@ -1222,10 +1252,18 @@ export default function TippaClient({
 
                       <div className="match-bottom">
                         <span>{match.city || "Arena kommer senare"}</span>
-                        <span>
-                          {matchLocked
-                            ? "Låst 60 min före avspark"
-                            : match.status}
+                        <span
+                          className={
+                            isLiveMatch(match)
+                              ? "match-status live"
+                              : isFinishedMatch(match)
+                                ? "match-status finished"
+                                : matchLocked
+                                  ? "match-status locked"
+                                  : "match-status open"
+                          }
+                        >
+                          {getMatchStatusText(match, matchLocked)}
                         </span>
                       </div>
                     </article>
@@ -1243,6 +1281,125 @@ export default function TippaClient({
           )}
         </div>
       </section>
+
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .match-card-live {
+              position: relative;
+              border-color: rgba(239,68,68,0.42) !important;
+              box-shadow:
+                0 0 0 1px rgba(239,68,68,0.18),
+                0 24px 80px rgba(239,68,68,0.16),
+                0 24px 90px rgba(0,0,0,0.42) !important;
+            }
+
+            .match-card-live::before {
+              content: "";
+              position: absolute;
+              inset: -1px;
+              border-radius: inherit;
+              pointer-events: none;
+              background: radial-gradient(circle at 50% 0%, rgba(239,68,68,0.20), transparent 42%);
+            }
+
+            .match-card-finished input,
+            .match-card-live input {
+              opacity: 0.7;
+              cursor: not-allowed;
+            }
+
+            .match-top-right {
+              display: inline-flex;
+              align-items: center;
+              gap: 10px;
+            }
+
+            .live-badge,
+            .finished-badge {
+              height: 24px;
+              padding: 0 10px;
+              border-radius: 999px;
+              display: inline-flex;
+              align-items: center;
+              gap: 7px;
+              font-size: 11px;
+              font-weight: 950;
+              letter-spacing: 0.12em;
+              text-transform: uppercase;
+            }
+
+            .live-badge {
+              color: #fecaca;
+              background: rgba(239,68,68,0.16);
+              border: 1px solid rgba(239,68,68,0.34);
+              box-shadow: 0 0 24px rgba(239,68,68,0.18);
+            }
+
+            .finished-badge {
+              color: rgba(255,255,255,0.62);
+              background: rgba(255,255,255,0.07);
+              border: 1px solid rgba(255,255,255,0.10);
+            }
+
+            .live-dot {
+              width: 7px;
+              height: 7px;
+              border-radius: 999px;
+              background: #ef4444;
+              box-shadow: 0 0 0 rgba(239,68,68,0.75);
+              animation: livePulse 1.4s infinite;
+            }
+
+            .match-status {
+              font-weight: 900;
+            }
+
+            .match-status.live {
+              color: #fca5a5;
+            }
+
+            .match-status.finished {
+              color: rgba(255,255,255,0.52);
+            }
+
+            .match-status.locked {
+              color: rgba(255,255,255,0.48);
+            }
+
+            .match-status.open {
+              color: #e5b94d;
+            }
+
+            @keyframes livePulse {
+              0% {
+                box-shadow: 0 0 0 0 rgba(239,68,68,0.72);
+              }
+
+              70% {
+                box-shadow: 0 0 0 8px rgba(239,68,68,0);
+              }
+
+              100% {
+                box-shadow: 0 0 0 0 rgba(239,68,68,0);
+              }
+            }
+
+            @media (max-width: 640px) {
+              .match-top-right {
+                gap: 7px;
+              }
+
+              .live-badge,
+              .finished-badge {
+                height: 22px;
+                padding: 0 8px;
+                font-size: 10px;
+              }
+            }
+          `,
+        }}
+      />
     </main>
   );
 }
