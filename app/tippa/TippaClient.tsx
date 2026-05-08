@@ -32,6 +32,13 @@ type GroupTableRow = {
   points: number;
 };
 
+type GroupTable = {
+  group: string;
+  table: GroupTableRow[];
+  completedMatches: number;
+  totalMatches: number;
+};
+
 type SeedSlot =
   | { type: "group_position"; position: 1 | 2; group: string; label: string }
   | { type: "best_third"; groups: string[]; label: string }
@@ -193,6 +200,84 @@ function isGroupTableRow(row: GroupTableRow | undefined): row is GroupTableRow {
   return !!row;
 }
 
+function getSwedishTeamName(name: string) {
+  const normalizedName = name.trim().toLowerCase();
+
+  const map: Record<string, string> = {
+    mexico: "Mexiko",
+    "south africa": "Sydafrika",
+    germany: "Tyskland",
+    sweden: "Sverige",
+    france: "Frankrike",
+    england: "England",
+    brazil: "Brasilien",
+    argentina: "Argentina",
+    portugal: "Portugal",
+    spain: "Spanien",
+    netherlands: "Nederländerna",
+    switzerland: "Schweiz",
+    belgium: "Belgien",
+    norway: "Norge",
+    denmark: "Danmark",
+    japan: "Japan",
+    australia: "Australien",
+    canada: "Kanada",
+    croatia: "Kroatien",
+    ghana: "Ghana",
+    panama: "Panama",
+    uruguay: "Uruguay",
+    "saudi arabia": "Saudiarabien",
+    iraq: "Irak",
+    senegal: "Senegal",
+    qatar: "Qatar",
+    ecuador: "Ecuador",
+    tunisia: "Tunisien",
+    morocco: "Marocko",
+    scotland: "Skottland",
+    haiti: "Haiti",
+    colombia: "Colombia",
+    "congo dr": "Kongo DR",
+    uzbekistan: "Uzbekistan",
+    austria: "Österrike",
+    jordan: "Jordanien",
+    algeria: "Algeriet",
+    "bosnia-herzegovina": "Bosnien-Hercegovina",
+    "korea republic": "Sydkorea",
+    czechia: "Tjeckien",
+    egypt: "Egypten",
+    "new zealand": "Nya Zeeland",
+    "ir iran": "Iran",
+    türkiye: "Turkiet",
+    usa: "USA",
+    paraguay: "Paraguay",
+    curaçao: "Curacao",
+    "côte d'ivoire": "Elfenbenskusten",
+    "cabo verde": "Kap Verde",
+  };
+
+  return map[normalizedName] ?? name;
+}
+
+function getFriendlySlotLabel(label: string) {
+  if (/^W\d+$/.test(label)) {
+    return `Vinnare match ${label.replace("W", "")}`;
+  }
+
+  if (/^1[A-L]$/.test(label)) {
+    return `Vinnare grupp ${label.replace("1", "")}`;
+  }
+
+  if (/^2[A-L]$/.test(label)) {
+    return `Tvåa grupp ${label.replace("2", "")}`;
+  }
+
+  if (/^3[A-L]+$/.test(label)) {
+    return "Bästa grupptrea";
+  }
+
+  return "Ej klart";
+}
+
 function createEmptyRow(
   team: string,
   code: string | null,
@@ -300,13 +385,16 @@ function getWinner(
 }
 
 function resolveGroupPosition(
-  allGroupTables: { group: string; table: GroupTableRow[] }[],
+  allGroupTables: GroupTable[],
   group: string,
   position: 1 | 2
 ) {
-  return allGroupTables.find((item) => item.group === group)?.table[
-    position - 1
-  ];
+  const groupTable = allGroupTables.find((item) => item.group === group);
+
+  if (!groupTable) return undefined;
+  if (groupTable.completedMatches < groupTable.totalMatches) return undefined;
+
+  return groupTable.table[position - 1];
 }
 
 function buildBestThirdAssignment(thirdPlacedTeams: GroupTableRow[]) {
@@ -342,7 +430,7 @@ function resolveSlot({
   winnersByMatchNumber,
 }: {
   slot: SeedSlot;
-  allGroupTables: { group: string; table: GroupTableRow[] }[];
+  allGroupTables: GroupTable[];
   thirdAssignment: Map<string, GroupTableRow>;
   winnersByMatchNumber: Map<number, GroupTableRow>;
 }) {
@@ -364,7 +452,7 @@ function buildPlayoffRounds({
   predictions,
 }: {
   playoffMatches: Match[];
-  allGroupTables: { group: string; table: GroupTableRow[] }[];
+  allGroupTables: GroupTable[];
   thirdPlacedTeams: GroupTableRow[];
   predictions: PredictionState;
 }) {
@@ -551,6 +639,7 @@ export default function TippaClient({
         completedMatches: matchesInGroup.filter((match) =>
           isCompletePrediction(predictions[match.id])
         ).length,
+        totalMatches: matchesInGroup.length,
       };
     });
   }, [groupMatches, predictions]);
@@ -571,10 +660,12 @@ export default function TippaClient({
   const isEntireBracketComplete = completedPredictionsCount >= TOTAL_MATCHES;
 
   const groupWinners = allGroupTables
+    .filter((group) => group.completedMatches === group.totalMatches)
     .map((group) => group.table[0])
     .filter(isGroupTableRow);
 
   const thirdPlacedTeams = allGroupTables
+    .filter((group) => group.completedMatches === group.totalMatches)
     .map((group) => group.table[2])
     .filter(isGroupTableRow)
     .sort((a, b) => {
@@ -839,7 +930,9 @@ export default function TippaClient({
                   <p>gruppvinnare</p>
                 </div>
                 <div className={champion ? "champion-card" : ""}>
-                  <span>{champion ? champion.team : "Ej klart"}</span>
+                  <span>
+                    {champion ? getSwedishTeamName(champion.team) : "Ej klart"}
+                  </span>
                   <p>din mästare</p>
                 </div>
               </div>
@@ -885,12 +978,14 @@ export default function TippaClient({
                               >
                                 <div>
                                   <strong>
-                                    {match.teamA?.team ?? match.slotALabel}
+                                    {match.teamA
+                                      ? getSwedishTeamName(match.teamA.team)
+                                      : getFriendlySlotLabel(match.slotALabel)}
                                   </strong>
                                   <small>
                                     {match.teamA
                                       ? `Grupp ${match.teamA.group} · ${match.teamA.points} p`
-                                      : match.slotALabel}
+                                      : getFriendlySlotLabel(match.slotALabel)}
                                   </small>
                                 </div>
 
@@ -922,12 +1017,14 @@ export default function TippaClient({
                               >
                                 <div>
                                   <strong>
-                                    {match.teamB?.team ?? match.slotBLabel}
+                                    {match.teamB
+                                      ? getSwedishTeamName(match.teamB.team)
+                                      : getFriendlySlotLabel(match.slotBLabel)}
                                   </strong>
                                   <small>
                                     {match.teamB
                                       ? `Grupp ${match.teamB.group} · ${match.teamB.points} p`
-                                      : match.slotBLabel}
+                                      : getFriendlySlotLabel(match.slotBLabel)}
                                   </small>
                                 </div>
 
@@ -1052,7 +1149,7 @@ export default function TippaClient({
                         >
                           <td>{index + 1}</td>
                           <td>
-                            <strong>{row.team}</strong>
+                            <strong>{getSwedishTeamName(row.team)}</strong>
                             {row.code && <small>{row.code}</small>}
                           </td>
                           <td>{row.played}</td>
@@ -1091,7 +1188,7 @@ export default function TippaClient({
 
                       <div className="match-main">
                         <div className="team">
-                          <strong>{match.home_team}</strong>
+                          <strong>{getSwedishTeamName(match.home_team)}</strong>
                           <small>{match.home_team_code}</small>
                         </div>
 
@@ -1118,7 +1215,7 @@ export default function TippaClient({
                         </div>
 
                         <div className="team away">
-                          <strong>{match.away_team}</strong>
+                          <strong>{getSwedishTeamName(match.away_team)}</strong>
                           <small>{match.away_team_code}</small>
                         </div>
                       </div>
