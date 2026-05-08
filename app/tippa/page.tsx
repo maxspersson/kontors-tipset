@@ -177,7 +177,7 @@ export default async function TippaPage({ searchParams }: TippaPageProps) {
                         )}
 
                         <Link
-                          href={`/tippa?leagueId=${league.id}`}
+                          href={league.slug ? `/liga/${league.slug}/tippa` : `/tippa?leagueId=${league.id}`}
                           className="choose-primary"
                         >
                           Tippa i ligan

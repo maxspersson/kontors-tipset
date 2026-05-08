@@ -242,7 +242,7 @@ export default async function ProfilePage() {
                         Gå till liga
                       </Link>
                       <Link href={`/tippa?leagueId=${league.id}`}>Tippa</Link>
-                      <Link href={`/tabell?leagueId=${league.id}`}>Tabell</Link>
+                      href={`/liga/${league.slug}/tabell`}
                     </div>
                   </article>
                 ))}

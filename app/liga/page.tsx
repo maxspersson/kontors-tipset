@@ -155,7 +155,7 @@ export default async function LigaPage() {
 
                           <Link
                             className="secondary-link"
-                            href={`/tabell?leagueId=${league.id}`}
+                            href={`/liga/${league.slug}/tabell`}
                           >
                             Se tabell
                           </Link>

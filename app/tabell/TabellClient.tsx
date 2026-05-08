@@ -149,7 +149,10 @@ export default function TabellClient({
                 </div>
 
                 {standings.map((player, index) => (
-                  <div key={player.user_id} className="table-row">
+                  <div
+                    key={player.user_id}
+                    className={`table-row ${index < 3 ? `top-${index + 1}` : ""}`}
+                  >
                     <div className="placement">
                       <span>{index + 1}</span>
                     </div>
@@ -413,17 +416,41 @@ export default function TabellClient({
             }
 
             .table-row {
-              display: grid;
-              grid-template-columns: 110px 1.3fr 110px 120px 120px 120px;
-              gap: 16px;
-              align-items: center;
-              padding: 18px 24px;
-              border-bottom: 1px solid rgba(255,255,255,0.075);
-            }
+  display: grid;
+  grid-template-columns: 110px 1.3fr 110px 120px 120px 120px;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.075);
+  transition:
+    background 160ms ease,
+    transform 160ms ease,
+    border-color 160ms ease;
+}
 
-            .table-row:last-child {
-              border-bottom: 0;
-            }
+.table-row:last-child {
+  border-bottom: 0;
+}
+
+.table-row:hover {
+  transform: translateX(4px);
+  background: rgba(255,255,255,0.055);
+}
+
+.table-row.top-1 {
+  background: rgba(229,185,77,0.10);
+  border-left: 3px solid #f3cf69;
+}
+
+.table-row.top-2 {
+  background: rgba(255,255,255,0.055);
+  border-left: 3px solid #d1d5db;
+}
+
+.table-row.top-3 {
+  background: rgba(180,120,60,0.08);
+  border-left: 3px solid #c08457;
+}
 
             .table-header {
               color: rgba(255,255,255,0.38);

@@ -276,19 +276,19 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
               <div className="hero-actions">
                 {isMember ? (
                   <>
-                    <Link
-                      href={`/tippa?leagueId=${league.id}`}
-                      className="gold-btn"
-                    >
-                      Tippa matcher →
-                    </Link>
+                   <Link
+  href={`/liga/${league.slug}/tippa`}
+  className="gold-btn"
+>
+  Tippa matcher →
+</Link>
 
-                    <Link
-                      href={`/tabell?leagueId=${league.id}`}
-                      className="dark-btn"
-                    >
-                      Se tabell
-                    </Link>
+<Link
+  href={`/liga/${league.slug}/tabell`}
+  className="dark-btn"
+>
+  Se tabell
+</Link>
                   </>
                 ) : (
                   <Link href="/liga" className="gold-btn">
