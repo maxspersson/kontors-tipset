@@ -18,8 +18,10 @@ type LeagueMemberRow = {
 type LeagueRow = {
   id: string;
   name: string;
+  slug: string;
   invite_code: string | null;
   created_at: string | null;
+  is_archived: boolean | null;
 };
 
 type PredictionRow = {
@@ -47,16 +49,6 @@ function getInitials(name: string) {
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
 
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-}
-
-function formatDate(dateString?: string | null) {
-  if (!dateString) return "Okänt datum";
-
-  return new Intl.DateTimeFormat("sv-SE", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(dateString));
 }
 
 export default async function ProfilePage() {
@@ -95,8 +87,9 @@ export default async function ProfilePage() {
   if (leagueIds.length > 0) {
     const { data: leagueRows } = await supabase
       .from("leagues")
-      .select("id, name, invite_code, created_at")
+      .select("id, name, slug, invite_code, created_at, is_archived")
       .in("id", leagueIds)
+      .eq("is_archived", false)
       .order("created_at", { ascending: false });
 
     leagues = (leagueRows ?? []) as LeagueRow[];
@@ -245,6 +238,9 @@ export default async function ProfilePage() {
                     </div>
 
                     <div className="league-actions">
+                      <Link className="primary-action" href={`/liga/${league.slug}`}>
+                        Gå till liga
+                      </Link>
                       <Link href={`/tippa?leagueId=${league.id}`}>Tippa</Link>
                       <Link href={`/tabell?leagueId=${league.id}`}>Tabell</Link>
                     </div>
@@ -594,6 +590,8 @@ export default async function ProfilePage() {
             .league-actions {
               display: flex;
               gap: 8px;
+              flex-wrap: wrap;
+              justify-content: flex-end;
             }
 
             .league-actions a {
@@ -606,17 +604,15 @@ export default async function ProfilePage() {
               text-decoration: none;
               font-size: 13px;
               font-weight: 950;
-            }
-
-            .league-actions a:first-child {
-              background: linear-gradient(180deg, #f3cf69, #d9a935);
-              color: #090909;
-            }
-
-            .league-actions a:last-child {
               background: rgba(255,255,255,0.06);
               border: 1px solid rgba(255,255,255,0.12);
               color: rgba(255,255,255,0.82);
+            }
+
+            .league-actions .primary-action {
+              background: linear-gradient(180deg, #f3cf69, #d9a935);
+              color: #090909;
+              border: 0;
             }
 
             .empty-state {
@@ -675,6 +671,7 @@ export default async function ProfilePage() {
 
               .league-actions {
                 flex-direction: column;
+                justify-content: stretch;
               }
 
               .league-actions a {
