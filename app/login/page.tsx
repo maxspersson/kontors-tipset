@@ -60,11 +60,9 @@ export default function LoginPage() {
       return;
     }
 
-    setSuccessMessage(
-      "Kontot är skapat. Kontrollera din e-post och verifiera kontot innan du loggar in."
-    );
-    setMode("login");
-    setLoading(false);
+    setSuccessMessage("Kontot är skapat! Du kan nu logga in.");
+setMode("login");
+setLoading(false);
   }
 
   async function handleGoogleLogin() {
