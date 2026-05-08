@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "../../../lib/supabase";
 
 const TOURNAMENT_ID = "3aadd8c0-9236-46a9-bd17-99653f3c2794";
@@ -12,7 +12,7 @@ type ExternalMatchResult = {
 
 /**
  * Tillfällig testkälla.
- * Sen byter vi ut detta mot riktig extern API-hämtning.
+ * Sen byter vi ut detta mot riktig extern resultat-API.
  */
 async function fetchExternalResults(): Promise<ExternalMatchResult[]> {
   return [
@@ -25,11 +25,48 @@ async function fetchExternalResults(): Promise<ExternalMatchResult[]> {
   ];
 }
 
-export async function GET() {
+function isAuthorized(request: NextRequest) {
+  const expectedSecret = process.env.ADMIN_SYNC_SECRET;
+
+  if (!expectedSecret) {
+    return false;
+  }
+
+  const authHeader = request.headers.get("authorization");
+  const querySecret =
+  request.nextUrl.searchParams.get("secret") ||
+  request.headers.get("x-cron-secret");
+
+  if (authHeader === `Bearer ${expectedSecret}`) {
+    return true;
+  }
+
+  if (querySecret === expectedSecret) {
+    return true;
+  }
+
+  return false;
+}
+
+export async function GET(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json(
+      { success: false, message: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
   return syncResults();
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json(
+      { success: false, message: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
   return syncResults();
 }
 
@@ -63,8 +100,8 @@ async function syncResults() {
       return NextResponse.json(
         {
           success: false,
-          error: error.message,
-          failed_match_number: result.fifa_match_number,
+          message: error.message,
+          failedMatchNumber: result.fifa_match_number,
         },
         { status: 500 }
       );
