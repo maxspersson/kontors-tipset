@@ -40,6 +40,13 @@ type LeagueMatch = MatchRow & {
   status: string | null;
 };
 
+type StandingSnapshotRow = {
+  user_id: string;
+  rank: number;
+  points: number;
+  created_at: string;
+};
+
 function getDisplayName(profile?: MemberProfile) {
   return profile?.display_name || profile?.email?.split("@")[0] || "Spelare";
 }
@@ -217,8 +224,8 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   const { data: matches } = await supabase
     .from("matches")
     .select(
-  "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score, kickoff_utc, status"
-);
+      "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score, kickoff_utc, status"
+    );
 
   const matchRows = ((matches ?? []) as LeagueMatch[]).sort(
     (a, b) =>
@@ -239,27 +246,26 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
     matchRows.find((match) => new Date(match.kickoff_utc).getTime() > nowTime) ??
     null;
 
-  const liveMatch =
-  matchRows.find((match) => match.status === "live") ?? null;
+  const liveMatch = matchRows.find((match) => match.status === "live") ?? null;
 
-const finishedMatch =
-  [...matchRows]
-    .filter((match) => match.status === "finished")
-    .sort(
-      (a, b) =>
-        new Date(b.kickoff_utc).getTime() -
-        new Date(a.kickoff_utc).getTime()
-    )[0] ?? null;
+  const finishedMatch =
+    [...matchRows]
+      .filter((match) => match.status === "finished")
+      .sort(
+        (a, b) =>
+          new Date(b.kickoff_utc).getTime() -
+          new Date(a.kickoff_utc).getTime()
+      )[0] ?? null;
 
-const featuredMatch =
-  liveMatch ?? finishedMatch ?? latestStartedMatch ?? nextUpcomingMatch;
+  const featuredMatch =
+    liveMatch ?? finishedMatch ?? latestStartedMatch ?? nextUpcomingMatch;
 
-const hasFeaturedMatchStarted = featuredMatch
-  ? new Date(featuredMatch.kickoff_utc).getTime() <= nowTime
-  : false;
+  const hasFeaturedMatchStarted = featuredMatch
+    ? new Date(featuredMatch.kickoff_utc).getTime() <= nowTime
+    : false;
 
-const isLiveMatch = featuredMatch?.status === "live";
-const isFinishedMatch = featuredMatch?.status === "finished";
+  const isLiveMatch = featuredMatch?.status === "live";
+  const isFinishedMatch = featuredMatch?.status === "finished";
 
   const predictionMap = new Map(
     predictions.map((prediction) => [
@@ -275,9 +281,71 @@ const isFinishedMatch = featuredMatch?.status === "finished";
     profiles: profiles as ProfileRow[],
   });
 
+  const { data: standingSnapshots } = await supabase
+    .from("league_standing_snapshots")
+    .select("user_id, rank, points, created_at")
+    .eq("league_id", league.id)
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  const snapshotRows = (standingSnapshots ?? []) as StandingSnapshotRow[];
+
+  const snapshotTimes = Array.from(
+    new Set(snapshotRows.map((snapshot) => snapshot.created_at))
+  ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
+  const latestSnapshotTime = snapshotTimes[0] ?? null;
+  const previousSnapshotTime = snapshotTimes[1] ?? null;
+
+  const latestRankByUserId = new Map<string, number>();
+  const previousRankByUserId = new Map<string, number>();
+
+  if (latestSnapshotTime) {
+    snapshotRows
+      .filter((snapshot) => snapshot.created_at === latestSnapshotTime)
+      .forEach((snapshot) => {
+        latestRankByUserId.set(snapshot.user_id, snapshot.rank);
+      });
+  }
+
+  if (previousSnapshotTime) {
+    snapshotRows
+      .filter((snapshot) => snapshot.created_at === previousSnapshotTime)
+      .forEach((snapshot) => {
+        previousRankByUserId.set(snapshot.user_id, snapshot.rank);
+      });
+  }
+
+  const climbers = standings
+    .map((standing) => {
+      const latestRank = latestRankByUserId.get(standing.user_id);
+      const previousRank = previousRankByUserId.get(standing.user_id);
+
+      return {
+        ...standing,
+        climb: latestRank && previousRank ? previousRank - latestRank : 0,
+      };
+    })
+    .filter((standing) => standing.climb > 0)
+    .sort((a, b) => b.climb - a.climb);
+
+  const topClimber = climbers[0] ?? null;
+
+  const exactScoreLeader =
+    [...standings]
+      .filter((standing) => standing.exactScores > 0)
+      .sort((a, b) => b.exactScores - a.exactScores)[0] ?? null;
+
   const leader = standings[0];
   const memberCount = memberRows.length;
   const submittedCount = submittedUserIds.length;
+
+  const visibleMembers = memberRows.slice(0, 5);
+
+  const hiddenMembersCount =
+    memberRows.length > visibleMembers.length
+      ? memberRows.length - visibleMembers.length
+      : 0;
 
   return (
     <main className="league-detail-page">
@@ -376,6 +444,38 @@ const isFinishedMatch = featuredMatch?.status === "finished";
             </div>
           </div>
 
+          <section className="highlights-panel">
+            <div className="highlight-card">
+              <p>Dagens klättrare</p>
+              {topClimber ? (
+                <>
+                  <strong>{topClimber.display_name}</strong>
+                  <span>+{topClimber.climb} placeringar</span>
+                </>
+              ) : (
+                <>
+                  <strong>Inte igång ännu</strong>
+                  <span>Visas när tabellen börjar röra på sig.</span>
+                </>
+              )}
+            </div>
+
+            <div className="highlight-card">
+              <p>Flest fullträffar</p>
+              {exactScoreLeader ? (
+                <>
+                  <strong>{exactScoreLeader.display_name}</strong>
+                  <span>{exactScoreLeader.exactScores} exakta resultat</span>
+                </>
+              ) : (
+                <>
+                  <strong>Ingen fullträff ännu</strong>
+                  <span>Vaknar när första matcherna är spelade.</span>
+                </>
+              )}
+            </div>
+          </section>
+
           <div className="content-grid">
             <section className="panel leaderboard-panel">
               <div className="panel-head">
@@ -430,14 +530,14 @@ const isFinishedMatch = featuredMatch?.status === "finished";
                   <div className="panel-head">
                     <div>
                       <p>
-  {isLiveMatch
-    ? "Live nu"
-    : isFinishedMatch
-      ? "Senaste resultat"
-      : hasFeaturedMatchStarted
-        ? "Aktuell match"
-        : "Nästa match"}
-</p>
+                        {isLiveMatch
+                          ? "Live nu"
+                          : isFinishedMatch
+                            ? "Senaste resultat"
+                            : hasFeaturedMatchStarted
+                              ? "Aktuell match"
+                              : "Nästa match"}
+                      </p>
                       <h2>
                         {getSwedishTeamName(featuredMatch.home_team)} vs{" "}
                         {getSwedishTeamName(featuredMatch.away_team)}
@@ -445,24 +545,28 @@ const isFinishedMatch = featuredMatch?.status === "finished";
                     </div>
                   </div>
 
-                  <p className={isLiveMatch ? "match-time match-live-time" : "match-time"}>
-  {isLiveMatch ? (
-    <>
-      <span className="live-dot-small" />
-      LIVE · {featuredMatch.home_score ?? 0}–
-      {featuredMatch.away_score ?? 0}
-    </>
-  ) : isFinishedMatch ? (
-    <>
-      Slutresultat · {featuredMatch.home_score ?? 0}–
-      {featuredMatch.away_score ?? 0}
-    </>
-  ) : (
-    <>Avspark {formatKickoff(featuredMatch.kickoff_utc)}</>
-  )}
-</p>
+                  <p
+                    className={
+                      isLiveMatch ? "match-time match-live-time" : "match-time"
+                    }
+                  >
+                    {isLiveMatch ? (
+                      <>
+                        <span className="live-dot-small" />
+                        LIVE · {featuredMatch.home_score ?? 0}–
+                        {featuredMatch.away_score ?? 0}
+                      </>
+                    ) : isFinishedMatch ? (
+                      <>
+                        Slutresultat · {featuredMatch.home_score ?? 0}–
+                        {featuredMatch.away_score ?? 0}
+                      </>
+                    ) : (
+                      <>Avspark {formatKickoff(featuredMatch.kickoff_utc)}</>
+                    )}
+                  </p>
 
-                  {!hasFeaturedMatchStarted ? (
+                  {!isLiveMatch && !isFinishedMatch && !hasFeaturedMatchStarted ? (
                     <div className="locked-picks">
                       Tipsen visas när matchen har börjat.
                     </div>
@@ -543,39 +647,47 @@ const isFinishedMatch = featuredMatch?.status === "finished";
                 {memberRows.length === 0 ? (
                   <div className="empty-state">Inga medlemmar än.</div>
                 ) : (
-                  <div className="member-list">
-                    {memberRows.map((member) => {
-                      const profile = profileMap.get(member.user_id);
-                      const displayName = getDisplayName(profile);
-                      const hasSubmitted = submittedUserSet.has(member.user_id);
-                      const isCurrentUser = member.user_id === user.id;
+                  <>
+                    <div className="member-list">
+                      {visibleMembers.map((member) => {
+                        const profile = profileMap.get(member.user_id);
+                        const displayName = getDisplayName(profile);
+                        const hasSubmitted = submittedUserSet.has(member.user_id);
+                        const isCurrentUser = member.user_id === user.id;
 
-                      return (
-                        <div
-                          key={member.id}
-                          className={`member-row ${
-                            isCurrentUser ? "is-current-member" : ""
-                          }`}
-                        >
-                          <div className="avatar">
-                            {getInitials(displayName)}
+                        return (
+                          <div
+                            key={member.id}
+                            className={`member-row ${
+                              isCurrentUser ? "is-current-member" : ""
+                            }`}
+                          >
+                            <div className="avatar">
+                              {getInitials(displayName)}
+                            </div>
+
+                            <div>
+                              <strong>
+                                {displayName}
+                                {isCurrentUser ? " (du)" : ""}
+                              </strong>
+                              <span>{profile?.email || "Ingen e-post"}</span>
+                            </div>
+
+                            <em className={hasSubmitted ? "done" : "pending"}>
+                              {hasSubmitted ? "Klar" : "Ej klar"}
+                            </em>
                           </div>
+                        );
+                      })}
+                    </div>
 
-                          <div>
-                            <strong>
-                              {displayName}
-                              {isCurrentUser ? " (du)" : ""}
-                            </strong>
-                            <span>{profile?.email || "Ingen e-post"}</span>
-                          </div>
-
-                          <em className={hasSubmitted ? "done" : "pending"}>
-                            {hasSubmitted ? "Klar" : "Ej klar"}
-                          </em>
-                        </div>
-                      );
-                    })}
-                  </div>
+                    {hiddenMembersCount > 0 && (
+                      <button className="show-all-members-btn">
+                        + {hiddenMembersCount} fler deltagare
+                      </button>
+                    )}
+                  </>
                 )}
               </section>
 
@@ -724,7 +836,8 @@ const isFinishedMatch = featuredMatch?.status === "finished";
             .status-card,
             .panel,
             .stat-card,
-            .invite-hero-card {
+            .invite-hero-card,
+            .highlight-card {
               background: rgba(5,12,18,0.78);
               border: 1px solid rgba(255,255,255,0.11);
               box-shadow: 0 22px 80px rgba(0,0,0,0.30);
@@ -782,7 +895,8 @@ const isFinishedMatch = featuredMatch?.status === "finished";
               border-color: rgba(229,185,77,0.22);
             }
 
-            .invite-hero-card::before {
+            .invite-hero-card::before,
+            .highlight-card::before {
               content: "";
               position: absolute;
               inset: -80px -120px auto auto;
@@ -866,6 +980,47 @@ const isFinishedMatch = featuredMatch?.status === "finished";
               letter-spacing: -0.04em;
             }
 
+            .highlights-panel {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 16px;
+              margin-top: 18px;
+            }
+
+            .highlight-card {
+              position: relative;
+              overflow: hidden;
+              padding: 22px;
+              border-radius: 24px;
+            }
+
+            .highlight-card p {
+              position: relative;
+              margin: 0;
+              color: rgba(255,255,255,0.42);
+              font-size: 12px;
+              font-weight: 950;
+              letter-spacing: 0.14em;
+              text-transform: uppercase;
+            }
+
+            .highlight-card strong {
+              position: relative;
+              display: block;
+              margin-top: 12px;
+              font-size: 28px;
+              letter-spacing: -0.04em;
+            }
+
+            .highlight-card span {
+              position: relative;
+              display: block;
+              margin-top: 8px;
+              color: #e5b94d;
+              font-size: 14px;
+              font-weight: 900;
+            }
+
             .content-grid {
               display: grid;
               grid-template-columns: 1fr 360px;
@@ -903,6 +1058,37 @@ const isFinishedMatch = featuredMatch?.status === "finished";
               color: rgba(255,255,255,0.56);
               font-size: 13px;
               font-weight: 800;
+            }
+
+            .match-live-time {
+              display: inline-flex;
+              align-items: center;
+              gap: 8px;
+              color: #fca5a5;
+              font-weight: 950;
+            }
+
+            .live-dot-small {
+              width: 8px;
+              height: 8px;
+              border-radius: 999px;
+              background: #ef4444;
+              box-shadow: 0 0 0 rgba(239,68,68,0.75);
+              animation: leagueLivePulse 1.4s infinite;
+            }
+
+            @keyframes leagueLivePulse {
+              0% {
+                box-shadow: 0 0 0 0 rgba(239,68,68,0.72);
+              }
+
+              70% {
+                box-shadow: 0 0 0 8px rgba(239,68,68,0);
+              }
+
+              100% {
+                box-shadow: 0 0 0 0 rgba(239,68,68,0);
+              }
             }
 
             .locked-picks {
@@ -1132,6 +1318,26 @@ const isFinishedMatch = featuredMatch?.status === "finished";
               color: #f3cf69;
             }
 
+            .show-all-members-btn {
+              width: 100%;
+              margin-top: 12px;
+              height: 46px;
+              border-radius: 14px;
+              border: 1px solid rgba(255,255,255,0.10);
+              background: rgba(255,255,255,0.04);
+              color: rgba(255,255,255,0.74);
+              font-size: 13px;
+              font-weight: 900;
+              cursor: pointer;
+              transition: all 0.2s ease;
+            }
+
+            .show-all-members-btn:hover {
+              background: rgba(255,255,255,0.07);
+              border-color: rgba(229,185,77,0.24);
+              color: #e5b94d;
+            }
+
             .danger-panel {
               border-color: rgba(248,113,113,0.20);
               background: rgba(22,7,10,0.50);
@@ -1195,7 +1401,8 @@ const isFinishedMatch = featuredMatch?.status === "finished";
                 width: 100%;
               }
 
-              .stats-grid {
+              .stats-grid,
+              .highlights-panel {
                 grid-template-columns: 1fr;
               }
 
@@ -1210,37 +1417,6 @@ const isFinishedMatch = featuredMatch?.status === "finished";
               .points {
                 grid-column: 2;
               }
-
-              .match-live-time {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #fca5a5;
-  font-weight: 950;
-}
-
-.live-dot-small {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #ef4444;
-  box-shadow: 0 0 0 rgba(239,68,68,0.75);
-  animation: leagueLivePulse 1.4s infinite;
-}
-
-@keyframes leagueLivePulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(239,68,68,0.72);
-  }
-
-  70% {
-    box-shadow: 0 0 0 8px rgba(239,68,68,0);
-  }
-
-  100% {
-    box-shadow: 0 0 0 0 rgba(239,68,68,0);
-  }
-}
 
               .member-row span {
                 max-width: 190px;

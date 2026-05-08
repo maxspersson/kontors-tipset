@@ -241,8 +241,11 @@ export default async function ProfilePage() {
                       <Link className="primary-action" href={`/liga/${league.slug}`}>
                         Gå till liga
                       </Link>
-                      <Link href={`/tippa?leagueId=${league.id}`}>Tippa</Link>
-                      href={`/liga/${league.slug}/tabell`}
+                     <Link href={`/liga/${league.slug}/tippa`}>Tippa</Link>
+
+<Link href={`/liga/${league.slug}/tabell`}>
+  Tabell
+</Link>
                     </div>
                   </article>
                 ))}
