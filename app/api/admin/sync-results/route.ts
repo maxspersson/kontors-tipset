@@ -15,14 +15,30 @@ type ExternalMatchResult = {
  * Sen byter vi ut detta mot riktig extern resultat-API.
  */
 async function fetchExternalResults(): Promise<ExternalMatchResult[]> {
-  return [
-    {
-      fifa_match_number: 1,
-      home_score: 2,
-      away_score: 1,
-      status: "finished",
+  const response = await fetch("https://api.wc2026api.com/matches", {
+    headers: {
+      Authorization: `Bearer ${process.env.WC2026_API_KEY}`,
     },
-  ];
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Kunde inte hämta matcher från WC2026 API");
+  }
+
+  const data = await response.json();
+
+  return data.matches.map((match: any) => ({
+    fifa_match_number: match.match_number,
+    home_score: match.home_score,
+    away_score: match.away_score,
+    status:
+      match.status === "completed"
+        ? "finished"
+        : match.status === "live"
+          ? "live"
+          : "scheduled",
+  }));
 }
 
 function isAuthorized(request: NextRequest) {
