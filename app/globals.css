@@ -55,13 +55,6 @@ body {
     gap: 18px;
   }
 
-  .site-footer .footer-inner > div {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
   .site-footer .footer-logo {
     text-align: center;
     margin: 0 0 8px;
@@ -80,5 +73,46 @@ body {
     align-items: center;
     gap: 28px;
     flex-wrap: wrap;
+
+    @media (max-width: 760px) {
+  .site-footer .footer-inner .footer-links {
+    width: 100%;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center;
+    align-items: center;
+    gap: 28px;
+    flex-wrap: nowrap;
+  }
+
+  .site-footer .footer-inner .footer-links a {
+    display: inline-flex;
+    width: auto;
+  }
+
+  @media (max-width: 760px) {
+  .site-footer .footer-brand {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .site-footer .footer-links {
+    width: 100%;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center;
+    align-items: center;
+    gap: 28px;
+    flex-wrap: nowrap;
+  }
+
+  .site-footer .footer-links a {
+    width: auto !important;
+    display: inline-flex !important;
+  }
+}
+}
   }
 }

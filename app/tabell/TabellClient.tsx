@@ -31,15 +31,25 @@ export default function TabellClient({
   useEffect(() => {
     if (!selectedLeagueId) return;
 
-    async function loadStandings() {
-      setIsLoading(true);
+    let isActive = true;
+
+    async function loadStandings(showLoading = false) {
+      if (showLoading) {
+        setIsLoading(true);
+      }
+
       setStatus("");
 
       const response = await fetch(
-        `/api/league-standings?leagueId=${selectedLeagueId}`
+        `/api/league-standings?leagueId=${selectedLeagueId}`,
+        {
+          cache: "no-store",
+        }
       );
 
       const text = await response.text();
+
+      if (!isActive) return;
 
       if (!response.ok) {
         setStatus(text || "Kunde inte hämta tabellen.");
@@ -59,7 +69,16 @@ export default function TabellClient({
       setIsLoading(false);
     }
 
-    loadStandings();
+    loadStandings(true);
+
+    const interval = window.setInterval(() => {
+      loadStandings(false);
+    }, 30000);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(interval);
+    };
   }, [selectedLeagueId]);
 
   const selectedLeagueName = useMemo(() => {
@@ -103,11 +122,7 @@ export default function TabellClient({
               )}
             </div>
 
-            <div className="leader-card">
-              <p>Leder just nu</p>
-              <strong>{leader ? leader.display_name : "Ingen ännu"}</strong>
-              <span>{leader ? `${leader.points} poäng` : "0 poäng"}</span>
-            </div>
+            <strong>{leader ? leader.display_name : "Ingen ännu"}</strong>
           </div>
 
           {isLoading && <div className="table-status">Hämtar tabellen...</div>}
@@ -324,6 +339,25 @@ export default function TabellClient({
               font-size: 15px;
               font-weight: 950;
             }
+
+            .live-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+  color: rgba(255,255,255,0.46);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.live-refresh::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #86efac;
+  box-shadow: 0 0 18px rgba(134,239,172,0.55);
+}
 
             .table-status {
               margin-top: 32px;

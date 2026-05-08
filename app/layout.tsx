@@ -179,10 +179,10 @@ export default async function RootLayout({
 
         <footer className="site-footer">
           <div className="footer-inner">
-            <div>
-              <p className="footer-logo">KONTORS-TIPSET</p>
-              <p>VM-tipset för kontoret.</p>
-            </div>
+            <div className="footer-brand">
+  <p className="footer-logo">KONTORS-TIPSET</p>
+  <p>VM-tipset för kontoret.</p>
+</div>
 
             <div className="footer-links">
               <Link href="/regler">Regler</Link>
@@ -466,10 +466,13 @@ export default async function RootLayout({
                 margin-top: 0;
               }
 
-              .footer-links {
-                display: flex;
-                gap: 22px;
-              }
+            .footer-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+}
 
               @media (max-width: 900px) {
                 .desktop-nav {
@@ -524,10 +527,14 @@ export default async function RootLayout({
                 }
 
                 .footer-links {
-                  justify-content: center;
-                  gap: 24px;
-                  flex-wrap: wrap;
-                }
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: nowrap;
+}
               }
             `,
           }}
