@@ -11,7 +11,9 @@ const bracketRounds = [
   { key: "round_of_16", label: "Åttondelsfinal", matches: 8 },
   { key: "quarter_final", label: "Kvartsfinal", matches: 4 },
   { key: "semi_final", label: "Semifinal", matches: 2 },
-  { key: "final", label: "Final", matches: 1 },
+
+  // NY:
+  { key: "medals", label: "Final & Bronsmatch", matches: 2 },
 ] as const;
 
 type Tab = string | "slutspel";
@@ -42,7 +44,8 @@ type GroupTable = {
 type SeedSlot =
   | { type: "group_position"; position: 1 | 2; group: string; label: string }
   | { type: "best_third"; groups: string[]; label: string }
-  | { type: "winner"; matchNumber: number; label: string };
+  | { type: "winner"; matchNumber: number; label: string }
+  | { type: "loser"; matchNumber: number; label: string };
 
 type PlayoffMatch = {
   dbMatch: Match;
@@ -179,6 +182,10 @@ const laterRoundSlots: Record<number, [SeedSlot, SeedSlot]> = {
     { type: "winner", matchNumber: 99, label: "W99" },
     { type: "winner", matchNumber: 100, label: "W100" },
   ],
+  103: [
+    { type: "loser", matchNumber: 101, label: "L101" },
+    { type: "loser", matchNumber: 102, label: "L102" },
+  ],
   104: [
     { type: "winner", matchNumber: 101, label: "W101" },
     { type: "winner", matchNumber: 102, label: "W102" },
@@ -278,6 +285,7 @@ function getSwedishTeamName(name: string) {
 
 function getFriendlySlotLabel(label: string) {
   if (/^W\d+$/.test(label)) return `Vinnare match ${label.replace("W", "")}`;
+  if (/^L\d+$/.test(label)) return `Förlorare match ${label.replace("L", "")}`;
   if (/^1[A-L]$/.test(label)) return `Vinnare grupp ${label.replace("1", "")}`;
   if (/^2[A-L]$/.test(label)) return `Tvåa grupp ${label.replace("2", "")}`;
   if (/^3[A-L]+$/.test(label)) return "Bästa grupptrea";
@@ -391,6 +399,23 @@ function getWinner(
   return undefined;
 }
 
+function getLoser(
+  teamA: GroupTableRow | undefined,
+  teamB: GroupTableRow | undefined,
+  scoreA: string,
+  scoreB: string
+) {
+  if (!teamA || !teamB || scoreA === "" || scoreB === "") return undefined;
+
+  const home = Number(scoreA);
+  const away = Number(scoreB);
+
+  if (home > away) return teamB;
+  if (away > home) return teamA;
+
+  return undefined;
+}
+
 function resolveGroupPosition(
   allGroupTables: GroupTable[],
   group: string,
@@ -435,11 +460,13 @@ function resolveSlot({
   allGroupTables,
   thirdAssignment,
   winnersByMatchNumber,
+  losersByMatchNumber,
 }: {
   slot: SeedSlot;
   allGroupTables: GroupTable[];
   thirdAssignment: Map<string, GroupTableRow>;
   winnersByMatchNumber: Map<number, GroupTableRow>;
+  losersByMatchNumber: Map<number, GroupTableRow>;
 }) {
   if (slot.type === "group_position") {
     return resolveGroupPosition(allGroupTables, slot.group, slot.position);
@@ -447,6 +474,10 @@ function resolveSlot({
 
   if (slot.type === "best_third") {
     return thirdAssignment.get(slot.label);
+  }
+
+  if (slot.type === "loser") {
+    return losersByMatchNumber.get(slot.matchNumber);
   }
 
   return winnersByMatchNumber.get(slot.matchNumber);
@@ -464,13 +495,29 @@ function buildPlayoffRounds({
   predictions: PredictionState;
 }) {
   const winnersByMatchNumber = new Map<number, GroupTableRow>();
+  const losersByMatchNumber = new Map<number, GroupTableRow>();
   const thirdAssignment = buildBestThirdAssignment(thirdPlacedTeams);
   const rounds: PlayoffMatch[][] = [];
 
   for (const round of bracketRounds) {
     const matchesInRound = playoffMatches
-      .filter((match) => match.stage === round.key)
-      .sort((a, b) => (a.fifa_match_number ?? 0) - (b.fifa_match_number ?? 0));
+  .filter((match) => {
+    if (round.key === "medals") {
+      return (
+        match.stage === "final" ||
+        match.stage === "third_place"
+      );
+    }
+
+    return match.stage === round.key;
+  })
+  .sort((a, b) => {
+    // Final först, bronsmatch efter
+    if (a.stage === "final") return -1;
+    if (b.stage === "final") return 1;
+
+    return (a.fifa_match_number ?? 0) - (b.fifa_match_number ?? 0);
+  });
 
     const roundMatches: PlayoffMatch[] = [];
 
@@ -494,6 +541,7 @@ function buildPlayoffRounds({
         allGroupTables,
         thirdAssignment,
         winnersByMatchNumber,
+        losersByMatchNumber,
       });
 
       const teamB = resolveSlot({
@@ -501,12 +549,18 @@ function buildPlayoffRounds({
         allGroupTables,
         thirdAssignment,
         winnersByMatchNumber,
+        losersByMatchNumber,
       });
 
       const winner = getWinner(teamA, teamB, prediction.home, prediction.away);
+      const loser = getLoser(teamA, teamB, prediction.home, prediction.away);
 
       if (winner) {
         winnersByMatchNumber.set(matchNumber, winner);
+      }
+
+      if (loser) {
+        losersByMatchNumber.set(matchNumber, loser);
       }
 
       roundMatches.push({
