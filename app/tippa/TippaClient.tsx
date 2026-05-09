@@ -67,6 +67,7 @@ type PlayoffMatch = {
   scoreA: string;
   scoreB: string;
   winner?: GroupTableRow;
+  loser?: GroupTableRow;
 };
 
 const roundOf32Slots: Record<number, [SeedSlot, SeedSlot]> = {
@@ -589,15 +590,16 @@ function buildPlayoffRounds({
       }
 
       roundMatches.push({
-        dbMatch,
-        teamA,
-        teamB,
-        slotALabel: slotA.label,
-        slotBLabel: slotB.label,
-        scoreA: prediction.home,
-        scoreB: prediction.away,
-        winner,
-      });
+  dbMatch,
+  teamA,
+  teamB,
+  slotALabel: slotA.label,
+  slotBLabel: slotB.label,
+  scoreA: prediction.home,
+  scoreB: prediction.away,
+  winner,
+  loser,
+});
     }
 
     rounds.push(roundMatches);
@@ -764,11 +766,6 @@ export default function TippaClient({
   const TOTAL_MATCHES = 104;
   const isEntireBracketComplete = completedPredictionsCount >= TOTAL_MATCHES;
 
-  const groupWinners = allGroupTables
-    .filter((group) => group.completedMatches === group.totalMatches)
-    .map((group) => group.table[0])
-    .filter(isGroupTableRow);
-
   const thirdPlacedTeams = allGroupTables
     .filter((group) => group.completedMatches === group.totalMatches)
     .map((group) => group.table[2])
@@ -793,7 +790,14 @@ export default function TippaClient({
   }, [playoffMatches, allGroupTables, thirdPlacedTeams, predictions]);
 
   const finalRound = playoffRounds[playoffRounds.length - 1];
-  const champion = finalRound?.[0]?.winner;
+const finalMatch = finalRound?.find((match) => match.dbMatch.stage === "final");
+const bronzeMatch = finalRound?.find(
+  (match) => match.dbMatch.stage === "third_place"
+);
+
+const champion = finalMatch?.winner;
+const runnerUp = finalMatch?.loser;
+const bronzeWinner = bronzeMatch?.winner;
 
   function updatePrediction(
     matchId: string,
@@ -1153,15 +1157,15 @@ export default function TippaClient({
           <div className="match-toolbar">
             <div>
               <span>{groupMatches.length}</span>
-              <p>gruppspelsmatcher</p>
+              <p>Gruppspelsmatcher</p>
             </div>
             <div>
               <span>{completedGroupMatches}</span>
-              <p>ifyllda gruppresultat</p>
+              <p>Ifyllda gruppresultat</p>
             </div>
             <div>
               <span>104</span>
-              <p>matcher totalt i VM</p>
+              <p>Matcher totalt i VM</p>
             </div>
           </div>
 
@@ -1191,25 +1195,30 @@ export default function TippaClient({
                   <p>Officiell VM-nyckel</p>
                   <h2>Slutspelsträd</h2>
                 </div>
-                <span>{thirdPlacedTeams.length}/8 bästa treor</span>
               </div>
 
-              <div className="bracket-status">
-                <div>
-                  <span>{playoffMatches.length}</span>
-                  <p>slutspelsmatcher i DB</p>
-                </div>
-                <div>
-                  <span>{groupWinners.length}</span>
-                  <p>gruppvinnare</p>
-                </div>
-                <div className={champion ? "champion-card" : ""}>
-                  <span>
-                    {champion ? getSwedishTeamName(champion.team) : "Ej klart"}
-                  </span>
-                  <p>{readonly ? "tippad mästare" : "din mästare"}</p>
-                </div>
-              </div>
+              <div className="bracket-status podium-status">
+  <div className={champion ? "champion-card" : ""}>
+    <span>
+      {champion ? getSwedishTeamName(champion.team) : "Ej klart"}
+    </span>
+    <p>Guld</p>
+  </div>
+
+  <div>
+    <span>
+      {runnerUp ? getSwedishTeamName(runnerUp.team) : "Ej klart"}
+    </span>
+    <p>Silver</p>
+  </div>
+
+  <div>
+    <span>
+      {bronzeWinner ? getSwedishTeamName(bronzeWinner.team) : "Ej klart"}
+    </span>
+    <p>Brons</p>
+  </div>
+</div>
 
               <div className="mobile-swipe-hint">
                 <span>←</span>
@@ -1911,6 +1920,14 @@ export default function TippaClient({
               }
             }
 
+            .podium-status .champion-card span {
+  color: #e5b94d;
+}
+
+.podium-status div {
+  min-height: 104px;
+}
+
             @media (max-width: 760px) {
               .copy-tips-card {
                 grid-template-columns: 1fr;
@@ -1942,8 +1959,8 @@ export default function TippaClient({
               }
 
               .advance-actions {
-                grid-template-columns: 1fr;
-              }
+  grid-template-columns: 1fr;
+}
             }
           `,
         }}

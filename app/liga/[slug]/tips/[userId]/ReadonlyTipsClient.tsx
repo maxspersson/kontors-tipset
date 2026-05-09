@@ -663,11 +663,6 @@ export default function ReadonlyTipsClient({
   const activeGroupTable =
     allGroupTables.find((item) => item.group === activeTab)?.table ?? [];
 
-  const groupWinners = allGroupTables
-    .filter((group) => group.completedMatches === group.totalMatches)
-    .map((group) => group.table[0])
-    .filter(isGroupTableRow);
-
   const thirdPlacedTeams = allGroupTables
     .filter((group) => group.completedMatches === group.totalMatches)
     .map((group) => group.table[2])
@@ -789,23 +784,6 @@ const drawCount = useMemo(() => getDrawCount(predictions), [predictions]);
                   <h2>Slutspelsträd</h2>
                 </div>
                 <span>{thirdPlacedTeams.length}/8 bästa treor</span>
-              </div>
-
-              <div className="bracket-status">
-                <div>
-                  <span>{playoffMatches.length}</span>
-                  <p>slutspelsmatcher i DB</p>
-                </div>
-                <div>
-                  <span>{groupWinners.length}</span>
-                  <p>gruppvinnare</p>
-                </div>
-                <div className={champion ? "champion-card" : ""}>
-                  <span>
-                    {champion ? getSwedishTeamName(champion.team) : "Ej klart"}
-                  </span>
-                  <p>tippad mästare</p>
-                </div>
               </div>
 
               <div className="mobile-swipe-hint">
@@ -1578,44 +1556,7 @@ const drawCount = useMemo(() => getDrawCount(predictions), [predictions]);
               color: rgba(255,255,255,0.48);
             }
 
-            .bracket-status {
-              display: grid;
-              grid-template-columns: repeat(3, 1fr);
-              gap: 12px;
-              margin-bottom: 18px;
-            }
-
-            .bracket-status div {
-              border-radius: 22px;
-              padding: 18px;
-              background: rgba(255,255,255,0.045);
-              border: 1px solid rgba(255,255,255,0.09);
-            }
-
-            .bracket-status span {
-              display: block;
-              color: white;
-              font-size: 24px;
-              font-weight: 950;
-              letter-spacing: -0.04em;
-            }
-
-            .bracket-status p {
-              margin: 5px 0 0;
-              color: rgba(255,255,255,0.46);
-              font-size: 12px;
-              font-weight: 900;
-              text-transform: uppercase;
-              letter-spacing: 0.08em;
-            }
-
-            .bracket-status .champion-card {
-              background:
-                linear-gradient(135deg, rgba(229,185,77,0.18), transparent),
-                rgba(255,255,255,0.045);
-              border-color: rgba(229,185,77,0.26);
-            }
-
+          
             .bracket-status .champion-card span {
               color: #e5b94d;
             }
