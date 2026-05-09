@@ -1142,13 +1142,13 @@ const drawCount = useMemo(() => getDrawCount(predictions), [predictions]);
             }
 
             .tips-head h1 {
-              margin: 0;
-              max-width: 780px;
-              font-size: clamp(42px, 7vw, 86px);
-              line-height: 0.9;
-              letter-spacing: -0.07em;
-              color: white;
-            }
+  margin: 0;
+  max-width: 980px;
+  font-size: clamp(42px, 6vw, 78px);
+  line-height: 0.95;
+  letter-spacing: 0.005em;
+  color: white;
+}
 
             .intro {
               margin: 22px 0 0;
@@ -1181,7 +1181,7 @@ const drawCount = useMemo(() => getDrawCount(predictions), [predictions]);
               color: #e5b94d;
               font-size: 56px;
               line-height: 1;
-              letter-spacing: -0.035em;
+              letter-spacing: -0.01em;
             }
 
             .hero-big-number {
