@@ -6,6 +6,7 @@ type PredictionRow = {
   match_id: string;
   predicted_home_score: number | null;
   predicted_away_score: number | null;
+  advancing_team: "home" | "away" | null;
 };
 
 type MatchRow = {
@@ -17,6 +18,7 @@ type MatchRow = {
   away_team: string;
   home_score: number | null;
   away_score: number | null;
+  actual_advancing_team: "home" | "away" | null;
 };
 
 type ProfileRow = {
@@ -35,6 +37,7 @@ type SnapshotPrediction = {
   match_id: string;
   predicted_home_score: number | null;
   predicted_away_score: number | null;
+  advancing_team: "home" | "away" | null;
   match: {
     id: string;
     fifa_match_number: number | null;
@@ -66,6 +69,12 @@ type SeedSlot =
   | { type: "best_third"; groups: string[]; label: string }
   | { type: "winner"; matchNumber: number; label: string };
 
+type ScoreValue = {
+  home: number | null;
+  away: number | null;
+  advancingTeam?: "home" | "away" | null;
+};
+
 type TournamentProgression = {
   roundOf16Teams: Set<string>;
   quarterFinalTeams: Set<string>;
@@ -77,133 +86,40 @@ type TournamentProgression = {
 const groups = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
 const roundOf32Slots: Record<number, [SeedSlot, SeedSlot]> = {
-  73: [
-    { type: "group_position", position: 2, group: "A", label: "2A" },
-    { type: "group_position", position: 2, group: "B", label: "2B" },
-  ],
-  74: [
-    { type: "group_position", position: 1, group: "E", label: "1E" },
-    { type: "best_third", groups: ["A", "B", "C", "D", "F"], label: "3ABCDF" },
-  ],
-  75: [
-    { type: "group_position", position: 1, group: "F", label: "1F" },
-    { type: "group_position", position: 2, group: "C", label: "2C" },
-  ],
-  76: [
-    { type: "group_position", position: 1, group: "C", label: "1C" },
-    { type: "group_position", position: 2, group: "F", label: "2F" },
-  ],
-  77: [
-    { type: "group_position", position: 1, group: "I", label: "1I" },
-    { type: "best_third", groups: ["C", "D", "F", "G", "H"], label: "3CDFGH" },
-  ],
-  78: [
-    { type: "group_position", position: 2, group: "E", label: "2E" },
-    { type: "group_position", position: 2, group: "I", label: "2I" },
-  ],
-  79: [
-    { type: "group_position", position: 1, group: "A", label: "1A" },
-    { type: "best_third", groups: ["C", "E", "F", "H", "I"], label: "3CEFHI" },
-  ],
-  80: [
-    { type: "group_position", position: 1, group: "L", label: "1L" },
-    { type: "best_third", groups: ["E", "H", "I", "J", "K"], label: "3EHIJK" },
-  ],
-  81: [
-    { type: "group_position", position: 1, group: "D", label: "1D" },
-    { type: "best_third", groups: ["B", "E", "F", "I", "J"], label: "3BEFIJ" },
-  ],
-  82: [
-    { type: "group_position", position: 1, group: "G", label: "1G" },
-    { type: "best_third", groups: ["A", "E", "H", "I", "J"], label: "3AEHIJ" },
-  ],
-  83: [
-    { type: "group_position", position: 2, group: "K", label: "2K" },
-    { type: "group_position", position: 2, group: "L", label: "2L" },
-  ],
-  84: [
-    { type: "group_position", position: 1, group: "H", label: "1H" },
-    { type: "group_position", position: 2, group: "J", label: "2J" },
-  ],
-  85: [
-    { type: "group_position", position: 1, group: "B", label: "1B" },
-    { type: "best_third", groups: ["E", "F", "G", "I", "J"], label: "3EFGIJ" },
-  ],
-  86: [
-    { type: "group_position", position: 1, group: "J", label: "1J" },
-    { type: "group_position", position: 2, group: "H", label: "2H" },
-  ],
-  87: [
-    { type: "group_position", position: 1, group: "K", label: "1K" },
-    { type: "best_third", groups: ["D", "E", "I", "J", "L"], label: "3DEIJL" },
-  ],
-  88: [
-    { type: "group_position", position: 2, group: "D", label: "2D" },
-    { type: "group_position", position: 2, group: "G", label: "2G" },
-  ],
+  73: [{ type: "group_position", position: 2, group: "A", label: "2A" }, { type: "group_position", position: 2, group: "B", label: "2B" }],
+  74: [{ type: "group_position", position: 1, group: "E", label: "1E" }, { type: "best_third", groups: ["A", "B", "C", "D", "F"], label: "3ABCDF" }],
+  75: [{ type: "group_position", position: 1, group: "F", label: "1F" }, { type: "group_position", position: 2, group: "C", label: "2C" }],
+  76: [{ type: "group_position", position: 1, group: "C", label: "1C" }, { type: "group_position", position: 2, group: "F", label: "2F" }],
+  77: [{ type: "group_position", position: 1, group: "I", label: "1I" }, { type: "best_third", groups: ["C", "D", "F", "G", "H"], label: "3CDFGH" }],
+  78: [{ type: "group_position", position: 2, group: "E", label: "2E" }, { type: "group_position", position: 2, group: "I", label: "2I" }],
+  79: [{ type: "group_position", position: 1, group: "A", label: "1A" }, { type: "best_third", groups: ["C", "E", "F", "H", "I"], label: "3CEFHI" }],
+  80: [{ type: "group_position", position: 1, group: "L", label: "1L" }, { type: "best_third", groups: ["E", "H", "I", "J", "K"], label: "3EHIJK" }],
+  81: [{ type: "group_position", position: 1, group: "D", label: "1D" }, { type: "best_third", groups: ["B", "E", "F", "I", "J"], label: "3BEFIJ" }],
+  82: [{ type: "group_position", position: 1, group: "G", label: "1G" }, { type: "best_third", groups: ["A", "E", "H", "I", "J"], label: "3AEHIJ" }],
+  83: [{ type: "group_position", position: 2, group: "K", label: "2K" }, { type: "group_position", position: 2, group: "L", label: "2L" }],
+  84: [{ type: "group_position", position: 1, group: "H", label: "1H" }, { type: "group_position", position: 2, group: "J", label: "2J" }],
+  85: [{ type: "group_position", position: 1, group: "B", label: "1B" }, { type: "best_third", groups: ["E", "F", "G", "I", "J"], label: "3EFGIJ" }],
+  86: [{ type: "group_position", position: 1, group: "J", label: "1J" }, { type: "group_position", position: 2, group: "H", label: "2H" }],
+  87: [{ type: "group_position", position: 1, group: "K", label: "1K" }, { type: "best_third", groups: ["D", "E", "I", "J", "L"], label: "3DEIJL" }],
+  88: [{ type: "group_position", position: 2, group: "D", label: "2D" }, { type: "group_position", position: 2, group: "G", label: "2G" }],
 };
 
 const laterRoundSlots: Record<number, [SeedSlot, SeedSlot]> = {
-  89: [
-    { type: "winner", matchNumber: 74, label: "W74" },
-    { type: "winner", matchNumber: 77, label: "W77" },
-  ],
-  90: [
-    { type: "winner", matchNumber: 73, label: "W73" },
-    { type: "winner", matchNumber: 75, label: "W75" },
-  ],
-  91: [
-    { type: "winner", matchNumber: 76, label: "W76" },
-    { type: "winner", matchNumber: 78, label: "W78" },
-  ],
-  92: [
-    { type: "winner", matchNumber: 79, label: "W79" },
-    { type: "winner", matchNumber: 80, label: "W80" },
-  ],
-  93: [
-    { type: "winner", matchNumber: 83, label: "W83" },
-    { type: "winner", matchNumber: 84, label: "W84" },
-  ],
-  94: [
-    { type: "winner", matchNumber: 81, label: "W81" },
-    { type: "winner", matchNumber: 82, label: "W82" },
-  ],
-  95: [
-    { type: "winner", matchNumber: 86, label: "W86" },
-    { type: "winner", matchNumber: 88, label: "W88" },
-  ],
-  96: [
-    { type: "winner", matchNumber: 85, label: "W85" },
-    { type: "winner", matchNumber: 87, label: "W87" },
-  ],
-  97: [
-    { type: "winner", matchNumber: 89, label: "W89" },
-    { type: "winner", matchNumber: 90, label: "W90" },
-  ],
-  98: [
-    { type: "winner", matchNumber: 93, label: "W93" },
-    { type: "winner", matchNumber: 94, label: "W94" },
-  ],
-  99: [
-    { type: "winner", matchNumber: 91, label: "W91" },
-    { type: "winner", matchNumber: 92, label: "W92" },
-  ],
-  100: [
-    { type: "winner", matchNumber: 95, label: "W95" },
-    { type: "winner", matchNumber: 96, label: "W96" },
-  ],
-  101: [
-    { type: "winner", matchNumber: 97, label: "W97" },
-    { type: "winner", matchNumber: 98, label: "W98" },
-  ],
-  102: [
-    { type: "winner", matchNumber: 99, label: "W99" },
-    { type: "winner", matchNumber: 100, label: "W100" },
-  ],
-  104: [
-    { type: "winner", matchNumber: 101, label: "W101" },
-    { type: "winner", matchNumber: 102, label: "W102" },
-  ],
+  89: [{ type: "winner", matchNumber: 74, label: "W74" }, { type: "winner", matchNumber: 77, label: "W77" }],
+  90: [{ type: "winner", matchNumber: 73, label: "W73" }, { type: "winner", matchNumber: 75, label: "W75" }],
+  91: [{ type: "winner", matchNumber: 76, label: "W76" }, { type: "winner", matchNumber: 78, label: "W78" }],
+  92: [{ type: "winner", matchNumber: 79, label: "W79" }, { type: "winner", matchNumber: 80, label: "W80" }],
+  93: [{ type: "winner", matchNumber: 83, label: "W83" }, { type: "winner", matchNumber: 84, label: "W84" }],
+  94: [{ type: "winner", matchNumber: 81, label: "W81" }, { type: "winner", matchNumber: 82, label: "W82" }],
+  95: [{ type: "winner", matchNumber: 86, label: "W86" }, { type: "winner", matchNumber: 88, label: "W88" }],
+  96: [{ type: "winner", matchNumber: 85, label: "W85" }, { type: "winner", matchNumber: 87, label: "W87" }],
+  97: [{ type: "winner", matchNumber: 89, label: "W89" }, { type: "winner", matchNumber: 90, label: "W90" }],
+  98: [{ type: "winner", matchNumber: 93, label: "W93" }, { type: "winner", matchNumber: 94, label: "W94" }],
+  99: [{ type: "winner", matchNumber: 91, label: "W91" }, { type: "winner", matchNumber: 92, label: "W92" }],
+  100: [{ type: "winner", matchNumber: 95, label: "W95" }, { type: "winner", matchNumber: 96, label: "W96" }],
+  101: [{ type: "winner", matchNumber: 97, label: "W97" }, { type: "winner", matchNumber: 98, label: "W98" }],
+  102: [{ type: "winner", matchNumber: 99, label: "W99" }, { type: "winner", matchNumber: 100, label: "W100" }],
+  104: [{ type: "winner", matchNumber: 101, label: "W101" }, { type: "winner", matchNumber: 102, label: "W102" }],
 };
 
 function getMatchPoints(prediction: PredictionRow, match: MatchRow) {
@@ -221,8 +137,7 @@ function getMatchPoints(prediction: PredictionRow, match: MatchRow) {
   if (prediction.predicted_home_score === match.home_score) points += 2;
   if (prediction.predicted_away_score === match.away_score) points += 2;
 
-  const predictedDiff =
-    prediction.predicted_home_score - prediction.predicted_away_score;
+  const predictedDiff = prediction.predicted_home_score - prediction.predicted_away_score;
   const actualDiff = match.home_score - match.away_score;
 
   const predictedSign = predictedDiff === 0 ? 0 : predictedDiff > 0 ? 1 : -1;
@@ -245,10 +160,7 @@ function createTeam(team: string, group: string): TeamRow {
   };
 }
 
-function buildGroupTables(
-  matches: MatchRow[],
-  scoresByMatchId: Map<string, { home: number | null; away: number | null }>
-) {
+function buildGroupTables(matches: MatchRow[], scoresByMatchId: Map<string, ScoreValue>) {
   const tables = new Map<string, TeamRow[]>();
   const completedGroups = new Set<string>();
 
@@ -270,9 +182,7 @@ function buildGroupTables(
 
       const score = scoresByMatchId.get(match.id);
 
-      if (!score || score.home === null || score.away === null) {
-        continue;
-      }
+      if (!score || score.home === null || score.away === null) continue;
 
       const home = table.get(match.home_team)!;
       const away = table.get(match.away_team)!;
@@ -300,9 +210,7 @@ function buildGroupTables(
 
     const sortedTable = Array.from(table.values()).sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points;
-      if (b.goalDifference !== a.goalDifference) {
-        return b.goalDifference - a.goalDifference;
-      }
+      if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
       if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
       return a.team.localeCompare(b.team);
     });
@@ -330,9 +238,7 @@ function getThirdPlacedTeams(tables: Map<string, TeamRow[]>) {
     .filter((team): team is TeamRow => Boolean(team))
     .sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points;
-      if (b.goalDifference !== a.goalDifference) {
-        return b.goalDifference - a.goalDifference;
-      }
+      if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
       if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
       return a.team.localeCompare(b.team);
     })
@@ -369,11 +275,15 @@ function getWinner(
   teamA: TeamRow | undefined,
   teamB: TeamRow | undefined,
   scoreA: number | null,
-  scoreB: number | null
+  scoreB: number | null,
+  advancingTeam?: "home" | "away" | null
 ) {
   if (!teamA || !teamB || scoreA === null || scoreB === null) return undefined;
   if (scoreA > scoreB) return teamA;
   if (scoreB > scoreA) return teamB;
+  if (advancingTeam === "home") return teamA;
+  if (advancingTeam === "away") return teamB;
+
   return undefined;
 }
 
@@ -417,7 +327,7 @@ function buildTournamentProgression({
   requireCompletedGroups,
 }: {
   matches: MatchRow[];
-  scoresByMatchId: Map<string, { home: number | null; away: number | null }>;
+  scoresByMatchId: Map<string, ScoreValue>;
   requireCompletedGroups: boolean;
 }): TournamentProgression {
   const { tables, completedGroups } = buildGroupTables(matches, scoresByMatchId);
@@ -471,7 +381,8 @@ function buildTournamentProgression({
       teamA,
       teamB,
       score?.home ?? null,
-      score?.away ?? null
+      score?.away ?? null,
+      score?.advancingTeam ?? null
     );
 
     if (!winner) continue;
@@ -484,21 +395,16 @@ function buildTournamentProgression({
     if (match.stage === "semi_final") finalTeams.add(winner.team);
   }
 
-  const champion = winnersByMatchNumber.get(104)?.team ?? null;
-
   return {
     roundOf16Teams,
     quarterFinalTeams,
     semiFinalTeams,
     finalTeams,
-    champion,
+    champion: winnersByMatchNumber.get(104)?.team ?? null,
   };
 }
 
-function getBracketPoints(
-  predicted: TournamentProgression,
-  actual: TournamentProgression
-) {
+function getBracketPoints(predicted: TournamentProgression, actual: TournamentProgression) {
   let points = 0;
 
   predicted.roundOf16Teams.forEach((team) => {
@@ -528,7 +434,7 @@ function getBracketPoints(
   return points;
 }
 
-function snapshotToMatchRows(snapshot: SnapshotPrediction[]) {
+function snapshotToMatchRows(snapshot: SnapshotPrediction[]): MatchRow[] {
   return snapshot.map((item) => ({
     id: item.match.id,
     fifa_match_number: item.match.fifa_match_number,
@@ -538,16 +444,18 @@ function snapshotToMatchRows(snapshot: SnapshotPrediction[]) {
     away_team: item.match.away_team,
     home_score: null,
     away_score: null,
+    actual_advancing_team: null,
   }));
 }
 
 function snapshotToScores(snapshot: SnapshotPrediction[]) {
-  return new Map(
+  return new Map<string, ScoreValue>(
     snapshot.map((item) => [
       item.match_id,
       {
         home: item.predicted_home_score,
         away: item.predicted_away_score,
+        advancingTeam: item.advancing_team,
       },
     ])
   );
@@ -610,7 +518,7 @@ export async function GET(request: Request) {
 
   const { data: predictions, error: predictionsError } = await supabase
     .from("predictions")
-    .select("user_id, match_id, predicted_home_score, predicted_away_score")
+    .select("user_id, match_id, predicted_home_score, predicted_away_score, advancing_team")
     .eq("league_id", leagueId)
     .in("user_id", submittedUserIds);
 
@@ -624,7 +532,7 @@ export async function GET(request: Request) {
   const { data: matches, error: matchesError } = await supabase
     .from("matches")
     .select(
-      "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score"
+      "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score, actual_advancing_team"
     );
 
   if (matchesError) {
@@ -648,12 +556,13 @@ export async function GET(request: Request) {
 
   const matchRows = (matches ?? []) as MatchRow[];
 
-  const actualScoresByMatchId = new Map(
+  const actualScoresByMatchId = new Map<string, ScoreValue>(
     matchRows.map((match) => [
       match.id,
       {
         home: match.home_score,
         away: match.away_score,
+        advancingTeam: match.actual_advancing_team,
       },
     ])
   );
@@ -753,11 +662,9 @@ export async function GET(request: Request) {
       user_id: userId,
       display_name: profile?.display_name || profile?.email || "Spelare",
       email: profile?.email || null,
-
       points: score?.totalPoints ?? 0,
       matchPoints: score?.matchPoints ?? 0,
       bracketPoints: score?.bracketPoints ?? 0,
-
       exactScores: score?.exactScores ?? 0,
       playedMatches: score?.playedMatches ?? 0,
     };
@@ -765,14 +672,12 @@ export async function GET(request: Request) {
 
   standings.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
-    if (b.bracketPoints !== a.bracketPoints) {
-      return b.bracketPoints - a.bracketPoints;
-    }
+    if (b.bracketPoints !== a.bracketPoints) return b.bracketPoints - a.bracketPoints;
     if (b.exactScores !== a.exactScores) return b.exactScores - a.exactScores;
     return a.display_name.localeCompare(b.display_name);
   });
 
-      const { data: snapshots } = await supabase
+  const { data: snapshots } = await supabase
     .from("league_standing_snapshots")
     .select("user_id, rank, created_at")
     .eq("league_id", leagueId)
@@ -784,12 +689,9 @@ export async function GET(request: Request) {
 
   const snapshotTimes = Array.from(
     new Set(snapshotRows.map((snapshot) => snapshot.created_at))
-  ).sort(
-    (a, b) => new Date(b).getTime() - new Date(a).getTime()
-  );
+  ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
   const comparisonTime = snapshotTimes[1] ?? snapshotTimes[0] ?? null;
-
   const previousRankByUserId = new Map<string, number>();
 
   if (comparisonTime) {

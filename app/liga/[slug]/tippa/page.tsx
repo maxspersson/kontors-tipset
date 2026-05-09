@@ -19,6 +19,15 @@ type LeagueTippaPageProps = {
   }>;
 };
 
+type LeagueMemberRow = {
+  league_id: string;
+};
+
+type CopyLeagueOption = {
+  id: string;
+  name: string;
+};
+
 export default async function LeagueTippaPage({
   params,
 }: LeagueTippaPageProps) {
@@ -55,6 +64,29 @@ export default async function LeagueTippaPage({
     redirect("/liga");
   }
 
+  const { data: memberships } = await supabase
+    .from("league_members")
+    .select("league_id")
+    .eq("user_id", user.id);
+
+  const leagueIds = ((memberships ?? []) as LeagueMemberRow[])
+    .map((membership) => membership.league_id)
+    .filter(Boolean);
+
+  let copyLeagueOptions: CopyLeagueOption[] = [];
+
+  if (leagueIds.length > 1) {
+    const { data: copyLeagueRows } = await supabase
+      .from("leagues")
+      .select("id, name")
+      .in("id", leagueIds)
+      .neq("id", league.id)
+      .eq("is_archived", false)
+      .order("created_at", { ascending: false });
+
+    copyLeagueOptions = (copyLeagueRows ?? []) as CopyLeagueOption[];
+  }
+
   const { data: matches, error: matchesError } = await supabase
     .from("matches")
     .select("*")
@@ -62,10 +94,10 @@ export default async function LeagueTippaPage({
     .order("fifa_match_number", { ascending: true });
 
   const { data: savedPredictions } = await supabase
-  .from("predictions")
-  .select("match_id, predicted_home_score, predicted_away_score, advancing_team")
-  .eq("user_id", user.id)
-  .eq("league_id", league.id);
+    .from("predictions")
+    .select("match_id, predicted_home_score, predicted_away_score, advancing_team")
+    .eq("user_id", user.id)
+    .eq("league_id", league.id);
 
   const { data: submission } = await supabase
     .from("league_submissions")
@@ -91,6 +123,7 @@ export default async function LeagueTippaPage({
       isLocked={Boolean(submission?.submitted_at)}
       hasError={!!matchesError}
       leagueId={league.id}
+      copyLeagueOptions={copyLeagueOptions}
     />
   );
 }

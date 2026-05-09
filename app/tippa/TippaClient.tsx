@@ -17,6 +17,11 @@ const bracketRounds = [
 type Tab = string | "slutspel";
 type AdvancingTeam = "home" | "away";
 
+type CopyLeagueOption = {
+  id: string;
+  name: string;
+};
+
 type PredictionState = Record<
   string,
   {
@@ -656,6 +661,7 @@ export default function TippaClient({
   isLocked,
   hasError,
   leagueId,
+  copyLeagueOptions,
 }: {
   groupMatches: Match[];
   playoffMatches: Match[];
@@ -664,6 +670,7 @@ export default function TippaClient({
   isLocked: boolean;
   hasError: boolean;
   leagueId: string;
+  copyLeagueOptions: CopyLeagueOption[];
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("A");
   const [saveStatus, setSaveStatus] = useState<string>("");
@@ -671,6 +678,9 @@ export default function TippaClient({
   const [submitStatus, setSubmitStatus] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(isLocked);
+  const [copySourceLeagueId, setCopySourceLeagueId] = useState("");
+  const [copyStatus, setCopyStatus] = useState("");
+  const [isCopying, setIsCopying] = useState(false);
 
   const hasMounted = useRef(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -782,11 +792,13 @@ export default function TippaClient({
     0
   );
 
-  const completedPredictionsCount = groupMatches.reduce((sum, match) => {
-    return sum + (isCompletePrediction(predictions[match.id]) ? 1 : 0);
-  }, 0) + playoffMatches.reduce((sum, match) => {
-    return sum + (isCompletePlayoffPrediction(predictions[match.id]) ? 1 : 0);
-  }, 0);
+  const completedPredictionsCount =
+    groupMatches.reduce((sum, match) => {
+      return sum + (isCompletePrediction(predictions[match.id]) ? 1 : 0);
+    }, 0) +
+    playoffMatches.reduce((sum, match) => {
+      return sum + (isCompletePlayoffPrediction(predictions[match.id]) ? 1 : 0);
+    }, 0);
 
   const TOTAL_MATCHES = 104;
   const isEntireBracketComplete = completedPredictionsCount >= TOTAL_MATCHES;
@@ -863,6 +875,7 @@ export default function TippaClient({
     setSaveStatus("");
     setAutoSaveStatus("");
     setSubmitStatus("");
+    setCopyStatus("");
   }
 
   function updateAdvancingTeam(matchId: string, advancingTeam: AdvancingTeam) {
@@ -883,6 +896,51 @@ export default function TippaClient({
     setSaveStatus("");
     setAutoSaveStatus("");
     setSubmitStatus("");
+    setCopyStatus("");
+  }
+
+  async function copyPredictionsFromLeague() {
+    if (!copySourceLeagueId) {
+      setCopyStatus("Välj en liga att kopiera från.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Vill du kopiera in tipset från den valda ligan? Dina nuvarande tips i den här ligan skrivs över, men tipset låses inte."
+    );
+
+    if (!confirmed) return;
+
+    setIsCopying(true);
+    setCopyStatus("Kopierar tips...");
+
+    const response = await fetch("/api/copy-predictions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sourceLeagueId: copySourceLeagueId,
+        targetLeagueId: leagueId,
+      }),
+    });
+
+    const text = await response.text();
+
+    if (!response.ok) {
+      setCopyStatus(text || "Kunde inte kopiera tips.");
+      setIsCopying(false);
+      return;
+    }
+
+    try {
+      const data = JSON.parse(text);
+      setCopyStatus(`${data.copiedCount ?? 0} tips kopierade. Laddar om...`);
+    } catch {
+      setCopyStatus("Tips kopierade. Laddar om...");
+    }
+
+    window.location.reload();
   }
 
   async function savePredictions() {
@@ -1041,6 +1099,46 @@ export default function TippaClient({
 
           {hasError && (
             <div className="error-box">Kunde inte hämta matcher.</div>
+          )}
+
+          {!hasSubmitted && copyLeagueOptions.length > 0 && (
+            <div className="copy-tips-card">
+              <div>
+                <p>Kopiera tidigare tips</p>
+                <h3>Har du redan tippat i en annan liga?</h3>
+                <span>
+                  Kopiera in dina resultat här och justera fritt innan du
+                  skickar in.
+                </span>
+              </div>
+
+              <div className="copy-tips-actions">
+                <select
+                  value={copySourceLeagueId}
+                  onChange={(event) => {
+                    setCopySourceLeagueId(event.target.value);
+                    setCopyStatus("");
+                  }}
+                >
+                  <option value="">Välj liga</option>
+                  {copyLeagueOptions.map((league) => (
+                    <option key={league.id} value={league.id}>
+                      {league.name}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  disabled={isCopying || !copySourceLeagueId}
+                  onClick={copyPredictionsFromLeague}
+                >
+                  {isCopying ? "Kopierar..." : "Kopiera tips"}
+                </button>
+              </div>
+
+              {copyStatus && <p className="copy-tips-status">{copyStatus}</p>}
+            </div>
           )}
 
           <div className="match-toolbar">
@@ -1505,6 +1603,90 @@ export default function TippaClient({
       <style
         dangerouslySetInnerHTML={{
           __html: `
+            .copy-tips-card {
+              margin-top: 24px;
+              padding: 22px;
+              border-radius: 26px;
+              background:
+                linear-gradient(135deg, rgba(229,185,77,0.10), transparent 42%),
+                rgba(5,12,18,0.78);
+              border: 1px solid rgba(229,185,77,0.18);
+              box-shadow: 0 24px 80px rgba(0,0,0,0.34);
+              backdrop-filter: blur(18px);
+              display: grid;
+              grid-template-columns: 1fr auto;
+              gap: 18px;
+              align-items: center;
+            }
+
+            .copy-tips-card p {
+              margin: 0;
+              color: #e5b94d;
+              font-size: 12px;
+              font-weight: 950;
+              letter-spacing: 0.14em;
+              text-transform: uppercase;
+            }
+
+            .copy-tips-card h3 {
+              margin: 7px 0 0;
+              color: white;
+              font-size: 22px;
+              letter-spacing: -0.04em;
+            }
+
+            .copy-tips-card span {
+              display: block;
+              margin-top: 7px;
+              color: rgba(255,255,255,0.58);
+              font-size: 14px;
+              line-height: 1.45;
+            }
+
+            .copy-tips-actions {
+              display: flex;
+              gap: 10px;
+              align-items: center;
+            }
+
+            .copy-tips-actions select,
+            .copy-tips-actions button {
+              height: 46px;
+              border-radius: 999px;
+              font-size: 14px;
+              font-weight: 950;
+            }
+
+            .copy-tips-actions select {
+              min-width: 220px;
+              padding: 0 16px;
+              border: 1px solid rgba(255,255,255,0.14);
+              background: rgba(5,12,18,0.92);
+              color: white;
+              outline: none;
+            }
+
+            .copy-tips-actions button {
+              padding: 0 18px;
+              border: 0;
+              background: linear-gradient(180deg, #f3cf69, #d9a935);
+              color: #090909;
+              cursor: pointer;
+              box-shadow: 0 12px 34px rgba(229,185,77,0.18);
+            }
+
+            .copy-tips-actions button:disabled {
+              opacity: 0.45;
+              cursor: not-allowed;
+            }
+
+            .copy-tips-status {
+              grid-column: 1 / -1;
+              color: rgba(255,255,255,0.62) !important;
+              letter-spacing: 0 !important;
+              text-transform: none !important;
+            }
+
             .match-card-live {
               position: relative;
               border-color: rgba(239,68,68,0.42) !important;
@@ -1685,6 +1867,22 @@ export default function TippaClient({
 
               100% {
                 box-shadow: 0 0 0 0 rgba(239,68,68,0);
+              }
+            }
+
+            @media (max-width: 760px) {
+              .copy-tips-card {
+                grid-template-columns: 1fr;
+              }
+
+              .copy-tips-actions {
+                flex-direction: column;
+                align-items: stretch;
+              }
+
+              .copy-tips-actions select,
+              .copy-tips-actions button {
+                width: 100%;
               }
             }
 

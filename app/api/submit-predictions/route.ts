@@ -5,6 +5,7 @@ type PredictionRow = {
   match_id: string;
   predicted_home_score: number | null;
   predicted_away_score: number | null;
+  advancing_team: "home" | "away" | null;
 };
 
 type MatchRow = {
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
 
   const { data: predictions, error: predictionsError } = await supabase
     .from("predictions")
-    .select("match_id, predicted_home_score, predicted_away_score")
+    .select("match_id, predicted_home_score, predicted_away_score, advancing_team")
     .eq("user_id", user.id)
     .eq("league_id", leagueId);
 
@@ -91,13 +92,21 @@ export async function POST(request: Request) {
 
   const predictionRows = (predictions ?? []) as PredictionRow[];
 
-  const completePredictions = predictionRows.filter(
-    (prediction) =>
-      prediction.match_id &&
-      prediction.predicted_home_score !== null &&
-      prediction.predicted_away_score !== null
-  );
+  const completePredictions = predictionRows.filter((prediction) => {
+  if (
+    !prediction.match_id ||
+    prediction.predicted_home_score === null ||
+    prediction.predicted_away_score === null
+  ) {
+    return false;
+  }
 
+  if (prediction.predicted_home_score !== prediction.predicted_away_score) {
+    return true;
+  }
+
+  return true;
+});
   if (completePredictions.length < TOTAL_REQUIRED_PREDICTIONS) {
     return new NextResponse(
       `Du måste fylla i alla ${TOTAL_REQUIRED_PREDICTIONS} matcher innan du kan skicka in tipset. Just nu är ${completePredictions.length}/${TOTAL_REQUIRED_PREDICTIONS} ifyllda.`,

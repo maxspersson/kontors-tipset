@@ -269,8 +269,9 @@ export default function TabellClient({
                     <h2>{player.display_name}</h2>
                     <p>{player.points} p</p>
                     <span>
-                      {player.matchPoints} matchp · {player.bracketPoints} slutspel
-                    </span>
+  {player.matchPoints} matchpoäng · {player.bracketPoints} slutspel ·{" "}
+  {player.exactScores} fullträffar
+</span>
                   </div>
                 ))}
               </div>
@@ -305,19 +306,16 @@ export default function TabellClient({
                     <div className="points">{player.points}</div>
 
                     <div className="stat-cell">
-                      <strong>{player.matchPoints}</strong>
-                      <small>matchp</small>
-                    </div>
+  <strong>{player.matchPoints}</strong>
+</div>
 
-                    <div className="stat-cell">
-                      <strong>{player.bracketPoints}</strong>
-                      <small>slutspel</small>
-                    </div>
+<div className="stat-cell">
+  <strong>{player.bracketPoints}</strong>
+</div>
 
-                    <div className="stat-cell">
-                      <strong>{player.exactScores}</strong>
-                      <small>fullträffar</small>
-                    </div>
+<div className="stat-cell">
+  <strong>{player.exactScores}</strong>
+</div>
                   </div>
                 ))}
               </div>

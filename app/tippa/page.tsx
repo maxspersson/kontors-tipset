@@ -54,6 +54,11 @@ type League = {
   created_at: string | null;
 };
 
+type CopyLeagueOption = {
+  id: string;
+  name: string;
+};
+
 type TippaPageProps = {
   searchParams?: Promise<{
     leagueId?: string;
@@ -74,25 +79,25 @@ export default async function TippaPage({ searchParams }: TippaPageProps) {
   const params = searchParams ? await searchParams : {};
   const leagueId = params.leagueId;
 
+  const { data: memberships } = await supabase
+    .from("league_members")
+    .select("league_id")
+    .eq("user_id", user.id);
+
+  const leagueIds = ((memberships ?? []) as LeagueMemberRow[])
+    .map((membership) => membership.league_id)
+    .filter(Boolean);
+
   if (!leagueId) {
-    const { data: memberships } = await supabase
-      .from("league_members")
-      .select("league_id")
-      .eq("user_id", user.id);
-
-    const leagueIds = ((memberships ?? []) as LeagueMemberRow[])
-      .map((membership) => membership.league_id)
-      .filter(Boolean);
-
     let leagues: League[] = [];
 
     if (leagueIds.length > 0) {
       const { data: leagueRows } = await supabase
-  .from("leagues")
-  .select("id, name, slug, invite_code, created_at")
-  .in("id", leagueIds)
-  .eq("is_archived", false)
-  .order("created_at", { ascending: false });
+        .from("leagues")
+        .select("id, name, slug, invite_code, created_at")
+        .in("id", leagueIds)
+        .eq("is_archived", false)
+        .order("created_at", { ascending: false });
 
       leagues = (leagueRows ?? []) as League[];
     }
@@ -178,7 +183,11 @@ export default async function TippaPage({ searchParams }: TippaPageProps) {
                         )}
 
                         <Link
-                          href={league.slug ? `/liga/${league.slug}/tippa` : `/tippa?leagueId=${league.id}`}
+                          href={
+                            league.slug
+                              ? `/liga/${league.slug}/tippa`
+                              : `/tippa?leagueId=${league.id}`
+                          }
                           className="choose-primary"
                         >
                           Tippa i ligan
@@ -412,26 +421,40 @@ export default async function TippaPage({ searchParams }: TippaPageProps) {
   }
 
   const { data: membership } = await supabase
-  .from("league_members")
-  .select("id")
-  .eq("league_id", leagueId)
-  .eq("user_id", user.id)
-  .maybeSingle();
+    .from("league_members")
+    .select("id")
+    .eq("league_id", leagueId)
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-if (!membership) {
-  redirect("/liga");
-}
+  if (!membership) {
+    redirect("/liga");
+  }
 
-const { data: activeLeague } = await supabase
-  .from("leagues")
-  .select("id")
-  .eq("id", leagueId)
-  .eq("is_archived", false)
-  .maybeSingle();
+  const { data: activeLeague } = await supabase
+    .from("leagues")
+    .select("id")
+    .eq("id", leagueId)
+    .eq("is_archived", false)
+    .maybeSingle();
 
-if (!activeLeague) {
-  redirect("/liga");
-}
+  if (!activeLeague) {
+    redirect("/liga");
+  }
+
+  let copyLeagueOptions: CopyLeagueOption[] = [];
+
+  if (leagueIds.length > 1) {
+    const { data: copyLeagueRows } = await supabase
+      .from("leagues")
+      .select("id, name")
+      .in("id", leagueIds)
+      .neq("id", leagueId)
+      .eq("is_archived", false)
+      .order("created_at", { ascending: false });
+
+    copyLeagueOptions = (copyLeagueRows ?? []) as CopyLeagueOption[];
+  }
 
   const { data: matches, error: matchesError } = await supabase
     .from("matches")
@@ -440,10 +463,10 @@ if (!activeLeague) {
     .order("fifa_match_number", { ascending: true });
 
   const { data: savedPredictions } = await supabase
-  .from("predictions")
-  .select("match_id, predicted_home_score, predicted_away_score, advancing_team")
-  .eq("user_id", user.id)
-  .eq("league_id", leagueId);
+    .from("predictions")
+    .select("match_id, predicted_home_score, predicted_away_score, advancing_team")
+    .eq("user_id", user.id)
+    .eq("league_id", leagueId);
 
   const { data: submission } = await supabase
     .from("league_submissions")
@@ -469,6 +492,7 @@ if (!activeLeague) {
       isLocked={Boolean(submission?.submitted_at)}
       hasError={!!matchesError}
       leagueId={leagueId}
+      copyLeagueOptions={copyLeagueOptions}
     />
   );
 }
