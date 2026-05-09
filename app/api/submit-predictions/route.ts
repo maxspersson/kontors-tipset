@@ -21,11 +21,82 @@ type SnapshotRow = PredictionRow & {
   match: MatchRow;
 };
 
+type ProfileRow = {
+  display_name: string | null;
+  email: string | null;
+};
+
 const TOTAL_REQUIRED_PREDICTIONS = 104;
 const SUBMISSION_DEADLINE_UTC = Date.UTC(2026, 5, 10, 21, 59, 59, 999);
 
 function isAfterSubmissionDeadline() {
   return Date.now() > SUBMISSION_DEADLINE_UTC;
+}
+
+function getBaseDisplayName(profile?: ProfileRow | null, userEmail?: string | null) {
+  return (
+    profile?.display_name ||
+    profile?.email?.split("@")[0] ||
+    userEmail?.split("@")[0] ||
+    "spelare"
+  );
+}
+
+function slugifyName(value: string) {
+  const slug = value
+    .toLowerCase()
+    .trim()
+    .replaceAll("å", "a")
+    .replaceAll("ä", "a")
+    .replaceAll("ö", "o")
+    .replaceAll("é", "e")
+    .replaceAll("è", "e")
+    .replaceAll("ü", "u")
+    .replaceAll("ñ", "n")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return slug || "spelare";
+}
+
+async function createUniqueSubmissionSlug({
+  supabase,
+  leagueId,
+  baseName,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  leagueId: string;
+  baseName: string;
+}) {
+  const baseSlug = slugifyName(baseName);
+
+  const { data: existingRows, error } = await supabase
+    .from("league_submissions")
+    .select("public_slug")
+    .eq("league_id", leagueId)
+    .or(`public_slug.eq.${baseSlug},public_slug.like.${baseSlug}-%`);
+
+  if (error) {
+    throw new Error(`Kunde inte kontrollera tipslänk: ${error.message}`);
+  }
+
+  const existingSlugs = new Set(
+    (existingRows ?? [])
+      .map((row) => row.public_slug)
+      .filter((slug): slug is string => Boolean(slug))
+  );
+
+  if (!existingSlugs.has(baseSlug)) {
+    return baseSlug;
+  }
+
+  let counter = 2;
+
+  while (existingSlugs.has(`${baseSlug}-${counter}`)) {
+    counter += 1;
+  }
+
+  return `${baseSlug}-${counter}`;
 }
 
 export async function POST(request: Request) {
@@ -68,13 +139,38 @@ export async function POST(request: Request) {
 
   const { data: existingSubmission } = await supabase
     .from("league_submissions")
-    .select("id, submitted_at")
+    .select("id, submitted_at, public_slug")
     .eq("league_id", leagueId)
     .eq("user_id", user.id)
     .maybeSingle();
 
   if (existingSubmission?.submitted_at) {
     return new NextResponse("Tipset är redan inskickat.", { status: 400 });
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name, email")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  let publicSlug = existingSubmission?.public_slug ?? null;
+
+  if (!publicSlug) {
+    try {
+      publicSlug = await createUniqueSubmissionSlug({
+        supabase,
+        leagueId,
+        baseName: getBaseDisplayName(profile as ProfileRow | null, user.email),
+      });
+    } catch (error) {
+      return new NextResponse(
+        error instanceof Error
+          ? error.message
+          : "Kunde inte skapa publik tipslänk.",
+        { status: 500 }
+      );
+    }
   }
 
   const { data: predictions, error: predictionsError } = await supabase
@@ -93,20 +189,17 @@ export async function POST(request: Request) {
   const predictionRows = (predictions ?? []) as PredictionRow[];
 
   const completePredictions = predictionRows.filter((prediction) => {
-  if (
-    !prediction.match_id ||
-    prediction.predicted_home_score === null ||
-    prediction.predicted_away_score === null
-  ) {
-    return false;
-  }
+    if (
+      !prediction.match_id ||
+      prediction.predicted_home_score === null ||
+      prediction.predicted_away_score === null
+    ) {
+      return false;
+    }
 
-  if (prediction.predicted_home_score !== prediction.predicted_away_score) {
     return true;
-  }
+  });
 
-  return true;
-});
   if (completePredictions.length < TOTAL_REQUIRED_PREDICTIONS) {
     return new NextResponse(
       `Du måste fylla i alla ${TOTAL_REQUIRED_PREDICTIONS} matcher innan du kan skicka in tipset. Just nu är ${completePredictions.length}/${TOTAL_REQUIRED_PREDICTIONS} ifyllda.`,
@@ -174,6 +267,7 @@ export async function POST(request: Request) {
       {
         league_id: leagueId,
         user_id: user.id,
+        public_slug: publicSlug,
         submitted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         group_snapshot: groupSnapshot,
@@ -199,5 +293,6 @@ export async function POST(request: Request) {
     totalPredictionsCount: snapshotRows.length,
     groupPredictionsCount: groupSnapshot.length,
     playoffPredictionsCount: playoffSnapshot.length,
+    publicSlug,
   });
 }

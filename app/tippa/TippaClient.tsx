@@ -137,70 +137,22 @@ const roundOf32Slots: Record<number, [SeedSlot, SeedSlot]> = {
 };
 
 const laterRoundSlots: Record<number, [SeedSlot, SeedSlot]> = {
-  89: [
-    { type: "winner", matchNumber: 74, label: "W74" },
-    { type: "winner", matchNumber: 77, label: "W77" },
-  ],
-  90: [
-    { type: "winner", matchNumber: 73, label: "W73" },
-    { type: "winner", matchNumber: 75, label: "W75" },
-  ],
-  91: [
-    { type: "winner", matchNumber: 76, label: "W76" },
-    { type: "winner", matchNumber: 78, label: "W78" },
-  ],
-  92: [
-    { type: "winner", matchNumber: 79, label: "W79" },
-    { type: "winner", matchNumber: 80, label: "W80" },
-  ],
-  93: [
-    { type: "winner", matchNumber: 83, label: "W83" },
-    { type: "winner", matchNumber: 84, label: "W84" },
-  ],
-  94: [
-    { type: "winner", matchNumber: 81, label: "W81" },
-    { type: "winner", matchNumber: 82, label: "W82" },
-  ],
-  95: [
-    { type: "winner", matchNumber: 86, label: "W86" },
-    { type: "winner", matchNumber: 88, label: "W88" },
-  ],
-  96: [
-    { type: "winner", matchNumber: 85, label: "W85" },
-    { type: "winner", matchNumber: 87, label: "W87" },
-  ],
-  97: [
-    { type: "winner", matchNumber: 89, label: "W89" },
-    { type: "winner", matchNumber: 90, label: "W90" },
-  ],
-  98: [
-    { type: "winner", matchNumber: 93, label: "W93" },
-    { type: "winner", matchNumber: 94, label: "W94" },
-  ],
-  99: [
-    { type: "winner", matchNumber: 91, label: "W91" },
-    { type: "winner", matchNumber: 92, label: "W92" },
-  ],
-  100: [
-    { type: "winner", matchNumber: 95, label: "W95" },
-    { type: "winner", matchNumber: 96, label: "W96" },
-  ],
-  101: [
-    { type: "winner", matchNumber: 97, label: "W97" },
-    { type: "winner", matchNumber: 98, label: "W98" },
-  ],
-  102: [
-    { type: "winner", matchNumber: 99, label: "W99" },
-    { type: "winner", matchNumber: 100, label: "W100" },
-  ],
-  103: [
-    { type: "loser", matchNumber: 101, label: "L101" },
-    { type: "loser", matchNumber: 102, label: "L102" },
-  ],
-  104: [
-    { type: "winner", matchNumber: 101, label: "W101" },
-    { type: "winner", matchNumber: 102, label: "W102" },
-  ],
+  89: [{ type: "winner", matchNumber: 74, label: "W74" }, { type: "winner", matchNumber: 77, label: "W77" }],
+  90: [{ type: "winner", matchNumber: 73, label: "W73" }, { type: "winner", matchNumber: 75, label: "W75" }],
+  91: [{ type: "winner", matchNumber: 76, label: "W76" }, { type: "winner", matchNumber: 78, label: "W78" }],
+  92: [{ type: "winner", matchNumber: 79, label: "W79" }, { type: "winner", matchNumber: 80, label: "W80" }],
+  93: [{ type: "winner", matchNumber: 83, label: "W83" }, { type: "winner", matchNumber: 84, label: "W84" }],
+  94: [{ type: "winner", matchNumber: 81, label: "W81" }, { type: "winner", matchNumber: 82, label: "W82" }],
+  95: [{ type: "winner", matchNumber: 86, label: "W86" }, { type: "winner", matchNumber: 88, label: "W88" }],
+  96: [{ type: "winner", matchNumber: 85, label: "W85" }, { type: "winner", matchNumber: 87, label: "W87" }],
+  97: [{ type: "winner", matchNumber: 89, label: "W89" }, { type: "winner", matchNumber: 90, label: "W90" }],
+  98: [{ type: "winner", matchNumber: 93, label: "W93" }, { type: "winner", matchNumber: 94, label: "W94" }],
+  99: [{ type: "winner", matchNumber: 91, label: "W91" }, { type: "winner", matchNumber: 92, label: "W92" }],
+  100: [{ type: "winner", matchNumber: 95, label: "W95" }, { type: "winner", matchNumber: 96, label: "W96" }],
+  101: [{ type: "winner", matchNumber: 97, label: "W97" }, { type: "winner", matchNumber: 98, label: "W98" }],
+  102: [{ type: "winner", matchNumber: 99, label: "W99" }, { type: "winner", matchNumber: 100, label: "W100" }],
+  103: [{ type: "loser", matchNumber: 101, label: "L101" }, { type: "loser", matchNumber: 102, label: "L102" }],
+  104: [{ type: "winner", matchNumber: 101, label: "W101" }, { type: "winner", matchNumber: 102, label: "W102" }],
 };
 
 function isLiveMatch(match: Match) {
@@ -253,7 +205,8 @@ function getLockPressureText(match: Match) {
   return `Låser om ${hours} tim ${minutes} min`;
 }
 
-function getMatchStatusText(match: Match, matchLocked: boolean) {
+function getMatchStatusText(match: Match, matchLocked: boolean, readonly: boolean) {
+  if (readonly) return "Låst tips";
   if (isLiveMatch(match)) return "Matchen spelas nu";
   if (isFinishedMatch(match)) return "Slutspelad";
   if (matchLocked) return "Låst 60 min före avspark";
@@ -661,7 +614,10 @@ export default function TippaClient({
   isLocked,
   hasError,
   leagueId,
-  copyLeagueOptions,
+  copyLeagueOptions = [],
+  readonly = false,
+  viewerName,
+  backHref,
 }: {
   groupMatches: Match[];
   playoffMatches: Match[];
@@ -670,7 +626,10 @@ export default function TippaClient({
   isLocked: boolean;
   hasError: boolean;
   leagueId: string;
-  copyLeagueOptions: CopyLeagueOption[];
+  copyLeagueOptions?: CopyLeagueOption[];
+  readonly?: boolean;
+  viewerName?: string;
+  backHref?: string;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("A");
   const [saveStatus, setSaveStatus] = useState<string>("");
@@ -685,7 +644,7 @@ export default function TippaClient({
   const hasMounted = useRef(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isPlayoffLocked = hasSubmitted;
+  const isPlayoffLocked = hasSubmitted || readonly;
 
   const [predictions, setPredictions] = useState<PredictionState>(() => {
     const initial: PredictionState = {};
@@ -708,6 +667,8 @@ export default function TippaClient({
   });
 
   useEffect(() => {
+    if (readonly) return;
+
     if (!hasMounted.current) {
       hasMounted.current = true;
       return;
@@ -761,7 +722,7 @@ export default function TippaClient({
         clearTimeout(autoSaveTimer.current);
       }
     };
-  }, [predictions, leagueId]);
+  }, [predictions, leagueId, readonly]);
 
   const activeMatches = groupMatches.filter(
     (match) => match.group_name === activeTab
@@ -839,6 +800,8 @@ export default function TippaClient({
     side: "home" | "away",
     value: string
   ) {
+    if (readonly) return;
+
     const match =
       groupMatches.find((item) => item.id === matchId) ||
       playoffMatches.find((item) => item.id === matchId);
@@ -879,6 +842,8 @@ export default function TippaClient({
   }
 
   function updateAdvancingTeam(matchId: string, advancingTeam: AdvancingTeam) {
+    if (readonly) return;
+
     const match = playoffMatches.find((item) => item.id === matchId);
 
     if (!match) return;
@@ -1053,42 +1018,86 @@ export default function TippaClient({
     setIsSubmitting(false);
   }
 
+  function renderScoreInput({
+    matchId,
+    side,
+    value,
+    disabled,
+  }: {
+    matchId: string;
+    side: "home" | "away";
+    value: string;
+    disabled: boolean;
+  }) {
+    if (readonly) {
+      return <div className="readonly-score-box">{value || "-"}</div>;
+    }
+
+    return (
+      <input
+        inputMode="numeric"
+        placeholder="-"
+        value={value}
+        disabled={disabled}
+        onChange={(event) =>
+          updatePrediction(matchId, side, event.target.value)
+        }
+      />
+    );
+  }
+
   return (
     <main className="tips-page">
       <section className="tips-hero">
         <div className="tips-wrap">
           <div className="tips-head">
             <div>
+              {backHref && (
+                <a href={backHref} className="readonly-back-link">
+                  ← Till ligan
+                </a>
+              )}
+
               <p className="eyebrow">VM 2026</p>
-              <h1>Tippa gruppspelet.</h1>
+
+              <h1>
+                {readonly
+                  ? `Så här har ${viewerName || "spelaren"} tippat.`
+                  : "Tippa gruppspelet."}
+              </h1>
+
               <p className="intro">
-                Välj grupp, fyll i dina resultat och bygg ditt VM-tips steg för
-                steg. När gruppspelet är klart skapas ditt slutspel automatiskt
-                utifrån dina tips.
+                {readonly
+                  ? "Här visas det låsta VM-tipset i ligan. Jämför gruppspel, slutspel och potentiella skrällar."
+                  : "Välj grupp, fyll i dina resultat och bygg ditt VM-tips steg för steg. När gruppspelet är klart skapas ditt slutspel automatiskt utifrån dina tips."}
               </p>
             </div>
 
             <div className="hero-panel">
-              <p>{hasSubmitted ? "Tipset är inskickat" : "Matcher ifyllda"}</p>
+              <p>{readonly ? "Låst tips" : hasSubmitted ? "Tipset är inskickat" : "Matcher ifyllda"}</p>
               <strong>
                 {completedPredictionsCount}/{TOTAL_MATCHES}
               </strong>
               <span>
-                {hasSubmitted
-                  ? "Slutspelet är låst. Gruppspelsmatcher kan ändras fram till 60 minuter före avspark."
-                  : "Tipset kan skickas in när alla matcher är ifyllda."}
+                {readonly
+                  ? "Det här är spelarens inskickade snapshot."
+                  : hasSubmitted
+                    ? "Slutspelet är låst. Gruppspelsmatcher kan ändras fram till 60 minuter före avspark."
+                    : "Tipset kan skickas in när alla matcher är ifyllda."}
               </span>
             </div>
           </div>
 
-          {hasSubmitted && (
+          {(hasSubmitted || readonly) && (
             <div className="tippa-locked-banner">
               <div>
-                <p className="tippa-locked-title">Tipset är inskickat</p>
+                <p className="tippa-locked-title">
+                  {readonly ? "Du tittar på ett låst tips" : "Tipset är inskickat"}
+                </p>
                 <p className="tippa-locked-text">
-                  Slutspelet är låst och din snapshot är sparad.
-                  Gruppspelsmatcher kan fortfarande ändras fram till 60 minuter
-                  före avspark.
+                  {readonly
+                    ? `Det här är ${viewerName || "spelarens"} inskickade VM-tips. Resultaten går inte att ändra här.`
+                    : "Slutspelet är låst och din snapshot är sparad. Gruppspelsmatcher kan fortfarande ändras fram till 60 minuter före avspark."}
                   {submission?.submitted_at
                     ? ` Inskickat ${formatKickoff(submission.submitted_at)}.`
                     : ""}
@@ -1101,7 +1110,7 @@ export default function TippaClient({
             <div className="error-box">Kunde inte hämta matcher.</div>
           )}
 
-          {!hasSubmitted && copyLeagueOptions.length > 0 && (
+          {!readonly && !hasSubmitted && copyLeagueOptions.length > 0 && (
             <div className="copy-tips-card">
               <div>
                 <p>Kopiera tidigare tips</p>
@@ -1198,7 +1207,7 @@ export default function TippaClient({
                   <span>
                     {champion ? getSwedishTeamName(champion.team) : "Ej klart"}
                   </span>
-                  <p>din mästare</p>
+                  <p>{readonly ? "tippad mästare" : "din mästare"}</p>
                 </div>
               </div>
 
@@ -1254,23 +1263,15 @@ export default function TippaClient({
                                   </small>
                                 </div>
 
-                                <input
-                                  inputMode="numeric"
-                                  placeholder="-"
-                                  value={match.scoreA}
-                                  disabled={
+                                {renderScoreInput({
+                                  matchId: match.dbMatch.id,
+                                  side: "home",
+                                  value: match.scoreA,
+                                  disabled:
                                     isPlayoffLocked ||
                                     !match.teamA ||
-                                    !match.teamB
-                                  }
-                                  onChange={(event) =>
-                                    updatePrediction(
-                                      match.dbMatch.id,
-                                      "home",
-                                      event.target.value
-                                    )
-                                  }
-                                />
+                                    !match.teamB,
+                                })}
                               </div>
 
                               <div
@@ -1293,23 +1294,15 @@ export default function TippaClient({
                                   </small>
                                 </div>
 
-                                <input
-                                  inputMode="numeric"
-                                  placeholder="-"
-                                  value={match.scoreB}
-                                  disabled={
+                                {renderScoreInput({
+                                  matchId: match.dbMatch.id,
+                                  side: "away",
+                                  value: match.scoreB,
+                                  disabled:
                                     isPlayoffLocked ||
                                     !match.teamA ||
-                                    !match.teamB
-                                  }
-                                  onChange={(event) =>
-                                    updatePrediction(
-                                      match.dbMatch.id,
-                                      "away",
-                                      event.target.value
-                                    )
-                                  }
-                                />
+                                    !match.teamB,
+                                })}
                               </div>
 
                               {match.scoreA !== "" &&
@@ -1319,8 +1312,8 @@ export default function TippaClient({
                                 match.teamB && (
                                   <div className="advance-picker">
                                     <p>
-                                      Matchen är oavgjord efter 90 minuter. Välj
-                                      lag som går vidare.
+                                      Matchen är oavgjord efter 90 minuter. Valt
+                                      lag går vidare.
                                     </p>
 
                                     <div className="advance-actions">
@@ -1375,49 +1368,51 @@ export default function TippaClient({
                 </div>
               </div>
 
-              <div className="submit-panel">
-                <div>
-                  <p>{hasSubmitted ? "Inskickat" : "Redo att skicka in?"}</p>
-                  <h3>
-                    {hasSubmitted ? "Slutspelet är låst" : "Lås ditt VM-tips"}
-                  </h3>
-                  <span>
-                    {hasSubmitted
-                      ? "Din snapshot är sparad. Slutspelsträdet kan inte längre ändras."
-                      : `${completedPredictionsCount}/${TOTAL_MATCHES} matcher ifyllda. När hela tipset är klart kan du låsa och skicka in din snapshot.`}
-                  </span>
+              {!readonly && (
+                <div className="submit-panel">
+                  <div>
+                    <p>{hasSubmitted ? "Inskickat" : "Redo att skicka in?"}</p>
+                    <h3>
+                      {hasSubmitted ? "Slutspelet är låst" : "Lås ditt VM-tips"}
+                    </h3>
+                    <span>
+                      {hasSubmitted
+                        ? "Din snapshot är sparad. Slutspelsträdet kan inte längre ändras."
+                        : `${completedPredictionsCount}/${TOTAL_MATCHES} matcher ifyllda. När hela tipset är klart kan du låsa och skicka in din snapshot.`}
+                    </span>
+                  </div>
+
+                  <div className="submit-actions">
+                    <button
+                      className="secondary-button"
+                      disabled={isSubmitting}
+                      onClick={savePredictions}
+                    >
+                      Spara tips
+                    </button>
+
+                    <button
+                      className="submit-button"
+                      disabled={
+                        hasSubmitted || !isEntireBracketComplete || isSubmitting
+                      }
+                      onClick={submitPredictions}
+                    >
+                      {hasSubmitted
+                        ? "Tipset inskickat"
+                        : isSubmitting
+                          ? "Skickar in..."
+                          : "Skicka in tipset"}
+                    </button>
+                  </div>
+
+                  {(saveStatus || submitStatus || autoSaveStatus) && (
+                    <p className="submit-status">
+                      {submitStatus || saveStatus || autoSaveStatus}
+                    </p>
+                  )}
                 </div>
-
-                <div className="submit-actions">
-                  <button
-                    className="secondary-button"
-                    disabled={isSubmitting}
-                    onClick={savePredictions}
-                  >
-                    Spara tips
-                  </button>
-
-                  <button
-                    className="submit-button"
-                    disabled={
-                      hasSubmitted || !isEntireBracketComplete || isSubmitting
-                    }
-                    onClick={submitPredictions}
-                  >
-                    {hasSubmitted
-                      ? "Tipset inskickat"
-                      : isSubmitting
-                        ? "Skickar in..."
-                        : "Skicka in tipset"}
-                  </button>
-                </div>
-
-                {(saveStatus || submitStatus || autoSaveStatus) && (
-                  <p className="submit-status">
-                    {submitStatus || saveStatus || autoSaveStatus}
-                  </p>
-                )}
-              </div>
+              )}
             </section>
           ) : (
             <section className="group-block">
@@ -1432,10 +1427,10 @@ export default function TippaClient({
               <div className="group-table-card">
                 <div className="group-table-head">
                   <div>
-                    <p>Live från dina tips</p>
+                    <p>{readonly ? "Tabell från tipset" : "Live från dina tips"}</p>
                     <h3>Tabell Grupp {activeTab}</h3>
                   </div>
-                  <span>Uppdateras direkt</span>
+                  <span>{readonly ? "Låst snapshot" : "Uppdateras direkt"}</span>
                 </div>
 
                 <div className="group-table-scroll">
@@ -1500,6 +1495,7 @@ export default function TippaClient({
                         isLiveMatch(match) ? "match-card-live" : "",
                         isFinishedMatch(match) ? "match-card-finished" : "",
                         matchLockingSoon ? "match-card-locking-soon" : "",
+                        readonly ? "match-card-readonly" : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -1508,18 +1504,20 @@ export default function TippaClient({
                         <span>Match {match.fifa_match_number}</span>
 
                         <div className="match-top-right">
-                          {isLiveMatch(match) && (
+                          {readonly && <span className="readonly-badge">Låst tips</span>}
+
+                          {!readonly && isLiveMatch(match) && (
                             <span className="live-badge">
                               <span className="live-dot" />
                               LIVE
                             </span>
                           )}
 
-                          {isFinishedMatch(match) && (
+                          {!readonly && isFinishedMatch(match) && (
                             <span className="finished-badge">Klar</span>
                           )}
 
-                          {matchLockingSoon && (
+                          {!readonly && matchLockingSoon && (
                             <span className="lock-soon-badge">
                               {getLockPressureText(match)}
                             </span>
@@ -1536,27 +1534,21 @@ export default function TippaClient({
                         </div>
 
                         <div className="score">
-                          <input
-                            inputMode="numeric"
-                            placeholder="-"
-                            value={predictions[match.id]?.home || ""}
-                            disabled={matchLocked}
-                            onChange={(e) =>
-                              updatePrediction(match.id, "home", e.target.value)
-                            }
-                          />
+                          {renderScoreInput({
+                            matchId: match.id,
+                            side: "home",
+                            value: predictions[match.id]?.home || "",
+                            disabled: matchLocked,
+                          })}
 
                           <span>:</span>
 
-                          <input
-                            inputMode="numeric"
-                            placeholder="-"
-                            value={predictions[match.id]?.away || ""}
-                            disabled={matchLocked}
-                            onChange={(e) =>
-                              updatePrediction(match.id, "away", e.target.value)
-                            }
-                          />
+                          {renderScoreInput({
+                            matchId: match.id,
+                            side: "away",
+                            value: predictions[match.id]?.away || "",
+                            disabled: matchLocked,
+                          })}
                         </div>
 
                         <div className="team away">
@@ -1570,18 +1562,20 @@ export default function TippaClient({
 
                         <span
                           className={
-                            isLiveMatch(match)
-                              ? "match-status live"
-                              : isFinishedMatch(match)
-                                ? "match-status finished"
-                                : matchLocked
-                                  ? "match-status locked"
-                                  : matchLockingSoon
-                                    ? "match-status locking-soon"
-                                    : "match-status open"
+                            readonly
+                              ? "match-status locked"
+                              : isLiveMatch(match)
+                                ? "match-status live"
+                                : isFinishedMatch(match)
+                                  ? "match-status finished"
+                                  : matchLocked
+                                    ? "match-status locked"
+                                    : matchLockingSoon
+                                      ? "match-status locking-soon"
+                                      : "match-status open"
                           }
                         >
-                          {getMatchStatusText(match, matchLocked)}
+                          {getMatchStatusText(match, matchLocked, readonly)}
                         </span>
                       </div>
                     </article>
@@ -1589,12 +1583,14 @@ export default function TippaClient({
                 })}
               </div>
 
-              <div className="save-bar">
-                <button onClick={savePredictions}>Spara tips</button>
-                {(saveStatus || autoSaveStatus) && (
-                  <p>{saveStatus || autoSaveStatus}</p>
-                )}
-              </div>
+              {!readonly && (
+                <div className="save-bar">
+                  <button onClick={savePredictions}>Spara tips</button>
+                  {(saveStatus || autoSaveStatus) && (
+                    <p>{saveStatus || autoSaveStatus}</p>
+                  )}
+                </div>
+              )}
             </section>
           )}
         </div>
@@ -1603,6 +1599,51 @@ export default function TippaClient({
       <style
         dangerouslySetInnerHTML={{
           __html: `
+            .readonly-back-link {
+              display: inline-flex;
+              margin-bottom: 22px;
+              color: rgba(255,255,255,0.58);
+              text-decoration: none;
+              font-size: 14px;
+              font-weight: 850;
+            }
+
+            .readonly-back-link:hover {
+              color: #e5b94d;
+            }
+
+            .readonly-score-box {
+              width: 48px;
+              height: 48px;
+              border-radius: 14px;
+              display: grid;
+              place-items: center;
+              background: rgba(255,255,255,0.06);
+              border: 1px solid rgba(255,255,255,0.12);
+              color: white;
+              font-size: 18px;
+              font-weight: 950;
+            }
+
+            .readonly-badge {
+              height: 24px;
+              padding: 0 10px;
+              border-radius: 999px;
+              display: inline-flex;
+              align-items: center;
+              font-size: 11px;
+              font-weight: 950;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              color: #e5b94d;
+              background: rgba(229,185,77,0.12);
+              border: 1px solid rgba(229,185,77,0.24);
+            }
+
+            .match-card-readonly {
+              border-color: rgba(229,185,77,0.16) !important;
+            }
+
             .copy-tips-card {
               margin-top: 24px;
               padding: 22px;
@@ -1852,7 +1893,7 @@ export default function TippaClient({
             }
 
             .advance-choice:disabled {
-              opacity: 0.5;
+              opacity: 0.75;
               cursor: not-allowed;
             }
 
@@ -1893,7 +1934,8 @@ export default function TippaClient({
 
               .live-badge,
               .finished-badge,
-              .lock-soon-badge {
+              .lock-soon-badge,
+              .readonly-badge {
                 height: 22px;
                 padding: 0 8px;
                 font-size: 10px;

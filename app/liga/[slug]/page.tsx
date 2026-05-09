@@ -33,6 +33,7 @@ type LeagueMember = {
 type LeagueSubmissionRow = SubmissionRow & {
   submitted_at: string | null;
   total_predictions_count: number | null;
+  public_slug: string | null;
 };
 
 type LeagueMatch = MatchRow & {
@@ -180,15 +181,18 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
 
   const { data: submissions } = await supabase
     .from("league_submissions")
-    .select(
-      "league_id, user_id, group_snapshot, playoff_snapshot, submitted_at, total_predictions_count"
-    )
+   .select(
+  "league_id, user_id, group_snapshot, playoff_snapshot, submitted_at, total_predictions_count, public_slug"
+)
     .eq("league_id", league.id)
     .not("submitted_at", "is", null);
 
   const submissionRows = (submissions ?? []) as LeagueSubmissionRow[];
   const submittedUserIds = submissionRows.map((submission) => submission.user_id);
   const submittedUserSet = new Set(submittedUserIds);
+  const submissionByUserId = new Map(
+  submissionRows.map((submission) => [submission.user_id, submission])
+);
 
   const currentUserSubmission = submissionRows.find(
     (submission) => submission.user_id === user.id
@@ -654,6 +658,8 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                         const displayName = getDisplayName(profile);
                         const hasSubmitted = submittedUserSet.has(member.user_id);
                         const isCurrentUser = member.user_id === user.id;
+                        const memberSubmission = submissionByUserId.get(member.user_id);
+const tipsPath = memberSubmission?.public_slug || member.user_id;
 
                         return (
                           <div
@@ -674,9 +680,20 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                               <span>{profile?.email || "Ingen e-post"}</span>
                             </div>
 
-                            <em className={hasSubmitted ? "done" : "pending"}>
-                              {hasSubmitted ? "Klar" : "Ej klar"}
-                            </em>
+                            <div className="member-actions">
+  <em className={hasSubmitted ? "done" : "pending"}>
+    {hasSubmitted ? "Klar" : "Ej klar"}
+  </em>
+
+  {hasSubmitted && (
+    <Link
+  href={`/liga/${league.slug}/tips/${tipsPath}`}
+  className="view-tips-link"
+>
+  Visa tips
+</Link>
+  )}
+</div>
                           </div>
                         );
                       })}
@@ -1317,6 +1334,32 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
             .pending {
               color: #f3cf69;
             }
+
+            .member-actions {
+  display: grid;
+  gap: 7px;
+  justify-items: end;
+}
+
+.view-tips-link {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(229,185,77,0.12);
+  border: 1px solid rgba(229,185,77,0.24);
+  color: #e5b94d;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.view-tips-link:hover {
+  background: rgba(229,185,77,0.18);
+}
 
             .show-all-members-btn {
               width: 100%;
