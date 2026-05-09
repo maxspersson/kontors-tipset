@@ -119,6 +119,41 @@ function getSwedishTeamName(name: string) {
   return map[normalizedName] ?? name;
 }
 
+function getPickOutcomeLabel(
+  homeScore: number | null | undefined,
+  awayScore: number | null | undefined,
+  homeTeam: string,
+  awayTeam: string
+) {
+  if (homeScore === null || homeScore === undefined) return "Inget tips";
+  if (awayScore === null || awayScore === undefined) return "Inget tips";
+
+  if (homeScore > awayScore) return getSwedishTeamName(homeTeam);
+  if (homeScore < awayScore) return getSwedishTeamName(awayTeam);
+
+  return "Oavgjort";
+}
+
+function getMostCommonResult(
+  picks: {
+    homeScore: number | null;
+    awayScore: number | null;
+  }[]
+) {
+  const resultCounts = new Map<string, number>();
+
+  picks.forEach((pick) => {
+    if (pick.homeScore === null || pick.awayScore === null) return;
+
+    const key = `${pick.homeScore}–${pick.awayScore}`;
+    resultCounts.set(key, (resultCounts.get(key) ?? 0) + 1);
+  });
+
+  return (
+    Array.from(resultCounts.entries()).sort((a, b) => b[1] - a[1])[0] ?? null
+  );
+}
+
 export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   const { slug } = await params;
   const supabase = await createClient();
@@ -181,9 +216,9 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
 
   const { data: submissions } = await supabase
     .from("league_submissions")
-   .select(
-  "league_id, user_id, group_snapshot, playoff_snapshot, submitted_at, total_predictions_count, public_slug"
-)
+    .select(
+      "league_id, user_id, group_snapshot, playoff_snapshot, submitted_at, total_predictions_count, public_slug"
+    )
     .eq("league_id", league.id)
     .not("submitted_at", "is", null);
 
@@ -191,8 +226,8 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   const submittedUserIds = submissionRows.map((submission) => submission.user_id);
   const submittedUserSet = new Set(submittedUserIds);
   const submissionByUserId = new Map(
-  submissionRows.map((submission) => [submission.user_id, submission])
-);
+    submissionRows.map((submission) => [submission.user_id, submission])
+  );
 
   const currentUserSubmission = submissionRows.find(
     (submission) => submission.user_id === user.id
@@ -268,8 +303,83 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
     ? new Date(featuredMatch.kickoff_utc).getTime() <= nowTime
     : false;
 
+    const canViewSubmittedTips = !!latestStartedMatch;
+
   const isLiveMatch = featuredMatch?.status === "live";
   const isFinishedMatch = featuredMatch?.status === "finished";
+
+  const matchDuelPicks = featuredMatch
+    ? memberRows.map((member) => {
+        const profile = profileMap.get(member.user_id);
+        const displayName = getDisplayName(profile);
+        const prediction = predictions.find(
+          (item) =>
+            item.user_id === member.user_id &&
+            item.match_id === featuredMatch.id
+        );
+
+        return {
+          memberId: member.id,
+          userId: member.user_id,
+          displayName,
+          initials: getInitials(displayName),
+          hasSubmitted: submittedUserSet.has(member.user_id),
+          homeScore: prediction?.predicted_home_score ?? null,
+          awayScore: prediction?.predicted_away_score ?? null,
+        };
+      })
+    : [];
+
+  const submittedMatchDuelPicks = matchDuelPicks.filter(
+    (pick) =>
+      pick.hasSubmitted && pick.homeScore !== null && pick.awayScore !== null
+  );
+
+  const homeWinPicks = submittedMatchDuelPicks.filter(
+    (pick) =>
+      pick.homeScore !== null &&
+      pick.awayScore !== null &&
+      pick.homeScore > pick.awayScore
+  );
+
+  const drawPicks = submittedMatchDuelPicks.filter(
+    (pick) =>
+      pick.homeScore !== null &&
+      pick.awayScore !== null &&
+      pick.homeScore === pick.awayScore
+  );
+
+  const awayWinPicks = submittedMatchDuelPicks.filter(
+    (pick) =>
+      pick.homeScore !== null &&
+      pick.awayScore !== null &&
+      pick.homeScore < pick.awayScore
+  );
+
+  const mostCommonResult = getMostCommonResult(submittedMatchDuelPicks);
+
+  const uniqueResultCount = submittedMatchDuelPicks.filter((pick) => {
+    const sameResultCount = submittedMatchDuelPicks.filter(
+      (otherPick) =>
+        otherPick.homeScore === pick.homeScore &&
+        otherPick.awayScore === pick.awayScore
+    ).length;
+
+    return sameResultCount === 1;
+  }).length;
+
+  const mostBackedOutcome =
+    [
+      {
+        label: featuredMatch ? getSwedishTeamName(featuredMatch.home_team) : "",
+        count: homeWinPicks.length,
+      },
+      { label: "Oavgjort", count: drawPicks.length },
+      {
+        label: featuredMatch ? getSwedishTeamName(featuredMatch.away_team) : "",
+        count: awayWinPicks.length,
+      },
+    ].sort((a, b) => b.count - a.count)[0] ?? null;
 
   const predictionMap = new Map(
     predictions.map((prediction) => [
@@ -575,41 +685,100 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                       Tipsen visas när matchen har börjat.
                     </div>
                   ) : (
-                    <details className="picks-details">
-                      <summary>Så här tippade ligan</summary>
+                    <div className="match-duel-card">
+                      <div className="match-duel-top">
+                        <p>Matchduellen</p>
+                        <h3>Så här tippade ligan</h3>
+                      </div>
 
-                      <div className="picks-list">
-                        {memberRows.map((member) => {
-                          const profile = profileMap.get(member.user_id);
-                          const displayName = getDisplayName(profile);
-                          const hasSubmitted = submittedUserSet.has(
-                            member.user_id
-                          );
-                          const prediction = predictionMap.get(
-                            `${member.user_id}-${featuredMatch.id}`
-                          );
+                      <div className="duel-insights">
+                        <div>
+                          <span>
+                            {mostCommonResult ? mostCommonResult[0] : "—"}
+                          </span>
+                          <p>Vanligaste resultat</p>
+                        </div>
+
+                        <div>
+                          <span>
+                            {mostBackedOutcome && mostBackedOutcome.count > 0
+                              ? mostBackedOutcome.label
+                              : "—"}
+                          </span>
+                          <p>Flest tror på</p>
+                        </div>
+
+                        <div>
+                          <span>{uniqueResultCount}</span>
+                          <p>ensamma tips</p>
+                        </div>
+                      </div>
+
+                      <div className="duel-outcome-grid">
+                        <div>
+                          <strong>
+                            {getSwedishTeamName(featuredMatch.home_team)}
+                          </strong>
+                          <span>{homeWinPicks.length} tips</span>
+                        </div>
+
+                        <div>
+                          <strong>Oavgjort</strong>
+                          <span>{drawPicks.length} tips</span>
+                        </div>
+
+                        <div>
+                          <strong>
+                            {getSwedishTeamName(featuredMatch.away_team)}
+                          </strong>
+                          <span>{awayWinPicks.length} tips</span>
+                        </div>
+                      </div>
+
+                      <div className="picks-list duel-picks-list">
+                        {matchDuelPicks.map((pick) => {
+                          const hasPrediction =
+                            pick.hasSubmitted &&
+                            pick.homeScore !== null &&
+                            pick.awayScore !== null;
 
                           return (
-                            <div key={member.id} className="pick-row">
-                              <div>
-                                <strong>{displayName}</strong>
-                                <span>
-                                  {hasSubmitted
-                                    ? "Inskickat tips"
-                                    : "Inte inskickat"}
+                            <div
+                              key={pick.memberId}
+                              className="pick-row duel-pick-row"
+                            >
+                              <div className="pick-user">
+                                <span className="pick-avatar">
+                                  {pick.initials}
                                 </span>
+
+                                <div>
+                                  <strong>{pick.displayName}</strong>
+                                  <span>
+                                    {hasPrediction
+                                      ? getPickOutcomeLabel(
+                                          pick.homeScore,
+                                          pick.awayScore,
+                                          featuredMatch.home_team,
+                                          featuredMatch.away_team
+                                        )
+                                      : pick.hasSubmitted
+                                        ? "Inget tips på matchen"
+                                        : "Inte inskickat"}
+                                  </span>
+                                </div>
                               </div>
 
                               <em>
-                                {hasSubmitted && prediction
-                                  ? `${prediction.predicted_home_score}–${prediction.predicted_away_score}`
+                                {hasPrediction
+                                  ? `${pick.homeScore}–${pick.awayScore}`
                                   : "—"}
                               </em>
                             </div>
                           );
                         })}
                       </div>
-                    </details>
+                    </div>
                   )}
                 </section>
               )}
@@ -658,8 +827,11 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                         const displayName = getDisplayName(profile);
                         const hasSubmitted = submittedUserSet.has(member.user_id);
                         const isCurrentUser = member.user_id === user.id;
-                        const memberSubmission = submissionByUserId.get(member.user_id);
-const tipsPath = memberSubmission?.public_slug || member.user_id;
+                        const memberSubmission = submissionByUserId.get(
+                          member.user_id
+                        );
+                        const tipsPath =
+                          memberSubmission?.public_slug || member.user_id;
 
                         return (
                           <div
@@ -681,19 +853,19 @@ const tipsPath = memberSubmission?.public_slug || member.user_id;
                             </div>
 
                             <div className="member-actions">
-  <em className={hasSubmitted ? "done" : "pending"}>
-    {hasSubmitted ? "Klar" : "Ej klar"}
-  </em>
+                              <em className={hasSubmitted ? "done" : "pending"}>
+                                {hasSubmitted ? "Klar" : "Ej klar"}
+                              </em>
 
-  {hasSubmitted && (
-    <Link
-  href={`/liga/${league.slug}/tips/${tipsPath}`}
-  className="view-tips-link"
->
-  Visa tips
-</Link>
-  )}
-</div>
+                              {hasSubmitted && (isCurrentUser || canViewSubmittedTips) && (
+  <Link
+    href={`/liga/${league.slug}/tips/${tipsPath}`}
+    className="view-tips-link"
+  >
+    Visa tips
+  </Link>
+)}
+                            </div>
                           </div>
                         );
                       })}
@@ -1119,6 +1291,83 @@ const tipsPath = memberSubmission?.public_slug || member.user_id;
               line-height: 1.45;
             }
 
+            .match-duel-card {
+              border-radius: 20px;
+              background:
+                linear-gradient(135deg, rgba(229,185,77,0.10), transparent 42%),
+                rgba(255,255,255,0.045);
+              border: 1px solid rgba(229,185,77,0.16);
+              overflow: hidden;
+            }
+
+            .match-duel-top {
+              padding: 16px;
+              border-bottom: 1px solid rgba(255,255,255,0.08);
+            }
+
+            .match-duel-top p {
+              margin: 0;
+              color: #e5b94d;
+              font-size: 11px;
+              font-weight: 950;
+              letter-spacing: 0.14em;
+              text-transform: uppercase;
+            }
+
+            .match-duel-top h3 {
+              margin: 6px 0 0;
+              color: white;
+              font-size: 20px;
+              letter-spacing: -0.04em;
+            }
+
+            .duel-insights {
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 8px;
+              padding: 12px;
+            }
+
+            .duel-insights div,
+            .duel-outcome-grid div {
+              padding: 13px;
+              border-radius: 16px;
+              background: rgba(0,0,0,0.22);
+              border: 1px solid rgba(255,255,255,0.07);
+            }
+
+            .duel-insights span {
+              display: block;
+              color: white;
+              font-size: 22px;
+              font-weight: 950;
+              letter-spacing: -0.04em;
+            }
+
+            .duel-insights p,
+            .duel-outcome-grid span {
+              margin: 4px 0 0;
+              color: rgba(255,255,255,0.44);
+              font-size: 11px;
+              font-weight: 900;
+              text-transform: uppercase;
+              letter-spacing: 0.08em;
+            }
+
+            .duel-outcome-grid {
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 8px;
+              padding: 0 12px 12px;
+            }
+
+            .duel-outcome-grid strong {
+              display: block;
+              color: #e5b94d;
+              font-size: 14px;
+              line-height: 1.25;
+            }
+
             .picks-details {
               border-radius: 16px;
               background: rgba(255,255,255,0.045);
@@ -1141,6 +1390,10 @@ const tipsPath = memberSubmission?.public_slug || member.user_id;
               padding: 0 12px 12px;
             }
 
+            .duel-picks-list {
+              padding-top: 0;
+            }
+
             .pick-row {
               display: grid;
               grid-template-columns: 1fr auto;
@@ -1150,6 +1403,27 @@ const tipsPath = memberSubmission?.public_slug || member.user_id;
               border-radius: 14px;
               background: rgba(0,0,0,0.22);
               border: 1px solid rgba(255,255,255,0.06);
+            }
+
+            .pick-user {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              min-width: 0;
+            }
+
+            .pick-avatar {
+              width: 30px;
+              height: 30px;
+              border-radius: 999px;
+              display: grid;
+              place-items: center;
+              flex: 0 0 auto;
+              background: rgba(229,185,77,0.12);
+              border: 1px solid rgba(229,185,77,0.22);
+              color: #e5b94d;
+              font-size: 10px;
+              font-weight: 950;
             }
 
             .pick-row strong {
@@ -1336,30 +1610,30 @@ const tipsPath = memberSubmission?.public_slug || member.user_id;
             }
 
             .member-actions {
-  display: grid;
-  gap: 7px;
-  justify-items: end;
-}
+              display: grid;
+              gap: 7px;
+              justify-items: end;
+            }
 
-.view-tips-link {
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(229,185,77,0.12);
-  border: 1px solid rgba(229,185,77,0.24);
-  color: #e5b94d;
-  text-decoration: none;
-  font-size: 11px;
-  font-weight: 950;
-  white-space: nowrap;
-}
+            .view-tips-link {
+              height: 28px;
+              padding: 0 10px;
+              border-radius: 999px;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              background: rgba(229,185,77,0.12);
+              border: 1px solid rgba(229,185,77,0.24);
+              color: #e5b94d;
+              text-decoration: none;
+              font-size: 11px;
+              font-weight: 950;
+              white-space: nowrap;
+            }
 
-.view-tips-link:hover {
-  background: rgba(229,185,77,0.18);
-}
+            .view-tips-link:hover {
+              background: rgba(229,185,77,0.18);
+            }
 
             .show-all-members-btn {
               width: 100%;
