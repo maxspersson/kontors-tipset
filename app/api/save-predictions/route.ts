@@ -5,6 +5,7 @@ type IncomingPrediction = {
   matchId?: string;
   homeScore?: string;
   awayScore?: string;
+  advancingTeam?: "home" | "away" | null;
 };
 
 type MatchRow = {
@@ -116,15 +117,25 @@ export async function POST(request: Request) {
   });
 
   const rows = validPredictions
-    .filter((prediction) => openMatchMap.has(prediction.matchId!))
-    .map((prediction) => ({
+  .filter((prediction) => openMatchMap.has(prediction.matchId!))
+  .map((prediction) => {
+    const match = openMatchMap.get(prediction.matchId!);
+    const homeScore = Number(prediction.homeScore);
+    const awayScore = Number(prediction.awayScore);
+    const isPlayoffMatch = match?.stage !== "group";
+    const isDraw = homeScore === awayScore;
+
+    return {
       user_id: user.id,
       league_id: leagueId,
       match_id: prediction.matchId!,
-      predicted_home_score: Number(prediction.homeScore),
-      predicted_away_score: Number(prediction.awayScore),
+      predicted_home_score: homeScore,
+      predicted_away_score: awayScore,
+      advancing_team:
+        isPlayoffMatch && isDraw ? prediction.advancingTeam ?? null : null,
       updated_at: new Date().toISOString(),
-    }));
+    };
+  });
 
   if (rows.length === 0) {
     return new NextResponse(

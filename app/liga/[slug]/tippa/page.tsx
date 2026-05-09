@@ -62,10 +62,10 @@ export default async function LeagueTippaPage({
     .order("fifa_match_number", { ascending: true });
 
   const { data: savedPredictions } = await supabase
-    .from("predictions")
-    .select("match_id, predicted_home_score, predicted_away_score")
-    .eq("user_id", user.id)
-    .eq("league_id", league.id);
+  .from("predictions")
+  .select("match_id, predicted_home_score, predicted_away_score, advancing_team")
+  .eq("user_id", user.id)
+  .eq("league_id", league.id);
 
   const { data: submission } = await supabase
     .from("league_submissions")

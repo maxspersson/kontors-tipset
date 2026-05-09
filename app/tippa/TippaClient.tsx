@@ -11,14 +11,20 @@ const bracketRounds = [
   { key: "round_of_16", label: "Åttondelsfinal", matches: 8 },
   { key: "quarter_final", label: "Kvartsfinal", matches: 4 },
   { key: "semi_final", label: "Semifinal", matches: 2 },
-
-  // NY:
   { key: "medals", label: "Final & Bronsmatch", matches: 2 },
 ] as const;
 
 type Tab = string | "slutspel";
+type AdvancingTeam = "home" | "away";
 
-type PredictionState = Record<string, { home: string; away: string }>;
+type PredictionState = Record<
+  string,
+  {
+    home: string;
+    away: string;
+    advancingTeam?: AdvancingTeam | null;
+  }
+>;
 
 type GroupTableRow = {
   team: string;
@@ -210,15 +216,64 @@ function isMatchLocked(match: Match) {
   return Date.now() >= lockTime;
 }
 
+function getMinutesUntilLock(match: Match) {
+  const kickoff = new Date(match.kickoff_utc).getTime();
+  const lockTime = kickoff - 60 * 60 * 1000;
+  const diff = lockTime - Date.now();
+
+  return Math.ceil(diff / 1000 / 60);
+}
+
+function isMatchLockingSoon(match: Match) {
+  if (isMatchLocked(match)) return false;
+  if (isLiveMatch(match)) return false;
+  if (isFinishedMatch(match)) return false;
+
+  const minutesUntilLock = getMinutesUntilLock(match);
+
+  return minutesUntilLock > 0 && minutesUntilLock <= 180;
+}
+
+function getLockPressureText(match: Match) {
+  const minutesUntilLock = getMinutesUntilLock(match);
+
+  if (minutesUntilLock <= 0) return "Låser nu";
+  if (minutesUntilLock < 60) return `Låser om ${minutesUntilLock} min`;
+
+  const hours = Math.floor(minutesUntilLock / 60);
+  const minutes = minutesUntilLock % 60;
+
+  if (minutes === 0) return `Låser om ${hours} tim`;
+
+  return `Låser om ${hours} tim ${minutes} min`;
+}
+
 function getMatchStatusText(match: Match, matchLocked: boolean) {
   if (isLiveMatch(match)) return "Matchen spelas nu";
   if (isFinishedMatch(match)) return "Slutspelad";
   if (matchLocked) return "Låst 60 min före avspark";
+  if (isMatchLockingSoon(match)) return getLockPressureText(match);
   return "Öppen för tips";
 }
 
-function isCompletePrediction(prediction?: { home: string; away: string }) {
+function isCompletePrediction(prediction?: {
+  home: string;
+  away: string;
+  advancingTeam?: AdvancingTeam | null;
+}) {
   return !!prediction && prediction.home !== "" && prediction.away !== "";
+}
+
+function isCompletePlayoffPrediction(prediction?: {
+  home: string;
+  away: string;
+  advancingTeam?: AdvancingTeam | null;
+}) {
+  if (!prediction) return false;
+  if (!isCompletePrediction(prediction)) return false;
+  if (prediction.home !== prediction.away) return true;
+
+  return prediction.advancingTeam === "home" || prediction.advancingTeam === "away";
 }
 
 function isGroupTableRow(row: GroupTableRow | undefined): row is GroupTableRow {
@@ -385,16 +440,22 @@ function buildGroupTable(
 function getWinner(
   teamA: GroupTableRow | undefined,
   teamB: GroupTableRow | undefined,
-  scoreA: string,
-  scoreB: string
+  prediction?: {
+    home: string;
+    away: string;
+    advancingTeam?: AdvancingTeam | null;
+  }
 ) {
-  if (!teamA || !teamB || scoreA === "" || scoreB === "") return undefined;
+  if (!teamA || !teamB || !prediction) return undefined;
+  if (prediction.home === "" || prediction.away === "") return undefined;
 
-  const home = Number(scoreA);
-  const away = Number(scoreB);
+  const home = Number(prediction.home);
+  const away = Number(prediction.away);
 
   if (home > away) return teamA;
   if (away > home) return teamB;
+  if (prediction.advancingTeam === "home") return teamA;
+  if (prediction.advancingTeam === "away") return teamB;
 
   return undefined;
 }
@@ -402,16 +463,22 @@ function getWinner(
 function getLoser(
   teamA: GroupTableRow | undefined,
   teamB: GroupTableRow | undefined,
-  scoreA: string,
-  scoreB: string
+  prediction?: {
+    home: string;
+    away: string;
+    advancingTeam?: AdvancingTeam | null;
+  }
 ) {
-  if (!teamA || !teamB || scoreA === "" || scoreB === "") return undefined;
+  if (!teamA || !teamB || !prediction) return undefined;
+  if (prediction.home === "" || prediction.away === "") return undefined;
 
-  const home = Number(scoreA);
-  const away = Number(scoreB);
+  const home = Number(prediction.home);
+  const away = Number(prediction.away);
 
   if (home > away) return teamB;
   if (away > home) return teamA;
+  if (prediction.advancingTeam === "home") return teamB;
+  if (prediction.advancingTeam === "away") return teamA;
 
   return undefined;
 }
@@ -501,23 +568,19 @@ function buildPlayoffRounds({
 
   for (const round of bracketRounds) {
     const matchesInRound = playoffMatches
-  .filter((match) => {
-    if (round.key === "medals") {
-      return (
-        match.stage === "final" ||
-        match.stage === "third_place"
-      );
-    }
+      .filter((match) => {
+        if (round.key === "medals") {
+          return match.stage === "final" || match.stage === "third_place";
+        }
 
-    return match.stage === round.key;
-  })
-  .sort((a, b) => {
-    // Final först, bronsmatch efter
-    if (a.stage === "final") return -1;
-    if (b.stage === "final") return 1;
+        return match.stage === round.key;
+      })
+      .sort((a, b) => {
+        if (a.stage === "final") return -1;
+        if (b.stage === "final") return 1;
 
-    return (a.fifa_match_number ?? 0) - (b.fifa_match_number ?? 0);
-  });
+        return (a.fifa_match_number ?? 0) - (b.fifa_match_number ?? 0);
+      });
 
     const roundMatches: PlayoffMatch[] = [];
 
@@ -534,7 +597,11 @@ function buildPlayoffRounds({
       if (!slots) continue;
 
       const [slotA, slotB] = slots;
-      const prediction = predictions[dbMatch.id] ?? { home: "", away: "" };
+      const prediction = predictions[dbMatch.id] ?? {
+        home: "",
+        away: "",
+        advancingTeam: null,
+      };
 
       const teamA = resolveSlot({
         slot: slotA,
@@ -552,8 +619,8 @@ function buildPlayoffRounds({
         losersByMatchNumber,
       });
 
-      const winner = getWinner(teamA, teamB, prediction.home, prediction.away);
-      const loser = getLoser(teamA, teamB, prediction.home, prediction.away);
+      const winner = getWinner(teamA, teamB, prediction);
+      const loser = getLoser(teamA, teamB, prediction);
 
       if (winner) {
         winnersByMatchNumber.set(matchNumber, winner);
@@ -623,6 +690,7 @@ export default function TippaClient({
           prediction.predicted_away_score === null
             ? ""
             : String(prediction.predicted_away_score),
+        advancingTeam: prediction.advancing_team,
       };
     }
 
@@ -645,6 +713,7 @@ export default function TippaClient({
         matchId,
         homeScore: value.home,
         awayScore: value.away,
+        advancingTeam: value.advancingTeam ?? null,
       }));
 
     if (payload.length === 0) return;
@@ -713,9 +782,11 @@ export default function TippaClient({
     0
   );
 
-  const completedPredictionsCount = Object.values(predictions).filter(
-    (prediction) => prediction.home !== "" && prediction.away !== ""
-  ).length;
+  const completedPredictionsCount = groupMatches.reduce((sum, match) => {
+    return sum + (isCompletePrediction(predictions[match.id]) ? 1 : 0);
+  }, 0) + playoffMatches.reduce((sum, match) => {
+    return sum + (isCompletePlayoffPrediction(predictions[match.id]) ? 1 : 0);
+  }, 0);
 
   const TOTAL_MATCHES = 104;
   const isEntireBracketComplete = completedPredictionsCount >= TOTAL_MATCHES;
@@ -767,11 +838,45 @@ export default function TippaClient({
 
     const onlyNumbers = value.replace(/\D/g, "");
 
+    setPredictions((prev) => {
+      const current = prev[matchId] ?? {
+        home: "",
+        away: "",
+        advancingTeam: null,
+      };
+
+      const next = {
+        ...current,
+        [side]: onlyNumbers,
+      };
+
+      if (next.home !== next.away) {
+        next.advancingTeam = null;
+      }
+
+      return {
+        ...prev,
+        [matchId]: next,
+      };
+    });
+
+    setSaveStatus("");
+    setAutoSaveStatus("");
+    setSubmitStatus("");
+  }
+
+  function updateAdvancingTeam(matchId: string, advancingTeam: AdvancingTeam) {
+    const match = playoffMatches.find((item) => item.id === matchId);
+
+    if (!match) return;
+    if (isPlayoffLocked) return;
+
     setPredictions((prev) => ({
       ...prev,
       [matchId]: {
-        home: side === "home" ? onlyNumbers : prev[matchId]?.home || "",
-        away: side === "away" ? onlyNumbers : prev[matchId]?.away || "",
+        home: prev[matchId]?.home || "",
+        away: prev[matchId]?.away || "",
+        advancingTeam,
       },
     }));
 
@@ -789,6 +894,7 @@ export default function TippaClient({
         matchId,
         homeScore: value.home,
         awayScore: value.away,
+        advancingTeam: value.advancingTeam ?? null,
       }));
 
     if (payload.length === 0) {
@@ -1110,10 +1216,57 @@ export default function TippaClient({
 
                               {match.scoreA !== "" &&
                                 match.scoreB !== "" &&
-                                !match.winner && (
-                                  <p className="draw-warning">
-                                    Ange ett avgörande resultat.
-                                  </p>
+                                match.scoreA === match.scoreB &&
+                                match.teamA &&
+                                match.teamB && (
+                                  <div className="advance-picker">
+                                    <p>
+                                      Matchen är oavgjord efter 90 minuter. Välj
+                                      lag som går vidare.
+                                    </p>
+
+                                    <div className="advance-actions">
+                                      <button
+                                        type="button"
+                                        disabled={isPlayoffLocked}
+                                        className={
+                                          predictions[match.dbMatch.id]
+                                            ?.advancingTeam === "home"
+                                            ? "advance-choice active"
+                                            : "advance-choice"
+                                        }
+                                        onClick={() =>
+                                          updateAdvancingTeam(
+                                            match.dbMatch.id,
+                                            "home"
+                                          )
+                                        }
+                                      >
+                                        {getSwedishTeamName(match.teamA.team)}{" "}
+                                        vidare
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={isPlayoffLocked}
+                                        className={
+                                          predictions[match.dbMatch.id]
+                                            ?.advancingTeam === "away"
+                                            ? "advance-choice active"
+                                            : "advance-choice"
+                                        }
+                                        onClick={() =>
+                                          updateAdvancingTeam(
+                                            match.dbMatch.id,
+                                            "away"
+                                          )
+                                        }
+                                      >
+                                        {getSwedishTeamName(match.teamB.team)}{" "}
+                                        vidare
+                                      </button>
+                                    </div>
+                                  </div>
                                 )}
                             </div>
                           ))}
@@ -1239,6 +1392,7 @@ export default function TippaClient({
               <div className="match-list">
                 {activeMatches.map((match) => {
                   const matchLocked = isMatchLocked(match);
+                  const matchLockingSoon = isMatchLockingSoon(match);
 
                   return (
                     <article
@@ -1247,6 +1401,7 @@ export default function TippaClient({
                         "match-card",
                         isLiveMatch(match) ? "match-card-live" : "",
                         isFinishedMatch(match) ? "match-card-finished" : "",
+                        matchLockingSoon ? "match-card-locking-soon" : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -1264,6 +1419,12 @@ export default function TippaClient({
 
                           {isFinishedMatch(match) && (
                             <span className="finished-badge">Klar</span>
+                          )}
+
+                          {matchLockingSoon && (
+                            <span className="lock-soon-badge">
+                              {getLockPressureText(match)}
+                            </span>
                           )}
 
                           <time>{formatKickoff(match.kickoff_utc)}</time>
@@ -1286,7 +1447,9 @@ export default function TippaClient({
                               updatePrediction(match.id, "home", e.target.value)
                             }
                           />
+
                           <span>:</span>
+
                           <input
                             inputMode="numeric"
                             placeholder="-"
@@ -1306,6 +1469,7 @@ export default function TippaClient({
 
                       <div className="match-bottom">
                         <span>{match.city || "Arena kommer senare"}</span>
+
                         <span
                           className={
                             isLiveMatch(match)
@@ -1314,7 +1478,9 @@ export default function TippaClient({
                                 ? "match-status finished"
                                 : matchLocked
                                   ? "match-status locked"
-                                  : "match-status open"
+                                  : matchLockingSoon
+                                    ? "match-status locking-soon"
+                                    : "match-status open"
                           }
                         >
                           {getMatchStatusText(match, matchLocked)}
@@ -1363,6 +1529,24 @@ export default function TippaClient({
               cursor: not-allowed;
             }
 
+            .match-card-locking-soon {
+              position: relative;
+              border-color: rgba(229,185,77,0.34) !important;
+              box-shadow:
+                0 0 0 1px rgba(229,185,77,0.10),
+                0 22px 70px rgba(229,185,77,0.10),
+                0 24px 90px rgba(0,0,0,0.38) !important;
+            }
+
+            .match-card-locking-soon::before {
+              content: "";
+              position: absolute;
+              inset: -1px;
+              border-radius: inherit;
+              pointer-events: none;
+              background: radial-gradient(circle at 50% 0%, rgba(229,185,77,0.16), transparent 44%);
+            }
+
             .match-top-right {
               display: inline-flex;
               align-items: center;
@@ -1396,6 +1580,22 @@ export default function TippaClient({
               border: 1px solid rgba(255,255,255,0.10);
             }
 
+            .lock-soon-badge {
+              height: 24px;
+              padding: 0 10px;
+              border-radius: 999px;
+              display: inline-flex;
+              align-items: center;
+              font-size: 11px;
+              font-weight: 950;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              color: #f8e7ad;
+              background: rgba(229,185,77,0.14);
+              border: 1px solid rgba(229,185,77,0.30);
+              box-shadow: 0 0 24px rgba(229,185,77,0.12);
+            }
+
             .live-dot {
               width: 7px;
               height: 7px;
@@ -1425,6 +1625,55 @@ export default function TippaClient({
               color: #e5b94d;
             }
 
+            .match-status.locking-soon {
+              color: #f8e7ad;
+            }
+
+            .advance-picker {
+              margin-top: 12px;
+              padding: 12px;
+              border-radius: 18px;
+              background: rgba(229,185,77,0.08);
+              border: 1px solid rgba(229,185,77,0.18);
+            }
+
+            .advance-picker p {
+              margin: 0 0 10px;
+              color: rgba(255,255,255,0.62);
+              font-size: 12px;
+              font-weight: 800;
+              line-height: 1.35;
+            }
+
+            .advance-actions {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 8px;
+            }
+
+            .advance-choice {
+              min-height: 38px;
+              border: 1px solid rgba(255,255,255,0.10);
+              border-radius: 999px;
+              background: rgba(255,255,255,0.06);
+              color: rgba(255,255,255,0.76);
+              font-size: 12px;
+              font-weight: 950;
+              cursor: pointer;
+            }
+
+            .advance-choice.active {
+              color: #090909;
+              background: linear-gradient(180deg, #f3cf69, #d9a935);
+              border-color: rgba(229,185,77,0.60);
+              box-shadow: 0 12px 30px rgba(229,185,77,0.16);
+            }
+
+            .advance-choice:disabled {
+              opacity: 0.5;
+              cursor: not-allowed;
+            }
+
             @keyframes livePulse {
               0% {
                 box-shadow: 0 0 0 0 rgba(239,68,68,0.72);
@@ -1445,10 +1694,15 @@ export default function TippaClient({
               }
 
               .live-badge,
-              .finished-badge {
+              .finished-badge,
+              .lock-soon-badge {
                 height: 22px;
                 padding: 0 8px;
                 font-size: 10px;
+              }
+
+              .advance-actions {
+                grid-template-columns: 1fr;
               }
             }
           `,

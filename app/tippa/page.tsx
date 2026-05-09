@@ -31,6 +31,7 @@ export type SavedPrediction = {
   match_id: string;
   predicted_home_score: number | null;
   predicted_away_score: number | null;
+  advancing_team: "home" | "away" | null;
 };
 
 export type LeagueSubmission = {
@@ -439,10 +440,10 @@ if (!activeLeague) {
     .order("fifa_match_number", { ascending: true });
 
   const { data: savedPredictions } = await supabase
-    .from("predictions")
-    .select("match_id, predicted_home_score, predicted_away_score")
-    .eq("user_id", user.id)
-    .eq("league_id", leagueId);
+  .from("predictions")
+  .select("match_id, predicted_home_score, predicted_away_score, advancing_team")
+  .eq("user_id", user.id)
+  .eq("league_id", leagueId);
 
   const { data: submission } = await supabase
     .from("league_submissions")
