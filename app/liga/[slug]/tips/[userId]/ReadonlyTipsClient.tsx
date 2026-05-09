@@ -1181,7 +1181,7 @@ const drawCount = useMemo(() => getDrawCount(predictions), [predictions]);
               color: #e5b94d;
               font-size: 56px;
               line-height: 1;
-              letter-spacing: -0.06em;
+              letter-spacing: -0.035em;
             }
 
             .hero-big-number {
