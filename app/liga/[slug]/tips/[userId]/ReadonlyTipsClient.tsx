@@ -725,12 +725,11 @@ const drawCount = useMemo(() => getDrawCount(predictions), [predictions]);
             <div>
               <p className="tippa-locked-title">Du tittar på ett låst tips</p>
               <p className="tippa-locked-text">
-                Det här är {viewerName || "spelarens"} inskickade VM-tips.
-                Resultaten går inte att ändra här.
-                {submission?.submitted_at
-                  ? ` Inskickat ${formatKickoff(submission.submitted_at)}.`
-                  : ""}
-              </p>
+  Tipset är inskickat och låst. Resultaten går inte att ändra här.
+  {submission?.submitted_at
+    ? ` Inskickat ${formatKickoff(submission.submitted_at)}.`
+    : ""}
+</p>
             </div>
           </div>
 
@@ -1122,18 +1121,34 @@ const drawCount = useMemo(() => getDrawCount(predictions), [predictions]);
             }
 
             .tips-head > div:first-child {
-              border-radius: 32px;
-              padding: clamp(28px, 5vw, 54px);
-            }
+  border-radius: 32px;
+  padding: clamp(40px, 6vw, 72px);
+}
+
+.tips-head h1,
+.tips-head .intro {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+.tips-head h1 {
+  max-width: 980px;
+  white-space: nowrap;
+}
+
+.tips-head .intro {
+  max-width: 760px;
+}
 
             .readonly-back-link {
-              display: inline-flex;
-              margin-bottom: 22px;
-              color: rgba(255,255,255,0.58);
-              text-decoration: none;
-              font-size: 14px;
-              font-weight: 850;
-            }
+  display: inline-flex;
+  margin-bottom: 22px;
+  color: rgba(255,255,255,0.58);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 850;
+}
 
             .readonly-back-link:hover {
               color: #e5b94d;
@@ -1749,9 +1764,9 @@ const drawCount = useMemo(() => getDrawCount(predictions), [predictions]);
             }
 
             @media (max-width: 720px) {
-              .tips-hero {
-                padding: 24px 12px 56px;
-              }
+              .tips-head h1 {
+  white-space: normal;
+}
 
               .tips-head > div:first-child,
               .hero-panel,
