@@ -32,9 +32,13 @@ function isAuthorized(request: NextRequest) {
     request.nextUrl.searchParams.get("secret") ||
     request.headers.get("x-cron-secret");
 
+  const isVercelCron =
+    request.headers.get("user-agent")?.includes("vercel-cron");
+
   return (
     authHeader === `Bearer ${expectedSecret}` ||
-    querySecret === expectedSecret
+    querySecret === expectedSecret ||
+    isVercelCron
   );
 }
 
