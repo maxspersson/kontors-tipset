@@ -146,19 +146,23 @@ export default async function LigaPage() {
                         </div>
 
                         <div className="league-actions">
-                          <Link
-                            className="primary-link"
-                            href={`/tippa?leagueId=${league.id}`}
-                          >
-                            Tippa
-                          </Link>
+                          {league.slug && (
+  <Link
+    className="primary-link"
+    href={`/liga/${league.slug}/tippa`}
+  >
+    Tippa
+  </Link>
+)}
 
-                          <Link
-                            className="secondary-link"
-                            href={`/liga/${league.slug}/tabell`}
-                          >
-                            Se tabell
-                          </Link>
+                          {league.slug && (
+  <Link
+    className="secondary-link"
+    href={`/liga/${league.slug}/tabell`}
+  >
+    Se tabell
+  </Link>
+)}
                         </div>
                       </article>
                     );

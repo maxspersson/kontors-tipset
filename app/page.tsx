@@ -255,7 +255,7 @@ export default async function Home() {
     const { data: matches } = await supabase
       .from("matches")
       .select(
-        "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score"
+        "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score, home_pen, away_pen"
       );
 
     const { data: profiles } = await supabase
@@ -351,7 +351,7 @@ export default async function Home() {
                 {leagues.slice(0, 3).map((league) => (
                   <Link
                     key={league.id}
-                    href={`/tippa?leagueId=${league.id}`}
+                    href={`/liga/${league.slug}/tippa`}
                     className="league-card"
                   >
                     <span>Liga</span>
