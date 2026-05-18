@@ -15,6 +15,8 @@ export type MatchRow = {
   away_team: string;
   home_score: number | null;
   away_score: number | null;
+  home_pen?: number | null;
+  away_pen?: number | null;
 };
 
 export type ProfileRow = {
@@ -32,6 +34,7 @@ export type SnapshotPrediction = {
   match_id: string;
   predicted_home_score: number | null;
   predicted_away_score: number | null;
+  advancing_team?: "home" | "away" | null;
   match: {
     id: string;
     fifa_match_number: number | null;
@@ -177,8 +180,16 @@ function createTeam(team: string, group: string): TeamRow {
 
 function buildGroupTables(
   matches: MatchRow[],
-  scoresByMatchId: Map<string, { home: number | null; away: number | null }>
+  scoresByMatchId: Map<
+    string,
+    {
+      home: number | null;
+      away: number | null;
+      advancingTeam?: "home" | "away" | null;
+    }
+  >
 ) {
+
   const tables = new Map<string, TeamRow[]>();
   const completedGroups = new Set<string>();
 
@@ -293,11 +304,17 @@ function getWinner(
   teamA: TeamRow | undefined,
   teamB: TeamRow | undefined,
   scoreA: number | null,
-  scoreB: number | null
+  scoreB: number | null,
+  advancingTeam?: "home" | "away" | null
 ) {
   if (!teamA || !teamB || scoreA === null || scoreB === null) return undefined;
+
   if (scoreA > scoreB) return teamA;
   if (scoreB > scoreA) return teamB;
+
+  if (advancingTeam === "home") return teamA;
+  if (advancingTeam === "away") return teamB;
+
   return undefined;
 }
 
@@ -341,7 +358,14 @@ function buildTournamentProgression({
   requireCompletedGroups,
 }: {
   matches: MatchRow[];
-  scoresByMatchId: Map<string, { home: number | null; away: number | null }>;
+  scoresByMatchId: Map<
+  string,
+  {
+    home: number | null;
+    away: number | null;
+    advancingTeam?: "home" | "away" | null;
+  }
+>;
   requireCompletedGroups: boolean;
 }): TournamentProgression {
   const { tables, completedGroups } = buildGroupTables(matches, scoresByMatchId);
@@ -390,12 +414,15 @@ function buildTournamentProgression({
     });
 
     const score = scoresByMatchId.get(match.id);
-    const winner = getWinner(
-      teamA,
-      teamB,
-      score?.home ?? null,
-      score?.away ?? null
-    );
+const advancingTeam = score?.advancingTeam ?? null;
+
+const winner = getWinner(
+  teamA,
+  teamB,
+  score?.home ?? null,
+  score?.away ?? null,
+  advancingTeam
+);
 
     if (!winner) continue;
 
@@ -469,6 +496,7 @@ function snapshotToScores(snapshot: SnapshotPrediction[]) {
       {
         home: item.predicted_home_score,
         away: item.predicted_away_score,
+        advancingTeam: item.advancing_team ?? null,
       },
     ])
   );
@@ -504,14 +532,33 @@ export function calculateStandings({
   );
 
   const actualScoresByMatchId = new Map(
-    matches.map((match) => [
+  matches.map((match) => {
+    let advancingTeam: "home" | "away" | null = null;
+
+    if (
+      match.stage !== "group" &&
+      match.home_score !== null &&
+      match.away_score !== null &&
+      match.home_score === match.away_score &&
+      match.home_pen !== null &&
+      match.home_pen !== undefined &&
+      match.away_pen !== null &&
+      match.away_pen !== undefined
+    ) {
+      if (match.home_pen > match.away_pen) advancingTeam = "home";
+      if (match.away_pen > match.home_pen) advancingTeam = "away";
+    }
+
+    return [
       match.id,
       {
         home: match.home_score,
         away: match.away_score,
+        advancingTeam,
       },
-    ])
-  );
+    ];
+  })
+);
 
   const actualProgression = buildTournamentProgression({
     matches,

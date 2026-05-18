@@ -14,6 +14,8 @@ type ExternalMatchResult = {
   fifa_match_number: number;
   home_score: number | null;
   away_score: number | null;
+  home_pen: number | null;
+  away_pen: number | null;
   status: "scheduled" | "live" | "finished";
 };
 
@@ -57,6 +59,7 @@ async function fetchExternalResults(): Promise<ExternalMatchResult[]> {
   });
 
   const data = await response.json().catch(() => null);
+  console.log("WC2026 RAW API RESPONSE", JSON.stringify(data, null, 2));
 
   if (!response.ok) {
     throw new Error(
@@ -89,17 +92,23 @@ async function fetchExternalResults(): Promise<ExternalMatchResult[]> {
           : "scheduled";
 
     return {
-      fifa_match_number:
-        match.match_number ?? match.matchNumber ?? match.fifa_match_number,
+  fifa_match_number:
+    match.match_number ?? match.matchNumber ?? match.fifa_match_number,
 
-      home_score:
-        match.home_score ?? match.homeScore ?? match.home_goals ?? null,
+  home_score:
+    match.home_score ?? match.homeScore ?? match.home_goals ?? null,
 
-      away_score:
-        match.away_score ?? match.awayScore ?? match.away_goals ?? null,
+  away_score:
+    match.away_score ?? match.awayScore ?? match.away_goals ?? null,
 
-      status: normalizedStatus,
-    };
+  home_pen:
+    match.home_pen ?? match.homePen ?? match.home_penalties ?? null,
+
+  away_pen:
+    match.away_pen ?? match.awayPen ?? match.away_penalties ?? null,
+
+  status: normalizedStatus,
+};
   });
 }
 
@@ -116,8 +125,8 @@ async function saveStandingSnapshots() {
   const { data: matches, error: matchesError } = await supabase
     .from("matches")
     .select(
-      "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score, kickoff_utc"
-    )
+  "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score, home_pen, away_pen, kickoff_utc"
+)
     .eq("tournament_id", TOURNAMENT_ID);
 
   if (matchesError) {
@@ -233,7 +242,7 @@ async function syncResults() {
 
     const { data: currentMatches, error: currentMatchesError } = await supabase
       .from("matches")
-      .select("fifa_match_number, home_score, away_score, status")
+      .select("fifa_match_number, home_score, away_score, home_pen, away_pen, status")
       .eq("tournament_id", TOURNAMENT_ID);
 
     if (currentMatchesError) {
@@ -243,11 +252,13 @@ async function syncResults() {
     const currentMatchMap = new Map(
       (currentMatches ?? []).map((match) => [
         match.fifa_match_number,
-        {
-          home_score: match.home_score,
-          away_score: match.away_score,
-          status: match.status,
-        },
+       {
+  home_score: match.home_score,
+  away_score: match.away_score,
+  home_pen: match.home_pen,
+  away_pen: match.away_pen,
+  status: match.status,
+}
       ])
     );
 
@@ -270,10 +281,12 @@ async function syncResults() {
       const currentMatch = currentMatchMap.get(result.fifa_match_number);
 
       const hasChanged =
-        !currentMatch ||
-        currentMatch.home_score !== result.home_score ||
-        currentMatch.away_score !== result.away_score ||
-        currentMatch.status !== result.status;
+  !currentMatch ||
+  currentMatch.home_score !== result.home_score ||
+  currentMatch.away_score !== result.away_score ||
+  currentMatch.home_pen !== result.home_pen ||
+  currentMatch.away_pen !== result.away_pen ||
+  currentMatch.status !== result.status;
 
       if (!hasChanged) {
         skippedMatches.push(result.fifa_match_number);
@@ -283,10 +296,12 @@ async function syncResults() {
       const { error } = await supabase
         .from("matches")
         .update({
-          home_score: result.home_score,
-          away_score: result.away_score,
-          status: result.status,
-        })
+  home_score: result.home_score,
+  away_score: result.away_score,
+  home_pen: result.home_pen,
+  away_pen: result.away_pen,
+  status: result.status,
+})
         .eq("tournament_id", TOURNAMENT_ID)
         .eq("fifa_match_number", result.fifa_match_number);
 

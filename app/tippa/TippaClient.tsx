@@ -1321,8 +1321,7 @@ const bronzeWinner = bronzeMatch?.winner;
                                 match.teamB && (
                                   <div className="advance-picker">
                                     <p>
-                                      Matchen är oavgjord efter 90 minuter. Valt
-                                      lag går vidare.
+                                      Oavgjort efter spelad matchtid. Välj lag som går vidare efter straffläggning.
                                     </p>
 
                                     <div className="advance-actions">

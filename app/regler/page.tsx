@@ -110,65 +110,81 @@ export default function RulesPage() {
           </div>
 
           <div className="section">
-            <div className="section-head">
-              <p>Poäng</p>
-              <h2>3. Poängsystem</h2>
-            </div>
+  <div className="section-head">
+    <p>Poäng</p>
+    <h2>3. Poängsystem</h2>
+  </div>
 
-            <div className="points-grid">
-              <div className="card main-card">
-                <p className="card-label">Matcher</p>
-                <h3>Resultatpoäng</h3>
+  <div className="points-grid">
+    <div className="card main-card">
+      <p className="card-label">Matcher</p>
+      <h3>Resultatpoäng</h3>
 
-                <ul>
-                  <li>
-                    <strong>2 p</strong> för rätt antal mål för hemmalaget
-                  </li>
-                  <li>
-                    <strong>2 p</strong> för rätt antal mål för bortalaget
-                  </li>
-                  <li>
-                    <strong>3 p</strong> för rätt tecken, alltså rätt vinnare
-                    eller oavgjort
-                  </li>
-                  <li>
-                    <strong>Max 7 p</strong> per match
-                  </li>
-                </ul>
+      <ul>
+        <li>
+          <strong>2 p</strong> för rätt antal mål för hemmalaget
+        </li>
+        <li>
+          <strong>2 p</strong> för rätt antal mål för bortalaget
+        </li>
+        <li>
+          <strong>3 p</strong> för rätt tecken, alltså rätt vinnare eller oavgjort
+        </li>
+        <li>
+          <strong>Max 7 p</strong> per match
+        </li>
+      </ul>
 
-                <div className="example-box">
-                  <p>Exempel</p>
-                  <span>
-                    Du tippar 2–1 och matchen slutar 2–0. Då får du 2 p för rätt
-                    hemmamål och 3 p för rätt tecken. Totalt 5 p.
-                  </span>
-                </div>
-              </div>
+      <div className="example-box">
+        <p>Gruppspel</p>
+        <span>
+          I gruppspelet räknas resultatet efter ordinarie tid, alltså 90 minuter
+          plus eventuell stopptid.
+        </span>
+      </div>
 
-              <div className="card">
-                <p className="card-label">Slutspel</p>
-                <h3>Rätt lag i rätt runda</h3>
+      <div className="example-box">
+        <p>Slutspel</p>
+        <span>
+          I slutspelet räknas resultatet efter spelad matchtid, alltså 90 minuter
+          plus eventuell förlängning. Straffar räknas inte in i målresultatet.
+        </span>
+      </div>
+    </div>
 
-                <ul>
-                  <li>
-                    <strong>2 p</strong> per rätt lag i åttondelsfinal
-                  </li>
-                  <li>
-                    <strong>4 p</strong> per rätt lag i kvartsfinal
-                  </li>
-                  <li>
-                    <strong>6 p</strong> per rätt lag i semifinal
-                  </li>
-                  <li>
-                    <strong>8 p</strong> per rätt lag i final
-                  </li>
-                  <li>
-                    <strong>20 p</strong> för rätt VM-vinnare
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
+    <div className="card">
+      <p className="card-label">Slutspelsbonus</p>
+      <h3>Rätt lag i rätt runda</h3>
+
+      <ul>
+        <li>
+          <strong>2 p</strong> per rätt lag i åttondelsfinal
+        </li>
+        <li>
+          <strong>4 p</strong> per rätt lag i kvartsfinal
+        </li>
+        <li>
+          <strong>6 p</strong> per rätt lag i semifinal
+        </li>
+        <li>
+          <strong>8 p</strong> per rätt lag i final
+        </li>
+        <li>
+          <strong>20 p</strong> för rätt VM-vinnare
+        </li>
+      </ul>
+
+      <div className="example-box">
+        <p>Vid oavgjort i slutspel</p>
+        <span>
+          Om du tippar oavgjort efter spelad matchtid väljer du vilket lag som
+          går vidare efter straffläggning. Det valet används för att bygga vidare
+          ditt slutspel.
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
 
           <div className="section warning">
             <div className="section-head">
@@ -215,13 +231,20 @@ export default function RulesPage() {
 
             <div className="card">
               <ul>
-                <li>Tips låses 60 minuter före varje match.</li>
+               <li>Gruppspelsmatcher kan ändras fram till 60 minuter före avspark.</li>
+<li>Slutspelet låses när du skickar in hela tipset.</li>
                 <li>
                   Matchpoäng räknas när ett faktiskt resultat finns registrerat.
                 </li>
                 <li>
-                  Resultat räknas efter ordinarie tid, alltså 90 minuter.
-                </li>
+  Gruppspel räknas efter ordinarie tid, alltså 90 minuter plus eventuell stopptid.
+</li>
+<li>
+  Slutspel räknas efter spelad matchtid, alltså 90 minuter plus eventuell förlängning.
+</li>
+<li>
+  Straffläggning används bara för att avgöra vilket lag som går vidare, inte för matchpoäng.
+</li>
                 <li>
                   Tabellen uppdateras utifrån inskickade tips och spelade matcher.
                 </li>
