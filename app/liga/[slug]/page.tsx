@@ -16,6 +16,9 @@ type LeaguePageProps = {
   params: Promise<{
     slug: string;
   }>;
+  searchParams?: Promise<{
+    demo?: string;
+  }>;
 };
 
 type MemberProfile = {
@@ -54,10 +57,8 @@ function getDisplayName(profile?: MemberProfile) {
 
 function getInitials(name: string) {
   const parts = name.trim().split(" ").filter(Boolean);
-
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
@@ -127,10 +128,8 @@ function getPickOutcomeLabel(
 ) {
   if (homeScore === null || homeScore === undefined) return "Inget tips";
   if (awayScore === null || awayScore === undefined) return "Inget tips";
-
   if (homeScore > awayScore) return getSwedishTeamName(homeTeam);
   if (homeScore < awayScore) return getSwedishTeamName(awayTeam);
-
   return "Oavgjort";
 }
 
@@ -144,7 +143,6 @@ function getMostCommonResult(
 
   picks.forEach((pick) => {
     if (pick.homeScore === null || pick.awayScore === null) return;
-
     const key = `${pick.homeScore}–${pick.awayScore}`;
     resultCounts.set(key, (resultCounts.get(key) ?? 0) + 1);
   });
@@ -154,17 +152,21 @@ function getMostCommonResult(
   );
 }
 
-export default async function LeagueDetailPage({ params }: LeaguePageProps) {
+export default async function LeagueDetailPage({
+  params,
+  searchParams,
+}: LeaguePageProps) {
   const { slug } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const isDemoMode = resolvedSearchParams.demo === "1";
+
   const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect("/login");
-  }
+  if (!user) redirect("/login");
 
   const { data: league, error: leagueError } = await supabase
     .from("leagues")
@@ -299,36 +301,98 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   const featuredMatch =
     liveMatch ?? finishedMatch ?? latestStartedMatch ?? nextUpcomingMatch;
 
-  const hasFeaturedMatchStarted = featuredMatch
-    ? new Date(featuredMatch.kickoff_utc).getTime() <= nowTime
+  const demoFeaturedMatch = matchRows[0]
+    ? {
+        ...matchRows[0],
+        home_team: "Mexico",
+        away_team: "South Africa",
+        home_score: 1,
+        away_score: 1,
+        status: "live",
+        kickoff_utc: new Date().toISOString(),
+      }
+    : null;
+
+  const activeFeaturedMatch = isDemoMode ? demoFeaturedMatch : featuredMatch;
+
+  const hasFeaturedMatchStarted = activeFeaturedMatch
+    ? new Date(activeFeaturedMatch.kickoff_utc).getTime() <= nowTime
     : false;
 
-    const canViewSubmittedTips = !!latestStartedMatch;
+  const isLiveMatch = activeFeaturedMatch?.status === "live";
+  const isFinishedMatch = activeFeaturedMatch?.status === "finished";
 
-  const isLiveMatch = featuredMatch?.status === "live";
-  const isFinishedMatch = featuredMatch?.status === "finished";
+  const demoMatchDuelPicks = [
+    {
+      memberId: "demo-pick-1",
+      userId: "demo-1",
+      displayName: "Maja",
+      initials: "MA",
+      hasSubmitted: true,
+      homeScore: 2,
+      awayScore: 1,
+    },
+    {
+      memberId: "demo-pick-2",
+      userId: "demo-2",
+      displayName: "Johan",
+      initials: "JO",
+      hasSubmitted: true,
+      homeScore: 1,
+      awayScore: 1,
+    },
+    {
+      memberId: "demo-pick-3",
+      userId: "demo-3",
+      displayName: "Sara",
+      initials: "SA",
+      hasSubmitted: true,
+      homeScore: 1,
+      awayScore: 1,
+    },
+    {
+      memberId: "demo-pick-4",
+      userId: "demo-4",
+      displayName: "Alex",
+      initials: "AL",
+      hasSubmitted: true,
+      homeScore: 0,
+      awayScore: 1,
+    },
+    {
+      memberId: "demo-pick-5",
+      userId: "demo-5",
+      displayName: "Nina",
+      initials: "NI",
+      hasSubmitted: true,
+      homeScore: 3,
+      awayScore: 1,
+    },
+  ];
 
-  const matchDuelPicks = featuredMatch
-    ? memberRows.map((member) => {
-        const profile = profileMap.get(member.user_id);
-        const displayName = getDisplayName(profile);
-        const prediction = predictions.find(
-          (item) =>
-            item.user_id === member.user_id &&
-            item.match_id === featuredMatch.id
-        );
+  const matchDuelPicks = isDemoMode
+    ? demoMatchDuelPicks
+    : activeFeaturedMatch
+      ? memberRows.map((member) => {
+          const profile = profileMap.get(member.user_id);
+          const displayName = getDisplayName(profile);
+          const prediction = predictions.find(
+            (item) =>
+              item.user_id === member.user_id &&
+              item.match_id === activeFeaturedMatch.id
+          );
 
-        return {
-          memberId: member.id,
-          userId: member.user_id,
-          displayName,
-          initials: getInitials(displayName),
-          hasSubmitted: submittedUserSet.has(member.user_id),
-          homeScore: prediction?.predicted_home_score ?? null,
-          awayScore: prediction?.predicted_away_score ?? null,
-        };
-      })
-    : [];
+          return {
+            memberId: member.id,
+            userId: member.user_id,
+            displayName,
+            initials: getInitials(displayName),
+            hasSubmitted: submittedUserSet.has(member.user_id),
+            homeScore: prediction?.predicted_home_score ?? null,
+            awayScore: prediction?.predicted_away_score ?? null,
+          };
+        })
+      : [];
 
   const submittedMatchDuelPicks = matchDuelPicks.filter(
     (pick) =>
@@ -336,24 +400,15 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   );
 
   const homeWinPicks = submittedMatchDuelPicks.filter(
-    (pick) =>
-      pick.homeScore !== null &&
-      pick.awayScore !== null &&
-      pick.homeScore > pick.awayScore
+    (pick) => pick.homeScore !== null && pick.awayScore !== null && pick.homeScore > pick.awayScore
   );
 
   const drawPicks = submittedMatchDuelPicks.filter(
-    (pick) =>
-      pick.homeScore !== null &&
-      pick.awayScore !== null &&
-      pick.homeScore === pick.awayScore
+    (pick) => pick.homeScore !== null && pick.awayScore !== null && pick.homeScore === pick.awayScore
   );
 
   const awayWinPicks = submittedMatchDuelPicks.filter(
-    (pick) =>
-      pick.homeScore !== null &&
-      pick.awayScore !== null &&
-      pick.homeScore < pick.awayScore
+    (pick) => pick.homeScore !== null && pick.awayScore !== null && pick.homeScore < pick.awayScore
   );
 
   const mostCommonResult = getMostCommonResult(submittedMatchDuelPicks);
@@ -371,22 +426,19 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
   const mostBackedOutcome =
     [
       {
-        label: featuredMatch ? getSwedishTeamName(featuredMatch.home_team) : "",
+        label: activeFeaturedMatch
+          ? getSwedishTeamName(activeFeaturedMatch.home_team)
+          : "",
         count: homeWinPicks.length,
       },
       { label: "Oavgjort", count: drawPicks.length },
       {
-        label: featuredMatch ? getSwedishTeamName(featuredMatch.away_team) : "",
+        label: activeFeaturedMatch
+          ? getSwedishTeamName(activeFeaturedMatch.away_team)
+          : "",
         count: awayWinPicks.length,
       },
     ].sort((a, b) => b.count - a.count)[0] ?? null;
-
-  const predictionMap = new Map(
-    predictions.map((prediction) => [
-      `${prediction.user_id}-${prediction.match_id}`,
-      prediction,
-    ])
-  );
 
   const standings = calculateStandings({
     submissions: submissionRows,
@@ -394,6 +446,51 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
     matches: matchRows as MatchRow[],
     profiles: profiles as ProfileRow[],
   });
+
+  const demoStandings = [
+    {
+      user_id: "demo-1",
+      display_name: "Maja",
+      points: 142,
+      matchPoints: 142,
+      bracketPoints: 0,
+      exactScores: 12,
+      playedMatches: 38,
+      climb: 3,
+    },
+    {
+      user_id: "demo-2",
+      display_name: "Johan",
+      points: 136,
+      matchPoints: 136,
+      bracketPoints: 0,
+      exactScores: 10,
+      playedMatches: 38,
+      climb: 0,
+    },
+    {
+      user_id: "demo-3",
+      display_name: "Sara",
+      points: 132,
+      matchPoints: 132,
+      bracketPoints: 0,
+      exactScores: 9,
+      playedMatches: 38,
+      climb: 0,
+    },
+    {
+      user_id: "demo-4",
+      display_name: "Alex",
+      points: 129,
+      matchPoints: 129,
+      bracketPoints: 0,
+      exactScores: 11,
+      playedMatches: 38,
+      climb: 4,
+    },
+  ];
+
+  const activeStandings = isDemoMode ? demoStandings : standings;
 
   const { data: standingSnapshots } = await supabase
     .from("league_standing_snapshots")
@@ -443,16 +540,19 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
     .filter((standing) => standing.climb > 0)
     .sort((a, b) => b.climb - a.climb);
 
-  const topClimber = climbers[0] ?? null;
+  const topClimber = isDemoMode
+    ? { display_name: "Alex", climb: 4 }
+    : climbers[0] ?? null;
 
-  const exactScoreLeader =
-    [...standings]
-      .filter((standing) => standing.exactScores > 0)
-      .sort((a, b) => b.exactScores - a.exactScores)[0] ?? null;
+  const exactScoreLeader = isDemoMode
+    ? { display_name: "Maja", exactScores: 12 }
+    : [...standings]
+        .filter((standing) => standing.exactScores > 0)
+        .sort((a, b) => b.exactScores - a.exactScores)[0] ?? null;
 
-  const leader = standings[0];
-  const memberCount = memberRows.length;
-  const submittedCount = submittedUserIds.length;
+  const leader = activeStandings[0];
+  const memberCount = isDemoMode ? 5 : memberRows.length;
+  const submittedCount = isDemoMode ? 5 : submittedUserIds.length;
 
   const visibleMembers = memberRows.slice(0, 5);
 
@@ -599,13 +699,13 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                 </div>
               </div>
 
-              {standings.length === 0 ? (
+              {activeStandings.length === 0 ? (
                 <div className="empty-state">
                   Inga inskickade tips finns i ligan ännu.
                 </div>
               ) : (
                 <div className="leaderboard-list">
-                  {standings.map((row, index) => {
+                  {activeStandings.map((row, index) => {
                     const isCurrentUser = row.user_id === user.id;
 
                     return (
@@ -639,7 +739,7 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
             </section>
 
             <aside className="side-stack">
-              {featuredMatch && (
+              {activeFeaturedMatch && (
                 <section className="panel match-picks-panel">
                   <div className="panel-head">
                     <div>
@@ -653,8 +753,8 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                               : "Nästa match"}
                       </p>
                       <h2>
-                        {getSwedishTeamName(featuredMatch.home_team)} vs{" "}
-                        {getSwedishTeamName(featuredMatch.away_team)}
+                        {getSwedishTeamName(activeFeaturedMatch.home_team)} vs{" "}
+                        {getSwedishTeamName(activeFeaturedMatch.away_team)}
                       </h2>
                     </div>
                   </div>
@@ -667,16 +767,16 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                     {isLiveMatch ? (
                       <>
                         <span className="live-dot-small" />
-                        LIVE · {featuredMatch.home_score ?? 0}–
-                        {featuredMatch.away_score ?? 0}
+                        LIVE · {activeFeaturedMatch.home_score ?? 0}–
+                        {activeFeaturedMatch.away_score ?? 0}
                       </>
                     ) : isFinishedMatch ? (
                       <>
-                        Slutresultat · {featuredMatch.home_score ?? 0}–
-                        {featuredMatch.away_score ?? 0}
+                        Slutresultat · {activeFeaturedMatch.home_score ?? 0}–
+                        {activeFeaturedMatch.away_score ?? 0}
                       </>
                     ) : (
-                      <>Avspark {formatKickoff(featuredMatch.kickoff_utc)}</>
+                      <>Avspark {formatKickoff(activeFeaturedMatch.kickoff_utc)}</>
                     )}
                   </p>
 
@@ -717,7 +817,7 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                       <div className="duel-outcome-grid">
                         <div>
                           <strong>
-                            {getSwedishTeamName(featuredMatch.home_team)}
+                            {getSwedishTeamName(activeFeaturedMatch.home_team)}
                           </strong>
                           <span>{homeWinPicks.length} tips</span>
                         </div>
@@ -729,7 +829,7 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
 
                         <div>
                           <strong>
-                            {getSwedishTeamName(featuredMatch.away_team)}
+                            {getSwedishTeamName(activeFeaturedMatch.away_team)}
                           </strong>
                           <span>{awayWinPicks.length} tips</span>
                         </div>
@@ -759,8 +859,8 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                                       ? getPickOutcomeLabel(
                                           pick.homeScore,
                                           pick.awayScore,
-                                          featuredMatch.home_team,
-                                          featuredMatch.away_team
+                                          activeFeaturedMatch.home_team,
+                                          activeFeaturedMatch.away_team
                                         )
                                       : pick.hasSubmitted
                                         ? "Inget tips på matchen"
@@ -857,7 +957,7 @@ export default async function LeagueDetailPage({ params }: LeaguePageProps) {
                                 {hasSubmitted ? "Klar" : "Ej klar"}
                               </em>
 
-                              {hasSubmitted && (isCurrentUser || canViewSubmittedTips) && (
+                              {hasSubmitted && (
   <Link
     href={`/liga/${league.slug}/tips/${tipsPath}`}
     className="view-tips-link"
