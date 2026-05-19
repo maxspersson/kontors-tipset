@@ -25,7 +25,10 @@ function isAuthorized(request: NextRequest) {
     request.nextUrl.searchParams.get("secret") ||
     request.headers.get("x-cron-secret");
 
-  return authHeader === `Bearer ${expectedSecret}` || querySecret === expectedSecret;
+  return (
+    authHeader === `Bearer ${expectedSecret}` ||
+    querySecret === expectedSecret
+  );
 }
 
 async function saveStandingSnapshots() {
@@ -53,7 +56,6 @@ async function saveStandingSnapshots() {
   const leagueRows = (leagues ?? []) as LeagueRow[];
 
   let insertedSnapshots = 0;
-const debugRows: any[] = [];
 
   for (const league of leagueRows) {
     const { data: submissions, error: submissionsError } = await supabase
@@ -67,10 +69,6 @@ const debugRows: any[] = [];
     }
 
     const submissionRows = (submissions ?? []) as SubmissionRow[];
-    debugRows.push({
-  leagueId: league.id,
-  submissions: submissionRows.length,
-});
 
     if (submissionRows.length === 0) continue;
 
@@ -81,8 +79,8 @@ const debugRows: any[] = [];
     const { data: predictions, error: predictionsError } = await supabase
       .from("predictions")
       .select(
-  "league_id, user_id, match_id, predicted_home_score, predicted_away_score, advancing_team"
-)
+        "league_id, user_id, match_id, predicted_home_score, predicted_away_score, advancing_team"
+      )
       .eq("league_id", league.id)
       .in("user_id", submittedUserIds);
 
@@ -105,23 +103,6 @@ const debugRows: any[] = [];
       matches: matchRows,
       profiles: (profiles ?? []) as ProfileRow[],
     });
-    debugRows.push({
-  leagueId: league.id,
-  submittedUserIds,
-  predictions: predictions?.length ?? 0,
-  matches: matchRows.length,
-  profiles: profiles?.length ?? 0,
-  standings: standings.length,
-});
-    console.log("SNAPSHOT DEBUG", {
-  leagueId: league.id,
-  submissions: submissionRows.length,
-  submittedUserIds,
-  predictions: predictions?.length ?? 0,
-  matches: matchRows.length,
-  profiles: profiles?.length ?? 0,
-  standings: standings.length,
-});
 
     if (standings.length === 0) continue;
 
@@ -143,10 +124,7 @@ const debugRows: any[] = [];
     insertedSnapshots += snapshotRows.length;
   }
 
-  return {
-  insertedSnapshots,
-  debugRows,
-};
+  return insertedSnapshots;
 }
 
 export async function GET(request: NextRequest) {
@@ -158,13 +136,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await saveStandingSnapshots();
+    const snapshots = await saveStandingSnapshots();
 
-return NextResponse.json({
-  success: true,
-  snapshots: result.insertedSnapshots,
-  debugRows: result.debugRows,
-});
+    return NextResponse.json({
+      success: true,
+      snapshots,
+    });
   } catch (error) {
     return NextResponse.json(
       {
