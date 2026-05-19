@@ -50,8 +50,6 @@ function hasMatchStarted(match?: Match) {
 export default async function MemberTipsPage({ params }: TipsPageProps) {
   const { slug, userId: userOrSlug } = await params;
 
-  console.log("TIPS ROUTE PARAMS", { slug, userOrSlug });
-
   const supabase = await createClient();
 
   const {
@@ -96,8 +94,6 @@ export default async function MemberTipsPage({ params }: TipsPageProps) {
     ? await submissionQuery.eq("user_id", userOrSlug).maybeSingle()
     : await submissionQuery.eq("public_slug", userOrSlug).maybeSingle();
 
-  console.log("FOUND SUBMISSION", submission);
-
   if (!submission) {
     redirect(`/liga/${league.slug}`);
   }
@@ -138,25 +134,14 @@ export default async function MemberTipsPage({ params }: TipsPageProps) {
     []) as SnapshotPrediction[];
 
   const savedPredictions: SavedPrediction[] = [
-    ...groupSnapshot,
-    ...playoffSnapshot,
-  ].map((prediction) => {
-    const match = matchById.get(prediction.match_id);
-    const canShowPrediction = isOwnTips || hasMatchStarted(match);
-
-    return {
-      match_id: prediction.match_id,
-      predicted_home_score: canShowPrediction
-        ? prediction.predicted_home_score
-        : null,
-      predicted_away_score: canShowPrediction
-        ? prediction.predicted_away_score
-        : null,
-      advancing_team: canShowPrediction
-        ? prediction.advancing_team ?? null
-        : null,
-    };
-  });
+  ...groupSnapshot,
+  ...playoffSnapshot,
+].map((prediction) => ({
+  match_id: prediction.match_id,
+  predicted_home_score: prediction.predicted_home_score,
+  predicted_away_score: prediction.predicted_away_score,
+  advancing_team: prediction.advancing_team ?? null,
+}));
 
   const groupMatches = matchRows.filter((match) => match.stage === "group");
 
@@ -164,13 +149,14 @@ export default async function MemberTipsPage({ params }: TipsPageProps) {
 
   return (
     <ReadonlyTipsClient
-      groupMatches={groupMatches}
-      playoffMatches={playoffMatches}
-      savedPredictions={savedPredictions}
-      submission={submission as LeagueSubmission}
-      viewerName={getDisplayName(profile as Profile | null)}
-      backHref={`/liga/${league.slug}`}
-      hasError={!!matchesError}
-    />
+  groupMatches={groupMatches}
+  playoffMatches={playoffMatches}
+  savedPredictions={savedPredictions}
+  submission={submission as LeagueSubmission}
+  viewerName={getDisplayName(profile as Profile | null)}
+  backHref={`/liga/${league.slug}`}
+  hasError={!!matchesError}
+  isOwnTips={isOwnTips}
+/>
   );
 }

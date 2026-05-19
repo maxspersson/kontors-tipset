@@ -1,3 +1,4 @@
+import LeagueAutoRefresh from "@/app/components/LeagueAutoRefresh";
 import LeagueDangerAction from "@/app/components/LeagueDangerAction";
 import { createClient } from "@/app/lib/supabase/server";
 import { formatKickoff } from "@/app/lib/formatDate";
@@ -177,7 +178,8 @@ export default async function LeagueDetailPage({
 
   if (leagueError || !league) {
     return (
-      <main className="league-detail-page">
+  <main className="league-detail-page">
+    <LeagueAutoRefresh intervalMs={30000} />
         <section className="league-detail-hero">
           <div className="league-wrap">
             <p className="eyebrow">Liga</p>

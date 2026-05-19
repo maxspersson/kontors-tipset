@@ -294,8 +294,9 @@ export default function TabellClient({
                     key={player.user_id}
                     className={`podium-card podium-${index + 1}`}
                   >
-                    <div className="rank-badge">{index + 1}</div>
+                    <div className="rank-badge">{player.rank}</div>
                     <h2>{player.display_name}</h2>
+<div className="podium-movement">{renderMovement(player)}</div>
                     <p>{player.points} p</p>
                     <span>
   {player.matchPoints} matchpoäng · {player.bracketPoints} slutspel ·{" "}
@@ -321,7 +322,7 @@ export default function TabellClient({
                     className={`table-row ${index < 3 ? `top-${index + 1}` : ""}`}
                   >
                     <div className="placement">
-                      <span>{index + 1}</span>
+                      <span>{player.rank}</span>
                     </div>
 
                     <div className="player">
@@ -566,6 +567,12 @@ export default function TabellClient({
               min-height: 230px;
               border-color: rgba(229,185,77,0.30);
             }
+
+            .podium-movement {
+  position: relative;
+  margin-top: 10px;
+  min-height: 24px;
+}
 
             .rank-badge {
               position: relative;

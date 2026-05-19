@@ -64,6 +64,7 @@ type PlayoffMatch = {
   scoreB: string;
   advancingTeam?: AdvancingTeam | null;
   winner?: GroupTableRow;
+  loser?: GroupTableRow;
 };
 
 type ReadonlyTipsClientProps = {
@@ -74,6 +75,7 @@ type ReadonlyTipsClientProps = {
   viewerName: string;
   backHref: string;
   hasError: boolean;
+  isOwnTips: boolean;
 };
 
 const roundOf32Slots: Record<number, [SeedSlot, SeedSlot]> = {
@@ -387,6 +389,14 @@ function getLoser(
   return undefined;
 }
 
+function getThirdPlaceWinner(finalRound?: PlayoffMatch[]) {
+  const thirdPlaceMatch = finalRound?.find(
+    (match) => match.dbMatch.stage === "third_place"
+  );
+
+  return thirdPlaceMatch?.winner;
+}
+
 function resolveGroupPosition(
   allGroupTables: GroupTable[],
   group: string,
@@ -544,6 +554,7 @@ function buildPlayoffRounds({
         scoreB: prediction.away,
         advancingTeam: prediction.advancingTeam,
         winner,
+        loser,
       });
     }
 
@@ -608,6 +619,58 @@ function getDrawCount(predictions: PredictionState) {
   ).length;
 }
 
+function isMatchRevealable(match: Match, isOwnTips: boolean) {
+  if (isOwnTips) return true;
+  if (!match.kickoff_utc) return false;
+
+  const unlockTime = new Date(match.kickoff_utc).getTime() - 60 * 60 * 1000;
+
+  return Date.now() >= unlockTime || match.status === "live" || match.status === "finished";
+}
+
+function isPlayoffRoundRevealable(
+  roundMatches: PlayoffMatch[],
+  isOwnTips: boolean
+) {
+  if (isOwnTips) return true;
+
+  return roundMatches.some((match) =>
+    isMatchRevealable(match.dbMatch, isOwnTips)
+  );
+}
+
+function createMaskedPredictions({
+  groupMatches,
+  playoffMatches,
+  predictions,
+  isOwnTips,
+}: {
+  groupMatches: Match[];
+  playoffMatches: Match[];
+  predictions: PredictionState;
+  isOwnTips: boolean;
+}) {
+  const masked: PredictionState = {};
+
+  for (const match of [...groupMatches, ...playoffMatches]) {
+    const prediction = predictions[match.id];
+
+    if (!prediction) continue;
+
+    const canReveal = isMatchRevealable(match, isOwnTips);
+
+    masked[match.id] = canReveal
+      ? prediction
+      : {
+          home: "",
+          away: "",
+          advancingTeam: null,
+        };
+  }
+
+  return masked;
+}
+
 export default function ReadonlyTipsClient({
   groupMatches,
   playoffMatches,
@@ -616,28 +679,38 @@ export default function ReadonlyTipsClient({
   viewerName,
   backHref,
   hasError,
+  isOwnTips,
 }: ReadonlyTipsClientProps) {
   const [activeTab, setActiveTab] = useState<Tab>("A");
 
   const predictions = useMemo<PredictionState>(() => {
-    const initial: PredictionState = {};
+  const initial: PredictionState = {};
 
-    for (const prediction of savedPredictions) {
-      initial[prediction.match_id] = {
-        home:
-          prediction.predicted_home_score === null
-            ? ""
-            : String(prediction.predicted_home_score),
-        away:
-          prediction.predicted_away_score === null
-            ? ""
-            : String(prediction.predicted_away_score),
-        advancingTeam: prediction.advancing_team,
-      };
-    }
+  for (const prediction of savedPredictions) {
+    initial[prediction.match_id] = {
+      home:
+        prediction.predicted_home_score === null
+          ? ""
+          : String(prediction.predicted_home_score),
+      away:
+        prediction.predicted_away_score === null
+          ? ""
+          : String(prediction.predicted_away_score),
+      advancingTeam: prediction.advancing_team,
+    };
+  }
 
-    return initial;
-  }, [savedPredictions]);
+  return initial;
+}, [savedPredictions]);
+
+const displayPredictions = useMemo(() => {
+  return createMaskedPredictions({
+    groupMatches,
+    playoffMatches,
+    predictions,
+    isOwnTips,
+  });
+}, [groupMatches, playoffMatches, predictions, isOwnTips]);
 
   const activeMatches = groupMatches.filter(
     (match) => match.group_name === activeTab
@@ -651,17 +724,45 @@ export default function ReadonlyTipsClient({
 
       return {
         group,
-        table: buildGroupTable(matchesInGroup, predictions, group),
+        table: buildGroupTable(matchesInGroup, displayPredictions, group),
         completedMatches: matchesInGroup.filter((match) =>
-          isCompletePrediction(predictions[match.id])
-        ).length,
+  isCompletePrediction(displayPredictions[match.id])
+).length,
         totalMatches: matchesInGroup.length,
       };
     });
-  }, [groupMatches, predictions]);
+  }, [groupMatches, displayPredictions]);
 
   const activeGroupTable =
     allGroupTables.find((item) => item.group === activeTab)?.table ?? [];
+    const summaryGroupTables = useMemo(() => {
+  return groups.map((group) => {
+    const matchesInGroup = groupMatches.filter(
+      (match) => match.group_name === group
+    );
+
+    return {
+      group,
+      table: buildGroupTable(matchesInGroup, predictions, group),
+      completedMatches: matchesInGroup.filter((match) =>
+        isCompletePrediction(predictions[match.id])
+      ).length,
+      totalMatches: matchesInGroup.length,
+    };
+  });
+}, [groupMatches, predictions]);
+
+const summaryThirdPlacedTeams = summaryGroupTables
+  .filter((group) => group.completedMatches === group.totalMatches)
+  .map((group) => group.table[2])
+  .filter(isGroupTableRow)
+  .sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
+    if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+    return a.team.localeCompare(b.team);
+  })
+  .slice(0, 8);
 
   const thirdPlacedTeams = allGroupTables
     .filter((group) => group.completedMatches === group.totalMatches)
@@ -682,19 +783,21 @@ export default function ReadonlyTipsClient({
       thirdPlacedTeams,
       predictions,
     });
-  }, [playoffMatches, allGroupTables, thirdPlacedTeams, predictions]);
-
-  const finalRound = playoffRounds[playoffRounds.length - 1];
-  const champion = finalRound?.[0]?.winner;
-  const mostGoalRichPrediction = useMemo(() => {
-  return getMostGoalRichPrediction({
-    groupMatches,
+  }, [playoffMatches, allGroupTables, thirdPlacedTeams, displayPredictions]);
+  const summaryPlayoffRounds = useMemo(() => {
+  return buildPlayoffRounds({
     playoffMatches,
+    allGroupTables: summaryGroupTables,
+    thirdPlacedTeams: summaryThirdPlacedTeams,
     predictions,
   });
-}, [groupMatches, playoffMatches, predictions]);
+}, [playoffMatches, summaryGroupTables, summaryThirdPlacedTeams, predictions]);
 
-const drawCount = useMemo(() => getDrawCount(predictions), [predictions]);
+  const finalRound = summaryPlayoffRounds[summaryPlayoffRounds.length - 1];
+const finalMatch = finalRound?.find((match) => match.dbMatch.stage === "final");
+const champion = finalMatch?.winner;
+const finalist = finalMatch?.loser;
+const thirdPlace = getThirdPlaceWinner(finalRound);
 
   return (
     <main className="tips-page readonly-tips-page">
@@ -711,7 +814,8 @@ const drawCount = useMemo(() => getDrawCount(predictions), [predictions]);
               <h1>Så här har {viewerName || "spelaren"} tippat.</h1>
 
               <p className="intro">
-  Jämför gruppspel, slutspel och potentiella skrällar i det inskickade VM-tipset.
+  Tipsen låses upp löpande från en timme före avspark för varje match.
+  Gruppspel och slutspel visas successivt under turneringens gång.
 </p>
             </div>
           </div>
@@ -737,21 +841,13 @@ const drawCount = useMemo(() => getDrawCount(predictions), [predictions]);
   </div>
 
   <div>
-    <span>
-      {mostGoalRichPrediction
-        ? `${mostGoalRichPrediction.home}-${mostGoalRichPrediction.away}`
-        : "Ej klart"}
-    </span>
-    <p>
-      {mostGoalRichPrediction
-        ? `${mostGoalRichPrediction.total} mål i mest målrika matchen`
-        : "Mest målrika match"}
-    </p>
+    <span>{finalist ? getSwedishTeamName(finalist.team) : "Ej klart"}</span>
+    <p>Tippad tvåa</p>
   </div>
 
   <div>
-    <span>{drawCount}</span>
-    <p>Oavgjorda matcher</p>
+    <span>{thirdPlace ? getSwedishTeamName(thirdPlace.team) : "Ej klart"}</span>
+    <p>Tippad trea</p>
   </div>
 </div>
 
@@ -969,7 +1065,7 @@ const drawCount = useMemo(() => getDrawCount(predictions), [predictions]);
 
               <div className="match-list">
                 {activeMatches.map((match) => {
-                  const prediction = predictions[match.id] ?? {
+                  const prediction = displayPredictions[match.id] ?? {
                     home: "",
                     away: "",
                     advancingTeam: null,
