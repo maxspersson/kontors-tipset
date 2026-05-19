@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/app/lib/supabase/server";
 
+function getBaseUrl(request: Request) {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.SITE_URL ||
+    new URL(request.url).origin
+  );
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient();
 
@@ -8,19 +16,30 @@ export async function POST(request: Request) {
   const email = formData.get("email")?.toString().trim();
 
   if (!email) {
-    return new NextResponse("E-post saknas", { status: 400 });
+    return NextResponse.redirect(
+      new URL("/forgot-password?error=missing-email", request.url),
+      303
+    );
   }
 
-  const redirectTo = new URL("/auth/reset-password", request.url).toString();
+  const baseUrl = getBaseUrl(request);
+  const redirectTo = `${baseUrl}/auth/reset-password`;
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,
   });
 
   if (error) {
-    return new NextResponse(
-      `Kunde inte skicka återställningslänk: ${error.message}`,
-      { status: 500 }
+    const isRateLimit =
+      error.message.toLowerCase().includes("security purposes") ||
+      error.message.toLowerCase().includes("rate limit");
+
+    return NextResponse.redirect(
+      new URL(
+        `/forgot-password?error=${isRateLimit ? "rate-limit" : "send-failed"}`,
+        request.url
+      ),
+      303
     );
   }
 

@@ -1,11 +1,27 @@
-export default function ForgotPasswordPage() {
+type ForgotPasswordPageProps = {
+  searchParams?: Promise<{
+    sent?: string;
+    error?: string;
+  }>;
+};
+
+export default async function ForgotPasswordPage({
+  searchParams,
+}: ForgotPasswordPageProps) {
+  const params = searchParams ? await searchParams : {};
+
+  const isSent = params.sent === "1";
+  const error = params.error;
+
   return (
     <main className="auth-page">
       <section className="auth-hero">
         <div className="auth-wrap">
           <div>
             <p className="eyebrow">Kontors-tipset</p>
+
             <h1>Glömt lösenord?</h1>
+
             <p className="intro">
               Fyll i din e-post så skickar vi en länk där du kan välja ett nytt
               lösenord.
@@ -14,10 +30,12 @@ export default function ForgotPasswordPage() {
 
           <div className="auth-card">
             <p>VM 2026</p>
+
             <h2>Återställ lösenord</h2>
 
             <form action="/api/forgot-password" method="POST">
               <label>E-post</label>
+
               <input
                 type="email"
                 name="email"
@@ -25,8 +43,27 @@ export default function ForgotPasswordPage() {
                 required
               />
 
-              <button type="submit">Skicka återställningslänk</button>
+              <button type="submit">
+                Skicka återställningslänk
+              </button>
             </form>
+
+            {isSent && (
+              <div className="status-box success">
+                Om kontot finns skickar vi en återställningslänk till din
+                e-post.
+              </div>
+            )}
+
+            {error && (
+              <div className="status-box error">
+                {error === "rate-limit"
+                  ? "Vänta några sekunder och försök igen."
+                  : error === "missing-email"
+                    ? "Fyll i din e-postadress."
+                    : "Kunde inte skicka återställningslänken. Försök igen om en stund."}
+              </div>
+            )}
 
             <a href="/login">Tillbaka till login</a>
           </div>
@@ -126,6 +163,7 @@ export default function ForgotPasswordPage() {
               color: white;
               font-size: 15px;
               outline: none;
+              box-sizing: border-box;
             }
 
             form button {
@@ -139,6 +177,26 @@ export default function ForgotPasswordPage() {
               font-size: 15px;
               font-weight: 950;
               cursor: pointer;
+            }
+
+            .status-box {
+              margin-top: 16px;
+              padding: 14px;
+              border-radius: 14px;
+              font-size: 14px;
+              line-height: 1.45;
+            }
+
+            .status-box.success {
+              border: 1px solid rgba(134,239,172,0.24);
+              background: rgba(134,239,172,0.08);
+              color: #86efac;
+            }
+
+            .status-box.error {
+              border: 1px solid rgba(248,113,113,0.26);
+              background: rgba(248,113,113,0.08);
+              color: #fca5a5;
             }
 
             .auth-card a {
