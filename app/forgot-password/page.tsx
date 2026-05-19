@@ -32,7 +32,12 @@ export default async function ForgotPasswordPage({
             <p>VM 2026</p>
 
             <h2>Återställ lösenord</h2>
-
+            {isSent && (
+              <div className="status-box success">
+                Om kontot finns skickar vi en återställningslänk till din
+                e-post.
+              </div>
+            )}
             <form action="/api/forgot-password" method="POST">
               <label>E-post</label>
 
@@ -47,13 +52,6 @@ export default async function ForgotPasswordPage({
                 Skicka återställningslänk
               </button>
             </form>
-
-            {isSent && (
-              <div className="status-box success">
-                Om kontot finns skickar vi en återställningslänk till din
-                e-post.
-              </div>
-            )}
 
             {error && (
               <div className="status-box error">

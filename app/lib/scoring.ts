@@ -17,6 +17,7 @@ export type MatchRow = {
   away_score: number | null;
   home_pen?: number | null;
   away_pen?: number | null;
+  actual_advancing_team?: "home" | "away" | null;
 };
 
 export type ProfileRow = {
@@ -533,20 +534,28 @@ export function calculateStandings({
 
   const actualScoresByMatchId = new Map(
   matches.map((match) => {
-    let advancingTeam: "home" | "away" | null = null;
+    let advancingTeam: "home" | "away" | null =
+      match.actual_advancing_team ?? null;
 
     if (
+      !advancingTeam &&
       match.stage !== "group" &&
       match.home_score !== null &&
-      match.away_score !== null &&
-      match.home_score === match.away_score &&
-      match.home_pen !== null &&
-      match.home_pen !== undefined &&
-      match.away_pen !== null &&
-      match.away_pen !== undefined
+      match.away_score !== null
     ) {
-      if (match.home_pen > match.away_pen) advancingTeam = "home";
-      if (match.away_pen > match.home_pen) advancingTeam = "away";
+      if (match.home_score > match.away_score) advancingTeam = "home";
+      if (match.away_score > match.home_score) advancingTeam = "away";
+
+      if (
+        !advancingTeam &&
+        match.home_pen !== null &&
+        match.home_pen !== undefined &&
+        match.away_pen !== null &&
+        match.away_pen !== undefined
+      ) {
+        if (match.home_pen > match.away_pen) advancingTeam = "home";
+        if (match.away_pen > match.home_pen) advancingTeam = "away";
+      }
     }
 
     return [

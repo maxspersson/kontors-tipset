@@ -23,6 +23,18 @@ type LeagueRow = {
   id: string;
 };
 
+type CurrentMatchRow = {
+  fifa_match_number: number | null;
+  stage: string;
+  kickoff_utc: string;
+  home_score: number | null;
+  away_score: number | null;
+  home_pen: number | null;
+  away_pen: number | null;
+  actual_advancing_team: "home" | "away" | null;
+  status: string | null;
+};
+
 function isAuthorized(request: NextRequest) {
   const expectedSecret = process.env.ADMIN_SYNC_SECRET;
 
@@ -44,6 +56,52 @@ function isAuthorized(request: NextRequest) {
   );
 }
 
+function shouldSyncNow(matches: CurrentMatchRow[]) {
+  const now = Date.now();
+
+  const syncWindowStartMs = 45 * 60 * 1000;
+  const syncWindowEndMs = 4 * 60 * 60 * 1000;
+
+  return matches.some((match) => {
+    if (!match.kickoff_utc) return false;
+    if (match.status === "live") return true;
+
+    const kickoffTime = new Date(match.kickoff_utc).getTime();
+
+    return (
+      kickoffTime - syncWindowStartMs <= now &&
+      kickoffTime + syncWindowEndMs >= now
+    );
+  });
+}
+
+function getActualAdvancingTeam({
+  stage,
+  homeScore,
+  awayScore,
+  homePen,
+  awayPen,
+}: {
+  stage: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  homePen: number | null;
+  awayPen: number | null;
+}) {
+  if (stage === "group") return null;
+  if (homeScore === null || awayScore === null) return null;
+
+  if (homeScore > awayScore) return "home";
+  if (awayScore > homeScore) return "away";
+
+  if (homePen === null || awayPen === null) return null;
+
+  if (homePen > awayPen) return "home";
+  if (awayPen > homePen) return "away";
+
+  return null;
+}
+
 async function fetchExternalResults(): Promise<ExternalMatchResult[]> {
   const apiKey = process.env.WC2026_API_KEY;
 
@@ -59,7 +117,6 @@ async function fetchExternalResults(): Promise<ExternalMatchResult[]> {
   });
 
   const data = await response.json().catch(() => null);
-  console.log("WC2026 RAW API RESPONSE", JSON.stringify(data, null, 2));
 
   if (!response.ok) {
     throw new Error(
@@ -83,32 +140,37 @@ async function fetchExternalResults(): Promise<ExternalMatchResult[]> {
     const normalizedStatus =
       rawStatus.includes("complete") ||
       rawStatus.includes("finish") ||
-      rawStatus === "ft"
+      rawStatus === "ft" ||
+      rawStatus === "ft_pen"
         ? "finished"
         : rawStatus.includes("live") ||
             rawStatus.includes("progress") ||
-            rawStatus.includes("playing")
+            rawStatus.includes("playing") ||
+            rawStatus.includes("1h") ||
+            rawStatus.includes("2h") ||
+            rawStatus.includes("et") ||
+            rawStatus.includes("pen")
           ? "live"
           : "scheduled";
 
     return {
-  fifa_match_number:
-    match.match_number ?? match.matchNumber ?? match.fifa_match_number,
+      fifa_match_number:
+        match.match_number ?? match.matchNumber ?? match.fifa_match_number,
 
-  home_score:
-    match.home_score ?? match.homeScore ?? match.home_goals ?? null,
+      home_score:
+        match.home_score ?? match.homeScore ?? match.home_goals ?? null,
 
-  away_score:
-    match.away_score ?? match.awayScore ?? match.away_goals ?? null,
+      away_score:
+        match.away_score ?? match.awayScore ?? match.away_goals ?? null,
 
-  home_pen:
-    match.home_pen ?? match.homePen ?? match.home_penalties ?? null,
+      home_pen:
+        match.home_pen ?? match.homePen ?? match.home_penalties ?? null,
 
-  away_pen:
-    match.away_pen ?? match.awayPen ?? match.away_penalties ?? null,
+      away_pen:
+        match.away_pen ?? match.awayPen ?? match.away_penalties ?? null,
 
-  status: normalizedStatus,
-};
+      status: normalizedStatus,
+    };
   });
 }
 
@@ -125,8 +187,8 @@ async function saveStandingSnapshots() {
   const { data: matches, error: matchesError } = await supabase
     .from("matches")
     .select(
-  "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score, home_pen, away_pen, kickoff_utc"
-)
+      "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score, home_pen, away_pen, actual_advancing_team, kickoff_utc"
+    )
     .eq("tournament_id", TOURNAMENT_ID);
 
   if (matchesError) {
@@ -158,10 +220,10 @@ async function saveStandingSnapshots() {
     );
 
     const { data: predictions, error: predictionsError } = await supabase
-      .from("predictions")
-      .select(
-        "league_id, user_id, match_id, predicted_home_score, predicted_away_score"
-      )
+  .from("predictions")
+  .select(
+    "league_id, user_id, match_id, predicted_home_score, predicted_away_score, advancing_team"
+  )
       .eq("league_id", league.id)
       .in("user_id", submittedUserIds);
 
@@ -219,7 +281,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return syncResults();
+  return syncResults(request);
 }
 
 export async function POST(request: NextRequest) {
@@ -233,32 +295,56 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return syncResults();
+  return syncResults(request);
 }
 
-async function syncResults() {
+async function syncResults(request: NextRequest) {
   try {
-    const results = await fetchExternalResults();
+    const forceSync = request.nextUrl.searchParams.get("force") === "1";
 
     const { data: currentMatches, error: currentMatchesError } = await supabase
       .from("matches")
-      .select("fifa_match_number, home_score, away_score, home_pen, away_pen, status")
+      .select(
+        "fifa_match_number, stage, kickoff_utc, home_score, away_score, home_pen, away_pen, actual_advancing_team, status"
+      )
       .eq("tournament_id", TOURNAMENT_ID);
 
     if (currentMatchesError) {
       throw new Error(currentMatchesError.message);
     }
 
+    const currentMatchRows = (currentMatches ?? []) as CurrentMatchRow[];
+
+    const shouldRun = forceSync || shouldSyncNow(currentMatchRows);
+
+    if (!shouldRun) {
+      return NextResponse.json({
+        success: true,
+        source: "wc2026-api",
+        skippedApiRequest: true,
+        reason: "No match inside sync window",
+        updated: 0,
+        skipped: 0,
+        snapshots: 0,
+        updatedMatches: [],
+        skippedMatches: [],
+      });
+    }
+
+    const results = await fetchExternalResults();
+
     const currentMatchMap = new Map(
-      (currentMatches ?? []).map((match) => [
+      currentMatchRows.map((match) => [
         match.fifa_match_number,
-       {
-  home_score: match.home_score,
-  away_score: match.away_score,
-  home_pen: match.home_pen,
-  away_pen: match.away_pen,
-  status: match.status,
-}
+        {
+          stage: match.stage,
+          home_score: match.home_score,
+          away_score: match.away_score,
+          home_pen: match.home_pen,
+          away_pen: match.away_pen,
+          actual_advancing_team: match.actual_advancing_team,
+          status: match.status,
+        },
       ])
     );
 
@@ -280,13 +366,24 @@ async function syncResults() {
 
       const currentMatch = currentMatchMap.get(result.fifa_match_number);
 
+      const actualAdvancingTeam = currentMatch
+        ? getActualAdvancingTeam({
+            stage: currentMatch.stage,
+            homeScore: result.home_score,
+            awayScore: result.away_score,
+            homePen: result.home_pen,
+            awayPen: result.away_pen,
+          })
+        : null;
+
       const hasChanged =
-  !currentMatch ||
-  currentMatch.home_score !== result.home_score ||
-  currentMatch.away_score !== result.away_score ||
-  currentMatch.home_pen !== result.home_pen ||
-  currentMatch.away_pen !== result.away_pen ||
-  currentMatch.status !== result.status;
+        !currentMatch ||
+        currentMatch.home_score !== result.home_score ||
+        currentMatch.away_score !== result.away_score ||
+        currentMatch.home_pen !== result.home_pen ||
+        currentMatch.away_pen !== result.away_pen ||
+        currentMatch.actual_advancing_team !== actualAdvancingTeam ||
+        currentMatch.status !== result.status;
 
       if (!hasChanged) {
         skippedMatches.push(result.fifa_match_number);
@@ -296,12 +393,13 @@ async function syncResults() {
       const { error } = await supabase
         .from("matches")
         .update({
-  home_score: result.home_score,
-  away_score: result.away_score,
-  home_pen: result.home_pen,
-  away_pen: result.away_pen,
-  status: result.status,
-})
+          home_score: result.home_score,
+          away_score: result.away_score,
+          home_pen: result.home_pen,
+          away_pen: result.away_pen,
+          actual_advancing_team: actualAdvancingTeam,
+          status: result.status,
+        })
         .eq("tournament_id", TOURNAMENT_ID)
         .eq("fifa_match_number", result.fifa_match_number);
 
@@ -325,6 +423,8 @@ async function syncResults() {
     return NextResponse.json({
       success: true,
       source: "wc2026-api",
+      forced: forceSync,
+      skippedApiRequest: false,
       updated: updatedMatches.length,
       skipped: skippedMatches.length,
       snapshots: insertedSnapshots,
