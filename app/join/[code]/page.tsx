@@ -68,7 +68,7 @@ export default async function JoinPage({ params }: JoinPageProps) {
       <section className="join-hero">
         <div className="join-wrap">
           <div className="join-grid">
-            <div>
+            <div className="join-copy">
               <p className="eyebrow">Inbjudan</p>
               <h1>Du är inbjuden till ligan.</h1>
               <p className="intro">
@@ -512,25 +512,44 @@ function JoinStyles() {
             }
 
             .join-grid {
-              grid-template-columns: 1fr;
+              display: flex;
+              flex-direction: column;
               gap: 30px;
             }
 
+            .join-copy {
+              display: contents;
+            }
+
+            .eyebrow {
+              order: 1;
+            }
+
             h1 {
+              order: 2;
               font-size: 48px;
               line-height: 1.04;
               max-width: 360px;
             }
 
-            .intro,
-            .center-card p {
+            .intro {
+              order: 3;
               font-size: 16px;
               max-width: 350px;
             }
 
+            .join-card {
+              order: 4;
+              padding: 20px;
+              border-radius: 24px;
+              width: 100%;
+            }
+
             .info-grid {
+              order: 5;
               grid-template-columns: 1fr;
-              margin-top: 30px;
+              margin-top: 0;
+              width: 100%;
             }
 
             .info-grid div {
@@ -541,7 +560,6 @@ function JoinStyles() {
               margin-top: 16px;
             }
 
-            .join-card,
             .center-card {
               padding: 20px;
               border-radius: 24px;
