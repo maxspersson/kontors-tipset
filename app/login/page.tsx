@@ -17,6 +17,18 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  function getNextPath() {
+    if (typeof window === "undefined") return "/";
+
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next");
+
+    if (!next) return "/";
+    if (!next.startsWith("/") || next.startsWith("//")) return "/";
+
+    return next;
+  }
+
   async function handleEmailAuth(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -39,7 +51,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/");
+      router.push(getNextPath());
       router.refresh();
       return;
     }
@@ -50,7 +62,9 @@ export default function LoginPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${origin}/auth/callback`,
+        emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(
+          getNextPath()
+        )}`,
       },
     });
 
@@ -61,8 +75,8 @@ export default function LoginPage() {
     }
 
     setSuccessMessage("Kontot är skapat! Du kan nu logga in.");
-setMode("login");
-setLoading(false);
+    setMode("login");
+    setLoading(false);
   }
 
   async function handleGoogleLogin() {
@@ -75,7 +89,9 @@ setLoading(false);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${origin}/auth/callback`,
+        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(
+          getNextPath()
+        )}`,
       },
     });
 
@@ -122,6 +138,20 @@ setLoading(false);
             </div>
 
             <div className="login-card">
+              <div className="invite-help">
+                <strong>Ny här?</strong>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("signup");
+                    setErrorMessage("");
+                    setSuccessMessage("");
+                  }}
+                >
+                  Skapa konto direkt
+                </button>
+              </div>
+
               <div className="card-top">
                 <div>
                   <p>VM 2026</p>
@@ -131,20 +161,21 @@ setLoading(false);
               </div>
 
               <button
-  type="button"
-  onClick={handleGoogleLogin}
-  disabled={googleLoading}
-  className="google-btn"
->
-  {googleLoading ? "Öppnar Google..." : "Fortsätt med Google"}
-</button>
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={googleLoading}
+                className="google-btn"
+              >
+                {googleLoading ? "Öppnar Google..." : "Fortsätt med Google"}
+              </button>
 
-<p className="login-browser-note">
-  Google-inloggning kan blockeras i Messenger. Öppna sidan i Safari eller
-  Chrome om det inte fungerar.
-</p>
+              <p className="login-browser-note">
+                Google-inloggning hanteras säkert via Supabase Auth. Om du
+                öppnat länken i Messenger kan Google blockeras. Öppna då sidan
+                i Safari eller Chrome.
+              </p>
 
-<div className="divider">
+              <div className="divider">
                 <span>eller</span>
               </div>
 
@@ -324,6 +355,35 @@ setLoading(false);
               backdrop-filter: blur(20px);
             }
 
+            .invite-help {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              gap: 14px;
+              margin-bottom: 22px;
+              padding: 14px;
+              border-radius: 16px;
+              background: rgba(229,185,77,0.10);
+              border: 1px solid rgba(229,185,77,0.22);
+            }
+
+            .invite-help strong {
+              color: rgba(255,255,255,0.86);
+              font-size: 14px;
+              font-weight: 900;
+            }
+
+            .invite-help button {
+              border: 0;
+              background: transparent;
+              color: #e5b94d;
+              font-family: inherit;
+              font-size: 14px;
+              font-weight: 950;
+              cursor: pointer;
+              white-space: nowrap;
+            }
+
             .card-top {
               display: flex;
               justify-content: space-between;
@@ -382,11 +442,11 @@ setLoading(false);
             }
 
             .login-browser-note {
-  margin: 10px 2px 0;
-  color: rgba(255,255,255,0.46);
-  font-size: 12px;
-  line-height: 1.45;
-}
+              margin: 10px 2px 0;
+              color: rgba(255,255,255,0.46);
+              font-size: 12px;
+              line-height: 1.45;
+            }
 
             .google-btn:disabled,
             .submit-btn:disabled {
@@ -521,7 +581,8 @@ setLoading(false);
               cursor: pointer;
             }
 
-            .helper button:hover {
+            .helper button:hover,
+            .invite-help button:hover {
               color: #f3cf69;
             }
 
@@ -592,6 +653,12 @@ setLoading(false);
               }
 
               .helper {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 8px;
+              }
+
+              .invite-help {
                 align-items: flex-start;
                 flex-direction: column;
                 gap: 8px;
