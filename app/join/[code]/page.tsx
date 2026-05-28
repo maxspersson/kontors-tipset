@@ -18,7 +18,7 @@ export default async function JoinPage({ params }: JoinPageProps) {
   const { data: league, error } = await supabase
     .from("leagues")
     .select("*")
-    .eq("invite_code", code)
+    .eq("invite_code", code.toUpperCase())
     .single();
 
   if (error || !league) {
@@ -58,6 +58,10 @@ export default async function JoinPage({ params }: JoinPageProps) {
 
     isAlreadyMember = !!existingMembership;
   }
+
+  const loginHref = `/login?next=${encodeURIComponent(
+    `/api/join?code=${league.invite_code}`
+  )}`;
 
   return (
     <main className="join-page">
@@ -121,7 +125,7 @@ export default async function JoinPage({ params }: JoinPageProps) {
                 <div className="state-box warning">
                   <strong>Logga in först</strong>
                   <p>Du behöver vara inloggad för att gå med i ligan.</p>
-                  <Link href="/login" className="gold-btn">
+                  <Link href={loginHref} className="gold-btn">
                     Logga in →
                   </Link>
                 </div>
