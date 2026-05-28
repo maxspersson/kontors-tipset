@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/app/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -17,6 +17,19 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlMode = params.get("mode");
+
+    if (urlMode === "signup") {
+      setMode("signup");
+    }
+
+    if (urlMode === "login") {
+      setMode("login");
+    }
+  }, []);
+
   function getNextPath() {
     if (typeof window === "undefined") return "/";
 
@@ -27,6 +40,10 @@ export default function LoginPage() {
     if (!next.startsWith("/") || next.startsWith("//")) return "/";
 
     return next;
+  }
+
+  function isInviteFlow() {
+    return getNextPath().startsWith("/api/join");
   }
 
   async function handleEmailAuth(e: React.FormEvent<HTMLFormElement>) {
@@ -58,7 +75,7 @@ export default function LoginPage() {
 
     const origin = typeof window !== "undefined" ? window.location.origin : "";
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -71,6 +88,12 @@ export default function LoginPage() {
     if (error) {
       setErrorMessage(error.message);
       setLoading(false);
+      return;
+    }
+
+    if (data.session) {
+      router.push(getNextPath());
+      router.refresh();
       return;
     }
 
@@ -110,7 +133,11 @@ export default function LoginPage() {
               <p className="eyebrow">Kontors-tipset</p>
               <h1>
                 {mode === "login"
-                  ? "Logga in och börja tippa."
+                  ? isInviteFlow()
+                    ? "Logga in och gå med i ligan."
+                    : "Logga in och börja tippa."
+                  : isInviteFlow()
+                  ? "Skapa konto och gå med i ligan."
                   : "Skapa konto och starta tipset."}
               </h1>
               <p className="intro">
@@ -138,20 +165,6 @@ export default function LoginPage() {
             </div>
 
             <div className="login-card">
-              <div className="invite-help">
-                <strong>Ny här?</strong>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode("signup");
-                    setErrorMessage("");
-                    setSuccessMessage("");
-                  }}
-                >
-                  Skapa konto direkt
-                </button>
-              </div>
-
               <div className="card-top">
                 <div>
                   <p>VM 2026</p>
@@ -166,7 +179,11 @@ export default function LoginPage() {
                 disabled={googleLoading}
                 className="google-btn"
               >
-                {googleLoading ? "Öppnar Google..." : "Fortsätt med Google"}
+                {googleLoading
+                  ? "Öppnar Google..."
+                  : mode === "signup"
+                  ? "Skapa konto med Google"
+                  : "Fortsätt med Google"}
               </button>
 
               <p className="login-browser-note">
@@ -353,35 +370,6 @@ export default function LoginPage() {
               border: 1px solid rgba(255,255,255,0.12);
               box-shadow: 0 34px 110px rgba(0,0,0,0.58);
               backdrop-filter: blur(20px);
-            }
-
-            .invite-help {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              gap: 14px;
-              margin-bottom: 22px;
-              padding: 14px;
-              border-radius: 16px;
-              background: rgba(229,185,77,0.10);
-              border: 1px solid rgba(229,185,77,0.22);
-            }
-
-            .invite-help strong {
-              color: rgba(255,255,255,0.86);
-              font-size: 14px;
-              font-weight: 900;
-            }
-
-            .invite-help button {
-              border: 0;
-              background: transparent;
-              color: #e5b94d;
-              font-family: inherit;
-              font-size: 14px;
-              font-weight: 950;
-              cursor: pointer;
-              white-space: nowrap;
             }
 
             .card-top {
@@ -581,8 +569,7 @@ export default function LoginPage() {
               cursor: pointer;
             }
 
-            .helper button:hover,
-            .invite-help button:hover {
+            .helper button:hover {
               color: #f3cf69;
             }
 
@@ -653,12 +640,6 @@ export default function LoginPage() {
               }
 
               .helper {
-                align-items: flex-start;
-                flex-direction: column;
-                gap: 8px;
-              }
-
-              .invite-help {
                 align-items: flex-start;
                 flex-direction: column;
                 gap: 8px;

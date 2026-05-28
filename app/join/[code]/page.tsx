@@ -59,9 +59,9 @@ export default async function JoinPage({ params }: JoinPageProps) {
     isAlreadyMember = !!existingMembership;
   }
 
-  const loginHref = `/login?next=${encodeURIComponent(
-    `/api/join?code=${league.invite_code}`
-  )}`;
+  const nextPath = `/api/join?code=${league.invite_code}`;
+  const signupHref = `/login?mode=signup&next=${encodeURIComponent(nextPath)}`;
+  const loginHref = `/login?mode=login&next=${encodeURIComponent(nextPath)}`;
 
   return (
     <main className="join-page">
@@ -79,18 +79,18 @@ export default async function JoinPage({ params }: JoinPageProps) {
               <div className="info-grid">
                 <div>
                   <span>01</span>
-                  <strong>Gå med</strong>
-                  <p>Anslut med inbjudningskod.</p>
+                  <strong>Tippa</strong>
+                  <p>Lägg hela ditt VM-tips och samla poäng.</p>
                 </div>
                 <div>
                   <span>02</span>
-                  <strong>Tippa</strong>
-                  <p>Lägg hela ditt VM-tips.</p>
+                  <strong>Följ tabellen</strong>
+                  <p>Se vem som leder ligan och utmana vännerna.</p>
                 </div>
                 <div>
                   <span>03</span>
-                  <strong>Följ tabellen</strong>
-                  <p>Se vem som leder ligan.</p>
+                  <strong>Logga in eller skapa konto</strong>
+                  <p>Skapa konto eller logga in för att gå med.</p>
                 </div>
               </div>
             </div>
@@ -123,10 +123,21 @@ export default async function JoinPage({ params }: JoinPageProps) {
 
               {!user ? (
                 <div className="state-box warning">
-                  <strong>Logga in först</strong>
-                  <p>Du behöver vara inloggad för att gå med i ligan.</p>
-                  <Link href={loginHref} className="gold-btn">
-                    Logga in →
+                  <strong>Skapa konto</strong>
+                  <p>Skapa ett konto för att gå med i ligan direkt.</p>
+
+                  <Link href={signupHref} className="gold-btn">
+                    Skapa konto →
+                  </Link>
+
+                  <div className="state-divider">
+                    <span>eller</span>
+                  </div>
+
+                  <p className="login-copy-small">Har du redan ett konto?</p>
+
+                  <Link href={loginHref} className="outline-btn">
+                    Logga in här
                   </Link>
                 </div>
               ) : isAlreadyMember ? (
@@ -365,7 +376,7 @@ function JoinStyles() {
 
           .state-box strong {
             display: block;
-            font-size: 17px;
+            font-size: 20px;
           }
 
           .state-box p {
@@ -386,7 +397,8 @@ function JoinStyles() {
           }
 
           .gold-btn,
-          .dark-btn {
+          .dark-btn,
+          .outline-btn {
             height: 56px;
             padding: 0 26px;
             border-radius: 14px;
@@ -399,12 +411,20 @@ function JoinStyles() {
           }
 
           .gold-btn {
+            width: 100%;
             border: 0;
             background: linear-gradient(180deg, #f3cf69, #d9a935);
             color: #090909;
             box-shadow: 0 18px 50px rgba(218,169,53,0.25);
             cursor: pointer;
             font-family: inherit;
+          }
+
+          .outline-btn {
+            width: 100%;
+            border: 1px solid rgba(229,185,77,0.28);
+            background: rgba(0,0,0,0.10);
+            color: #e5b94d;
           }
 
           .dark-btn {
@@ -417,6 +437,42 @@ function JoinStyles() {
           .submit-btn {
             width: 100%;
             margin-top: 18px;
+          }
+
+          .state-divider {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 22px 0 16px;
+            color: rgba(255,255,255,0.38);
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+          }
+
+          .state-divider::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: rgba(255,255,255,0.10);
+          }
+
+          .state-divider span {
+            position: relative;
+            z-index: 1;
+            padding: 0 12px;
+            background: rgba(22,23,16,0.96);
+          }
+
+          .login-copy-small {
+            margin: 0 0 10px !important;
+            color: rgba(255,255,255,0.88) !important;
+            font-size: 15px !important;
+            font-weight: 900;
           }
 
           .helper {
@@ -502,7 +558,8 @@ function JoinStyles() {
             }
 
             .gold-btn,
-            .dark-btn {
+            .dark-btn,
+            .outline-btn {
               width: 100%;
             }
           }
