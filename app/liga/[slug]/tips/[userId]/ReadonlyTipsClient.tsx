@@ -411,29 +411,57 @@ function resolveGroupPosition(
 }
 
 function buildBestThirdAssignment(thirdPlacedTeams: GroupTableRow[]) {
-  const usedGroups = new Set<string>();
-  const assignment = new Map<string, GroupTableRow>();
   const matchNumbers = [74, 77, 79, 80, 81, 82, 85, 87];
 
-  for (const matchNumber of matchNumbers) {
-    const slot = roundOf32Slots[matchNumber]?.find(
-      (item) => item.type === "best_third"
+  const slots = matchNumbers
+    .map((matchNumber) => {
+      const slot = roundOf32Slots[matchNumber]?.find(
+        (item) => item.type === "best_third"
+      );
+
+      if (!slot || slot.type !== "best_third") return null;
+
+      return {
+        matchNumber,
+        label: slot.label,
+        groups: slot.groups,
+      };
+    })
+    .filter(Boolean) as {
+    matchNumber: number;
+    label: string;
+    groups: string[];
+  }[];
+
+  const tryAssign = (
+    slotIndex: number,
+    usedGroups: Set<string>,
+    assignment: Map<string, GroupTableRow>
+  ): Map<string, GroupTableRow> | null => {
+    if (slotIndex >= slots.length) return assignment;
+
+    const slot = slots[slotIndex];
+
+    const candidates = thirdPlacedTeams.filter(
+      (team) => slot.groups.includes(team.group) && !usedGroups.has(team.group)
     );
 
-    if (!slot || slot.type !== "best_third") continue;
+    for (const candidate of candidates) {
+      const nextUsedGroups = new Set(usedGroups);
+      const nextAssignment = new Map(assignment);
 
-    const team = thirdPlacedTeams.find(
-      (candidate) =>
-        slot.groups.includes(candidate.group) && !usedGroups.has(candidate.group)
-    );
+      nextUsedGroups.add(candidate.group);
+      nextAssignment.set(slot.label, candidate);
 
-    if (team) {
-      assignment.set(slot.label, team);
-      usedGroups.add(team.group);
+      const result = tryAssign(slotIndex + 1, nextUsedGroups, nextAssignment);
+
+      if (result) return result;
     }
-  }
 
-  return assignment;
+    return null;
+  };
+
+  return tryAssign(0, new Set<string>(), new Map<string, GroupTableRow>()) ?? new Map();
 }
 
 function resolveSlot({
