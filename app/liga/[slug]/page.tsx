@@ -1,3 +1,4 @@
+import MembersPager, { type MemberPagerItem } from "@/app/components/MembersPager";
 import LeagueAutoRefresh from "@/app/components/LeagueAutoRefresh";
 import LeagueDangerAction from "@/app/components/LeagueDangerAction";
 import { createClient } from "@/app/lib/supabase/server";
@@ -585,12 +586,27 @@ export default async function LeagueDetailPage({
   const memberCount = isDemoMode ? 5 : memberRows.length;
   const submittedCount = isDemoMode ? 5 : submittedUserIds.length;
 
-  const visibleMembers = memberRows.slice(0, 5);
+  const pagerMembers: MemberPagerItem[] = memberRows.map((member) => {
+  const profile = profileMap.get(member.user_id);
+  const displayName = getDisplayName(profile);
+  const hasSubmitted = submittedUserSet.has(member.user_id);
+  const isCurrentUser = member.user_id === user.id;
+  const memberSubmission = submissionByUserId.get(member.user_id);
+  const tipsPath = memberSubmission?.public_slug || member.user_id;
 
-  const hiddenMembersCount =
-    memberRows.length > visibleMembers.length
-      ? memberRows.length - visibleMembers.length
-      : 0;
+  return {
+    id: member.id,
+    displayName,
+    email:
+      profile?.email ||
+      (isCurrentUser ? user.email ?? "" : "") ||
+      "Ingen e-post",
+    initials: getInitials(displayName),
+    isCurrentUser,
+    hasSubmitted,
+    tipsHref: hasSubmitted ? `/liga/${league.slug}/tips/${tipsPath}` : null,
+  };
+});
 
   return (
     <main className="league-detail-page">
@@ -948,67 +964,11 @@ export default async function LeagueDetailPage({
                   <div className="error-state">Kunde inte hämta medlemmar.</div>
                 )}
 
-                {memberRows.length === 0 ? (
-                  <div className="empty-state">Inga medlemmar än.</div>
-                ) : (
-                  <>
-                    <div className="member-list">
-                      {visibleMembers.map((member) => {
-                        const profile = profileMap.get(member.user_id);
-                        const displayName = getDisplayName(profile);
-                        const hasSubmitted = submittedUserSet.has(member.user_id);
-                        const isCurrentUser = member.user_id === user.id;
-                        const memberSubmission = submissionByUserId.get(
-                          member.user_id
-                        );
-                        const tipsPath =
-                          memberSubmission?.public_slug || member.user_id;
-
-                        return (
-                          <div
-                            key={member.id}
-                            className={`member-row ${
-                              isCurrentUser ? "is-current-member" : ""
-                            }`}
-                          >
-                            <div className="avatar">
-                              {getInitials(displayName)}
-                            </div>
-
-                            <div>
-                              <strong>
-                                {displayName}
-                                {isCurrentUser ? " (du)" : ""}
-                              </strong>
-                              <span>{profile?.email || (isCurrentUser ? user.email : null) || "Ingen e-post"}</span>
-                            </div>
-
-                            <div className="member-actions">
-                              <em className={hasSubmitted ? "done" : "pending"}>
-                                {hasSubmitted ? "Klar" : "Ej klar"}
-                              </em>
-
-                              {hasSubmitted && (
-  <Link
-    href={`/liga/${league.slug}/tips/${tipsPath}`}
-    className="view-tips-link"
-  >
-    Visa tips
-  </Link>
+                {pagerMembers.length === 0 ? (
+  <div className="empty-state">Inga medlemmar än.</div>
+) : (
+  <MembersPager members={pagerMembers} />
 )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {hiddenMembersCount > 0 && (
-                      <button className="show-all-members-btn">
-                        + {hiddenMembersCount} fler deltagare
-                      </button>
-                    )}
-                  </>
-                )}
               </section>
 
               {isMember && (
@@ -1746,6 +1706,42 @@ export default async function LeagueDetailPage({
               justify-items: end;
             }
 
+            .members-pager {
+  display: grid;
+  grid-template-columns: 46px 1fr 46px;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.members-pager button {
+  height: 46px;
+  border-radius: 14px;
+  border: 1px solid rgba(229,185,77,0.24);
+  background: rgba(229,185,77,0.08);
+  color: #e5b94d;
+  font-size: 18px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.members-pager button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.members-pager span {
+  height: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.72);
+  font-size: 13px;
+  font-weight: 900;
+}
+
             .view-tips-link {
               height: 28px;
               padding: 0 10px;
@@ -1764,26 +1760,6 @@ export default async function LeagueDetailPage({
 
             .view-tips-link:hover {
               background: rgba(229,185,77,0.18);
-            }
-
-            .show-all-members-btn {
-              width: 100%;
-              margin-top: 12px;
-              height: 46px;
-              border-radius: 14px;
-              border: 1px solid rgba(255,255,255,0.10);
-              background: rgba(255,255,255,0.04);
-              color: rgba(255,255,255,0.74);
-              font-size: 13px;
-              font-weight: 900;
-              cursor: pointer;
-              transition: all 0.2s ease;
-            }
-
-            .show-all-members-btn:hover {
-              background: rgba(255,255,255,0.07);
-              border-color: rgba(229,185,77,0.24);
-              color: #e5b94d;
             }
 
             .danger-panel {
