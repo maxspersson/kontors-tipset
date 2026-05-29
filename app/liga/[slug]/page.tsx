@@ -52,8 +52,26 @@ type StandingSnapshotRow = {
   created_at: string;
 };
 
+function formatNameFromEmail(email?: string | null) {
+  if (!email) return null;
+
+  const localPart = email.split("@")[0];
+
+  return localPart
+    .replace(/[._-]+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function getDisplayName(profile?: MemberProfile) {
-  return profile?.display_name || profile?.email?.split("@")[0] || "Spelare";
+  return (
+    profile?.display_name?.trim() ||
+    formatNameFromEmail(profile?.email) ||
+    "Spelare"
+  );
 }
 
 function getInitials(name: string) {
@@ -249,6 +267,17 @@ export default async function LeagueDetailPage({
   }
 
   const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
+  if (!profileMap.has(user.id)) {
+  profileMap.set(user.id, {
+    id: user.id,
+    email: user.email ?? null,
+    display_name:
+      user.user_metadata?.display_name ??
+      user.user_metadata?.full_name ??
+      user.user_metadata?.name ??
+      null,
+  });
+}
 
   let predictions: PredictionRow[] = [];
 
@@ -951,7 +980,7 @@ export default async function LeagueDetailPage({
                                 {displayName}
                                 {isCurrentUser ? " (du)" : ""}
                               </strong>
-                              <span>{profile?.email || "Ingen e-post"}</span>
+                              <span>{profile?.email || (isCurrentUser ? user.email : null) || "Ingen e-post"}</span>
                             </div>
 
                             <div className="member-actions">
