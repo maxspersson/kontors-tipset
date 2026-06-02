@@ -63,20 +63,7 @@ export type BracketMatch = {
   loser: AdvancingTeamRow | null;
 };
 
-export const groups = [
-  "A",
-  "B",
-  "C",
-  "D",
-  "E",
-  "F",
-  "G",
-  "H",
-  "I",
-  "J",
-  "K",
-  "L",
-];
+export const groups = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
 export const bracketRounds = [
   { key: "round_of_32", label: "Sextondelsfinal", matches: 16 },
@@ -85,6 +72,45 @@ export const bracketRounds = [
   { key: "semi_final", label: "Semifinal", matches: 2 },
   { key: "medals", label: "Final & Bronsmatch", matches: 2 },
 ] as const;
+
+const playoffSlots: Record<number, [string, string]> = {
+  73: ["2A", "2B"],
+  74: ["1E", "3ABCDF"],
+  75: ["1F", "2C"],
+  76: ["1C", "2F"],
+  77: ["1I", "3CDFGH"],
+  78: ["2E", "2I"],
+  79: ["1A", "3CEFHI"],
+  80: ["1L", "3EHIJK"],
+  81: ["1D", "3BEFIJ"],
+  82: ["1G", "3AEHIJ"],
+  83: ["2K", "2L"],
+  84: ["1H", "2J"],
+  85: ["1B", "3EFGIJ"],
+  86: ["1J", "2H"],
+  87: ["1K", "3DEIJL"],
+  88: ["2D", "2G"],
+
+  89: ["W74", "W77"],
+  90: ["W73", "W75"],
+  91: ["W76", "W78"],
+  92: ["W79", "W80"],
+  93: ["W83", "W84"],
+  94: ["W81", "W82"],
+  95: ["W86", "W88"],
+  96: ["W85", "W87"],
+
+  97: ["W89", "W90"],
+  98: ["W93", "W94"],
+  99: ["W91", "W92"],
+  100: ["W95", "W96"],
+
+  101: ["W97", "W98"],
+  102: ["W99", "W100"],
+
+  103: ["L101", "L102"],
+  104: ["W101", "W102"],
+};
 
 export function isCompletePrediction(prediction?: {
   home: string;
@@ -133,7 +159,6 @@ function applyMatchToRows(
 
   home.goalsFor += homeScore;
   home.goalsAgainst += awayScore;
-
   away.goalsFor += awayScore;
   away.goalsAgainst += homeScore;
 
@@ -335,10 +360,13 @@ function getGroupWinnerOrRunnerUp(
 
   const position = Number(match[1]) - 1;
   const group = match[2];
-
   const groupTable = allGroupTables.find((item) => item.group === group);
 
-  return groupTable?.table[position] ?? null;
+  if (!groupTable || groupTable.completedMatches < groupTable.totalMatches) {
+    return null;
+  }
+
+  return groupTable.table[position] ?? null;
 }
 
 function getThirdPlacedTeamFromSlot(
@@ -369,9 +397,7 @@ function getWinnerFromPreviousMatch(
   const match = label.match(/^W(\d+)$/);
   if (!match) return null;
 
-  const matchNumber = Number(match[1]);
-
-  return resolvedByMatchNumber.get(matchNumber)?.winner ?? null;
+  return resolvedByMatchNumber.get(Number(match[1]))?.winner ?? null;
 }
 
 function getLoserFromPreviousMatch(
@@ -381,9 +407,7 @@ function getLoserFromPreviousMatch(
   const match = label.match(/^L(\d+)$/);
   if (!match) return null;
 
-  const matchNumber = Number(match[1]);
-
-  return resolvedByMatchNumber.get(matchNumber)?.loser ?? null;
+  return resolvedByMatchNumber.get(Number(match[1]))?.loser ?? null;
 }
 
 function resolveSlot({
@@ -426,24 +450,15 @@ function getMatchWinnerAndLoser({
       }
     | undefined;
 }) {
-  if (!teamA || !teamB) {
-    return { winner: null, loser: null };
-  }
-
-  if (!isCompletePrediction(prediction)) {
+  if (!teamA || !teamB || !isCompletePrediction(prediction)) {
     return { winner: null, loser: null };
   }
 
   const homeScore = Number(scoreA);
   const awayScore = Number(scoreB);
 
-  if (homeScore > awayScore) {
-    return { winner: teamA, loser: teamB };
-  }
-
-  if (awayScore > homeScore) {
-    return { winner: teamB, loser: teamA };
-  }
+  if (homeScore > awayScore) return { winner: teamA, loser: teamB };
+  if (awayScore > homeScore) return { winner: teamB, loser: teamA };
 
   if (prediction?.advancingTeam === "home") {
     return { winner: teamA, loser: teamB };
@@ -474,7 +489,7 @@ export function buildPlayoffRounds({
   const resolvedByMatchNumber = new Map<number, BracketMatch>();
   const usedThirdGroups = new Set<string>();
 
-  const rounds = bracketRounds.map((round) => {
+  return bracketRounds.map((round) => {
     const matches =
       round.key === "medals"
         ? playoffMatches
@@ -485,7 +500,6 @@ export function buildPlayoffRounds({
             .sort((a, b) => {
               if (a.stage === "final" && b.stage !== "final") return -1;
               if (a.stage !== "final" && b.stage === "final") return 1;
-
               return sortPlayoffMatches(a, b);
             })
         : playoffMatches
@@ -493,8 +507,9 @@ export function buildPlayoffRounds({
             .sort(sortPlayoffMatches);
 
     return matches.map((dbMatch) => {
-      const slotALabel = dbMatch.home_team;
-      const slotBLabel = dbMatch.away_team;
+      const matchNumber = dbMatch.fifa_match_number ?? 0;
+      const slots = playoffSlots[matchNumber] ?? [dbMatch.home_team, dbMatch.away_team];
+      const [slotALabel, slotBLabel] = slots;
 
       const teamA = resolveSlot({
         label: slotALabel,
@@ -513,7 +528,6 @@ export function buildPlayoffRounds({
       });
 
       const prediction = predictions[dbMatch.id];
-
       const scoreA = prediction?.home ?? "";
       const scoreB = prediction?.away ?? "";
 
@@ -544,6 +558,4 @@ export function buildPlayoffRounds({
       return bracketMatch;
     });
   });
-
-  return rounds;
 }
