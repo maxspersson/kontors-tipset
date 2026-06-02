@@ -15,6 +15,10 @@ type MatchRow = {
   group_name: string | null;
   home_team: string;
   away_team: string;
+  home_team_code: string | null;
+  away_team_code: string | null;
+  home_fifa_ranking: number | null;
+  away_fifa_ranking: number | null;
 };
 
 type SnapshotRow = PredictionRow & {
@@ -211,7 +215,9 @@ export async function POST(request: Request) {
 
   const { data: matches, error: matchesError } = await supabase
     .from("matches")
-    .select("id, fifa_match_number, stage, group_name, home_team, away_team")
+    .select(
+  "id, fifa_match_number, stage, group_name, home_team, away_team, home_team_code, away_team_code, home_fifa_ranking, away_fifa_ranking"
+)
     .in("id", matchIds);
 
   if (matchesError) {

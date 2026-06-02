@@ -1,3 +1,14 @@
+import {
+  buildGroupTable,
+  buildPlayoffRounds,
+  groups,
+  rankBestThirdPlacedTeams,
+  type AdvancingTeam,
+  type GroupTable,
+  type PredictionState,
+  type WorldCupMatch,
+} from "@/app/lib/worldCupRules";
+
 export type PredictionRow = {
   league_id: string;
   user_id: string;
@@ -13,11 +24,18 @@ export type MatchRow = {
   group_name: string | null;
   home_team: string;
   away_team: string;
+  home_team_code?: string | null;
+  away_team_code?: string | null;
+  home_fifa_ranking?: number | null;
+  away_fifa_ranking?: number | null;
   home_score: number | null;
   away_score: number | null;
   home_pen?: number | null;
   away_pen?: number | null;
-  actual_advancing_team?: "home" | "away" | null;
+  actual_advancing_team?: AdvancingTeam | null;
+  kickoff_utc?: string | null;
+  status?: string | null;
+  city?: string | null;
 };
 
 export type ProfileRow = {
@@ -35,7 +53,7 @@ export type SnapshotPrediction = {
   match_id: string;
   predicted_home_score: number | null;
   predicted_away_score: number | null;
-  advancing_team?: "home" | "away" | null;
+  advancing_team?: AdvancingTeam | null;
   match: {
     id: string;
     fifa_match_number: number | null;
@@ -43,6 +61,10 @@ export type SnapshotPrediction = {
     group_name: string | null;
     home_team: string;
     away_team: string;
+    home_team_code?: string | null;
+    away_team_code?: string | null;
+    home_fifa_ranking?: number | null;
+    away_fifa_ranking?: number | null;
   };
 };
 
@@ -52,21 +74,6 @@ export type SubmissionRow = {
   group_snapshot: SnapshotPrediction[] | null;
   playoff_snapshot: SnapshotPrediction[] | null;
 };
-
-type TeamRow = {
-  team: string;
-  group: string;
-  played: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  goalDifference: number;
-  points: number;
-};
-
-type SeedSlot =
-  | { type: "group_position"; position: 1 | 2; group: string; label: string }
-  | { type: "best_third"; groups: string[]; label: string }
-  | { type: "winner"; matchNumber: number; label: string };
 
 type TournamentProgression = {
   roundOf16Teams: Set<string>;
@@ -87,45 +94,6 @@ export type Standing = {
   bracketPoints: number;
   exactScores: number;
   playedMatches: number;
-};
-
-const groups = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
-
-const roundOf32Slots: Record<number, [SeedSlot, SeedSlot]> = {
-  73: [{ type: "group_position", position: 2, group: "A", label: "2A" }, { type: "group_position", position: 2, group: "B", label: "2B" }],
-  74: [{ type: "group_position", position: 1, group: "E", label: "1E" }, { type: "best_third", groups: ["A", "B", "C", "D", "F"], label: "3ABCDF" }],
-  75: [{ type: "group_position", position: 1, group: "F", label: "1F" }, { type: "group_position", position: 2, group: "C", label: "2C" }],
-  76: [{ type: "group_position", position: 1, group: "C", label: "1C" }, { type: "group_position", position: 2, group: "F", label: "2F" }],
-  77: [{ type: "group_position", position: 1, group: "I", label: "1I" }, { type: "best_third", groups: ["C", "D", "F", "G", "H"], label: "3CDFGH" }],
-  78: [{ type: "group_position", position: 2, group: "E", label: "2E" }, { type: "group_position", position: 2, group: "I", label: "2I" }],
-  79: [{ type: "group_position", position: 1, group: "A", label: "1A" }, { type: "best_third", groups: ["C", "E", "F", "H", "I"], label: "3CEFHI" }],
-  80: [{ type: "group_position", position: 1, group: "L", label: "1L" }, { type: "best_third", groups: ["E", "H", "I", "J", "K"], label: "3EHIJK" }],
-  81: [{ type: "group_position", position: 1, group: "D", label: "1D" }, { type: "best_third", groups: ["B", "E", "F", "I", "J"], label: "3BEFIJ" }],
-  82: [{ type: "group_position", position: 1, group: "G", label: "1G" }, { type: "best_third", groups: ["A", "E", "H", "I", "J"], label: "3AEHIJ" }],
-  83: [{ type: "group_position", position: 2, group: "K", label: "2K" }, { type: "group_position", position: 2, group: "L", label: "2L" }],
-  84: [{ type: "group_position", position: 1, group: "H", label: "1H" }, { type: "group_position", position: 2, group: "J", label: "2J" }],
-  85: [{ type: "group_position", position: 1, group: "B", label: "1B" }, { type: "best_third", groups: ["E", "F", "G", "I", "J"], label: "3EFGIJ" }],
-  86: [{ type: "group_position", position: 1, group: "J", label: "1J" }, { type: "group_position", position: 2, group: "H", label: "2H" }],
-  87: [{ type: "group_position", position: 1, group: "K", label: "1K" }, { type: "best_third", groups: ["D", "E", "I", "J", "L"], label: "3DEIJL" }],
-  88: [{ type: "group_position", position: 2, group: "D", label: "2D" }, { type: "group_position", position: 2, group: "G", label: "2G" }],
-};
-
-const laterRoundSlots: Record<number, [SeedSlot, SeedSlot]> = {
-  89: [{ type: "winner", matchNumber: 74, label: "W74" }, { type: "winner", matchNumber: 77, label: "W77" }],
-  90: [{ type: "winner", matchNumber: 73, label: "W73" }, { type: "winner", matchNumber: 75, label: "W75" }],
-  91: [{ type: "winner", matchNumber: 76, label: "W76" }, { type: "winner", matchNumber: 78, label: "W78" }],
-  92: [{ type: "winner", matchNumber: 79, label: "W79" }, { type: "winner", matchNumber: 80, label: "W80" }],
-  93: [{ type: "winner", matchNumber: 83, label: "W83" }, { type: "winner", matchNumber: 84, label: "W84" }],
-  94: [{ type: "winner", matchNumber: 81, label: "W81" }, { type: "winner", matchNumber: 82, label: "W82" }],
-  95: [{ type: "winner", matchNumber: 86, label: "W86" }, { type: "winner", matchNumber: 88, label: "W88" }],
-  96: [{ type: "winner", matchNumber: 85, label: "W85" }, { type: "winner", matchNumber: 87, label: "W87" }],
-  97: [{ type: "winner", matchNumber: 89, label: "W89" }, { type: "winner", matchNumber: 90, label: "W90" }],
-  98: [{ type: "winner", matchNumber: 93, label: "W93" }, { type: "winner", matchNumber: 94, label: "W94" }],
-  99: [{ type: "winner", matchNumber: 91, label: "W91" }, { type: "winner", matchNumber: 92, label: "W92" }],
-  100: [{ type: "winner", matchNumber: 95, label: "W95" }, { type: "winner", matchNumber: 96, label: "W96" }],
-  101: [{ type: "winner", matchNumber: 97, label: "W97" }, { type: "winner", matchNumber: 98, label: "W98" }],
-  102: [{ type: "winner", matchNumber: 99, label: "W99" }, { type: "winner", matchNumber: 100, label: "W100" }],
-  104: [{ type: "winner", matchNumber: 101, label: "W101" }, { type: "winner", matchNumber: 102, label: "W102" }],
 };
 
 function formatDisplayName(email?: string | null) {
@@ -167,280 +135,199 @@ function getMatchPoints(prediction: PredictionRow, match: MatchRow) {
   return points;
 }
 
-function createTeam(team: string, group: string): TeamRow {
+function toWorldCupMatch(match: MatchRow): WorldCupMatch {
   return {
-    team,
-    group,
-    played: 0,
-    goalsFor: 0,
-    goalsAgainst: 0,
-    goalDifference: 0,
-    points: 0,
+    id: match.id,
+    fifa_match_number: match.fifa_match_number,
+    stage: match.stage,
+    group_name: match.group_name,
+    home_team: match.home_team,
+    away_team: match.away_team,
+    home_team_code: match.home_team_code ?? null,
+    away_team_code: match.away_team_code ?? null,
+    home_fifa_ranking: match.home_fifa_ranking ?? null,
+    away_fifa_ranking: match.away_fifa_ranking ?? null,
+    home_score: match.home_score,
+    away_score: match.away_score,
+    kickoff_utc: match.kickoff_utc ?? "",
+    status: match.status ?? null,
+    city: match.city ?? null,
   };
 }
 
-function buildGroupTables(
-  matches: MatchRow[],
-  scoresByMatchId: Map<
-    string,
-    {
-      home: number | null;
-      away: number | null;
-      advancingTeam?: "home" | "away" | null;
-    }
-  >
-) {
-
-  const tables = new Map<string, TeamRow[]>();
-  const completedGroups = new Set<string>();
-
-  for (const group of groups) {
+function buildAllGroupTables(
+  matches: WorldCupMatch[],
+  predictions: PredictionState
+): GroupTable[] {
+  return groups.map((group) => {
     const matchesInGroup = matches.filter(
       (match) => match.stage === "group" && match.group_name === group
     );
 
-    const table = new Map<string, TeamRow>();
-
-    for (const match of matchesInGroup) {
-      if (!table.has(match.home_team)) {
-        table.set(match.home_team, createTeam(match.home_team, group));
-      }
-
-      if (!table.has(match.away_team)) {
-        table.set(match.away_team, createTeam(match.away_team, group));
-      }
-
-      const score = scoresByMatchId.get(match.id);
-
-      if (!score || score.home === null || score.away === null) continue;
-
-      const home = table.get(match.home_team)!;
-      const away = table.get(match.away_team)!;
-
-      home.played += 1;
-      away.played += 1;
-
-      home.goalsFor += score.home;
-      home.goalsAgainst += score.away;
-      away.goalsFor += score.away;
-      away.goalsAgainst += score.home;
-
-      if (score.home > score.away) home.points += 3;
-      else if (score.away > score.home) away.points += 3;
-      else {
-        home.points += 1;
-        away.points += 1;
-      }
-
-      home.goalDifference = home.goalsFor - home.goalsAgainst;
-      away.goalDifference = away.goalsFor - away.goalsAgainst;
-    }
-
-    const sortedTable = Array.from(table.values()).sort((a, b) => {
-      if (b.points !== a.points) return b.points - a.points;
-      if (b.goalDifference !== a.goalDifference) {
-        return b.goalDifference - a.goalDifference;
-      }
-      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-      return a.team.localeCompare(b.team);
-    });
-
-    tables.set(group, sortedTable);
-
-    const allMatchesHaveScores =
-      matchesInGroup.length > 0 &&
-      matchesInGroup.every((match) => {
-        const score = scoresByMatchId.get(match.id);
-        return score?.home !== null && score?.away !== null;
-      });
-
-    if (allMatchesHaveScores) completedGroups.add(group);
-  }
-
-  return { tables, completedGroups };
+    return {
+      group,
+      table: buildGroupTable(matchesInGroup, predictions, group),
+      completedMatches: matchesInGroup.filter((match) => {
+        const prediction = predictions[match.id];
+        return !!prediction && prediction.home !== "" && prediction.away !== "";
+      }).length,
+      totalMatches: matchesInGroup.length,
+    };
+  });
 }
 
-function getThirdPlacedTeams(tables: Map<string, TeamRow[]>) {
-  return groups
-    .map((group) => tables.get(group)?.[2])
-    .filter((team): team is TeamRow => Boolean(team))
-    .sort((a, b) => {
-      if (b.points !== a.points) return b.points - a.points;
-      if (b.goalDifference !== a.goalDifference) {
-        return b.goalDifference - a.goalDifference;
-      }
-      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-      return a.team.localeCompare(b.team);
-    })
-    .slice(0, 8);
-}
+function getActualAdvancingTeam(match: MatchRow): AdvancingTeam | null {
+  if (match.actual_advancing_team) return match.actual_advancing_team;
 
-function buildBestThirdAssignment(thirdPlacedTeams: TeamRow[]) {
-  const usedGroups = new Set<string>();
-  const assignment = new Map<string, TeamRow>();
-  const matchNumbers = [74, 77, 79, 80, 81, 82, 85, 87];
+  if (match.stage === "group") return null;
+  if (match.home_score === null || match.away_score === null) return null;
 
-  for (const matchNumber of matchNumbers) {
-    const slot = roundOf32Slots[matchNumber]?.find(
-      (item) => item.type === "best_third"
-    );
+  if (match.home_score > match.away_score) return "home";
+  if (match.away_score > match.home_score) return "away";
 
-    if (!slot || slot.type !== "best_third") continue;
-
-    const team = thirdPlacedTeams.find(
-      (candidate) =>
-        slot.groups.includes(candidate.group) && !usedGroups.has(candidate.group)
-    );
-
-    if (team) {
-      assignment.set(slot.label, team);
-      usedGroups.add(team.group);
-    }
+  if (
+    match.home_pen !== null &&
+    match.home_pen !== undefined &&
+    match.away_pen !== null &&
+    match.away_pen !== undefined
+  ) {
+    if (match.home_pen > match.away_pen) return "home";
+    if (match.away_pen > match.home_pen) return "away";
   }
 
-  return assignment;
+  return null;
 }
 
-function getWinner(
-  teamA: TeamRow | undefined,
-  teamB: TeamRow | undefined,
-  scoreA: number | null,
-  scoreB: number | null,
-  advancingTeam?: "home" | "away" | null
-) {
-  if (!teamA || !teamB || scoreA === null || scoreB === null) return undefined;
+function actualScoresToPredictionState(matches: MatchRow[]): PredictionState {
+  const predictions: PredictionState = {};
 
-  if (scoreA > scoreB) return teamA;
-  if (scoreB > scoreA) return teamB;
+  for (const match of matches) {
+    predictions[match.id] = {
+      home: match.home_score === null ? "" : String(match.home_score),
+      away: match.away_score === null ? "" : String(match.away_score),
+      advancingTeam: getActualAdvancingTeam(match),
+    };
+  }
 
-  if (advancingTeam === "home") return teamA;
-  if (advancingTeam === "away") return teamB;
-
-  return undefined;
+  return predictions;
 }
 
-function resolveSlot({
-  slot,
-  tables,
-  completedGroups,
-  thirdAssignment,
-  winnersByMatchNumber,
-  requireCompletedGroups,
-}: {
-  slot: SeedSlot;
-  tables: Map<string, TeamRow[]>;
-  completedGroups: Set<string>;
-  thirdAssignment: Map<string, TeamRow>;
-  winnersByMatchNumber: Map<number, TeamRow>;
-  requireCompletedGroups: boolean;
-}) {
-  if (slot.type === "group_position") {
-    if (requireCompletedGroups && !completedGroups.has(slot.group)) {
-      return undefined;
-    }
+function snapshotToWorldCupMatches(snapshot: SnapshotPrediction[]): WorldCupMatch[] {
+  return snapshot.map((item) => ({
+    id: item.match.id,
+    fifa_match_number: item.match.fifa_match_number,
+    stage: item.match.stage,
+    group_name: item.match.group_name,
+    home_team: item.match.home_team,
+    away_team: item.match.away_team,
+    home_team_code: item.match.home_team_code ?? null,
+    away_team_code: item.match.away_team_code ?? null,
+    home_fifa_ranking: item.match.home_fifa_ranking ?? null,
+    away_fifa_ranking: item.match.away_fifa_ranking ?? null,
+    home_score: null,
+    away_score: null,
+    kickoff_utc: "",
+    status: null,
+    city: null,
+  }));
+}
 
-    return tables.get(slot.group)?.[slot.position - 1];
+function snapshotToPredictionState(snapshot: SnapshotPrediction[]): PredictionState {
+  const predictions: PredictionState = {};
+
+  for (const item of snapshot) {
+    predictions[item.match_id] = {
+      home:
+        item.predicted_home_score === null
+          ? ""
+          : String(item.predicted_home_score),
+      away:
+        item.predicted_away_score === null
+          ? ""
+          : String(item.predicted_away_score),
+      advancingTeam: item.advancing_team ?? null,
+    };
   }
 
-  if (slot.type === "best_third") {
-    if (requireCompletedGroups && completedGroups.size < groups.length) {
-      return undefined;
-    }
-
-    return thirdAssignment.get(slot.label);
-  }
-
-  return winnersByMatchNumber.get(slot.matchNumber);
+  return predictions;
 }
 
 function buildTournamentProgression({
   matches,
-  scoresByMatchId,
+  predictions,
   requireCompletedGroups,
 }: {
-  matches: MatchRow[];
-  scoresByMatchId: Map<
-  string,
-  {
-    home: number | null;
-    away: number | null;
-    advancingTeam?: "home" | "away" | null;
-  }
->;
+  matches: WorldCupMatch[];
+  predictions: PredictionState;
   requireCompletedGroups: boolean;
 }): TournamentProgression {
-  const { tables, completedGroups } = buildGroupTables(matches, scoresByMatchId);
-  const thirdPlacedTeams = getThirdPlacedTeams(tables);
-  const thirdAssignment = buildBestThirdAssignment(thirdPlacedTeams);
-  const winnersByMatchNumber = new Map<number, TeamRow>();
+  const groupMatches = matches.filter((match) => match.stage === "group");
+  const playoffMatches = matches.filter((match) => match.stage !== "group");
+
+  const allGroupTables = buildAllGroupTables(groupMatches, predictions);
+
+  const groupTablesForThirds = requireCompletedGroups
+    ? allGroupTables.filter(
+        (group) =>
+          group.totalMatches > 0 && group.completedMatches === group.totalMatches
+      )
+    : allGroupTables;
+
+  const allGroupsComplete =
+    allGroupTables.length > 0 &&
+    allGroupTables.every(
+      (group) =>
+        group.totalMatches > 0 && group.completedMatches === group.totalMatches
+    );
+
+  const thirdPlacedTeams =
+    requireCompletedGroups && !allGroupsComplete
+      ? []
+      : rankBestThirdPlacedTeams(groupTablesForThirds).slice(0, 8);
+
+  const playoffRounds = buildPlayoffRounds({
+    playoffMatches,
+    allGroupTables,
+    thirdPlacedTeams,
+    predictions,
+  });
 
   const roundOf16Teams = new Set<string>();
   const quarterFinalTeams = new Set<string>();
   const semiFinalTeams = new Set<string>();
   const finalTeams = new Set<string>();
 
-  const playoffMatches = matches
-    .filter((match) => match.stage !== "group")
-    .sort((a, b) => (a.fifa_match_number ?? 0) - (b.fifa_match_number ?? 0));
+  for (const round of playoffRounds) {
+    for (const match of round) {
+      if (!match.winner) continue;
 
-  for (const match of playoffMatches) {
-    const matchNumber = match.fifa_match_number;
-    if (!matchNumber) continue;
+      if (match.dbMatch.stage === "round_of_32") {
+        roundOf16Teams.add(match.winner.team);
+      }
 
-    const slots =
-      match.stage === "round_of_32"
-        ? roundOf32Slots[matchNumber]
-        : laterRoundSlots[matchNumber];
+      if (match.dbMatch.stage === "round_of_16") {
+        quarterFinalTeams.add(match.winner.team);
+      }
 
-    if (!slots) continue;
+      if (match.dbMatch.stage === "quarter_final") {
+        semiFinalTeams.add(match.winner.team);
+      }
 
-    const [slotA, slotB] = slots;
-
-    const teamA = resolveSlot({
-      slot: slotA,
-      tables,
-      completedGroups,
-      thirdAssignment,
-      winnersByMatchNumber,
-      requireCompletedGroups,
-    });
-
-    const teamB = resolveSlot({
-      slot: slotB,
-      tables,
-      completedGroups,
-      thirdAssignment,
-      winnersByMatchNumber,
-      requireCompletedGroups,
-    });
-
-    const score = scoresByMatchId.get(match.id);
-const advancingTeam = score?.advancingTeam ?? null;
-
-const winner = getWinner(
-  teamA,
-  teamB,
-  score?.home ?? null,
-  score?.away ?? null,
-  advancingTeam
-);
-
-    if (!winner) continue;
-
-    winnersByMatchNumber.set(matchNumber, winner);
-
-    if (match.stage === "round_of_32") roundOf16Teams.add(winner.team);
-    if (match.stage === "round_of_16") quarterFinalTeams.add(winner.team);
-    if (match.stage === "quarter_final") semiFinalTeams.add(winner.team);
-    if (match.stage === "semi_final") finalTeams.add(winner.team);
+      if (match.dbMatch.stage === "semi_final") {
+        finalTeams.add(match.winner.team);
+      }
+    }
   }
+
+  const finalRound = playoffRounds[playoffRounds.length - 1];
+  const finalMatch = finalRound?.find((match) => match.dbMatch.stage === "final");
 
   return {
     roundOf16Teams,
     quarterFinalTeams,
     semiFinalTeams,
     finalTeams,
-    champion: winnersByMatchNumber.get(104)?.team ?? null,
+    champion: finalMatch?.winner?.team ?? null,
   };
 }
 
@@ -477,32 +364,6 @@ function getBracketPoints(
   return points;
 }
 
-function snapshotToMatchRows(snapshot: SnapshotPrediction[]) {
-  return snapshot.map((item) => ({
-    id: item.match.id,
-    fifa_match_number: item.match.fifa_match_number,
-    stage: item.match.stage,
-    group_name: item.match.group_name,
-    home_team: item.match.home_team,
-    away_team: item.match.away_team,
-    home_score: null,
-    away_score: null,
-  }));
-}
-
-function snapshotToScores(snapshot: SnapshotPrediction[]) {
-  return new Map(
-    snapshot.map((item) => [
-      item.match_id,
-      {
-        home: item.predicted_home_score,
-        away: item.predicted_away_score,
-        advancingTeam: item.advancing_team ?? null,
-      },
-    ])
-  );
-}
-
 export function calculateStandings({
   submissions,
   predictions,
@@ -532,46 +393,9 @@ export function calculateStandings({
     ])
   );
 
-  const actualScoresByMatchId = new Map(
-  matches.map((match) => {
-    let advancingTeam: "home" | "away" | null =
-      match.actual_advancing_team ?? null;
-
-    if (
-      !advancingTeam &&
-      match.stage !== "group" &&
-      match.home_score !== null &&
-      match.away_score !== null
-    ) {
-      if (match.home_score > match.away_score) advancingTeam = "home";
-      if (match.away_score > match.home_score) advancingTeam = "away";
-
-      if (
-        !advancingTeam &&
-        match.home_pen !== null &&
-        match.home_pen !== undefined &&
-        match.away_pen !== null &&
-        match.away_pen !== undefined
-      ) {
-        if (match.home_pen > match.away_pen) advancingTeam = "home";
-        if (match.away_pen > match.home_pen) advancingTeam = "away";
-      }
-    }
-
-    return [
-      match.id,
-      {
-        home: match.home_score,
-        away: match.away_score,
-        advancingTeam,
-      },
-    ];
-  })
-);
-
   const actualProgression = buildTournamentProgression({
-    matches,
-    scoresByMatchId: actualScoresByMatchId,
+    matches: matches.map(toWorldCupMatch),
+    predictions: actualScoresToPredictionState(matches),
     requireCompletedGroups: true,
   });
 
@@ -634,8 +458,8 @@ export function calculateStandings({
     if (fullSnapshot.length === 0) continue;
 
     const predictedProgression = buildTournamentProgression({
-      matches: snapshotToMatchRows(fullSnapshot),
-      scoresByMatchId: snapshotToScores(fullSnapshot),
+      matches: snapshotToWorldCupMatches(fullSnapshot),
+      predictions: snapshotToPredictionState(fullSnapshot),
       requireCompletedGroups: false,
     });
 
@@ -670,11 +494,14 @@ export function calculateStandings({
 
   standings.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
+
     if (b.bracketPoints !== a.bracketPoints) {
       return b.bracketPoints - a.bracketPoints;
     }
+
     if (b.exactScores !== a.exactScores) return b.exactScores - a.exactScores;
-    return a.display_name.localeCompare(b.display_name);
+
+    return a.display_name.localeCompare(b.display_name, "sv");
   });
 
   return typeof limit === "number" ? standings.slice(0, limit) : standings;

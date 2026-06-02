@@ -110,11 +110,11 @@ export async function POST(request: Request) {
   }
 
   const { data: matches, error: matchesError } = await supabase
-    .from("matches")
-    .select(
-      "id, fifa_match_number, stage, group_name, home_team, away_team, home_score, away_score"
-    )
-    .eq("tournament_id", TOURNAMENT_ID);
+  .from("matches")
+  .select(
+    "id, fifa_match_number, stage, group_name, home_team, away_team, home_team_code, away_team_code, home_fifa_ranking, away_fifa_ranking, home_score, away_score, home_pen, away_pen, actual_advancing_team"
+  )
+  .eq("tournament_id", TOURNAMENT_ID);
 
   if (matchesError) {
     return new NextResponse(

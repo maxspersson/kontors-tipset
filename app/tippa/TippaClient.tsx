@@ -1007,30 +1007,42 @@ export default function TippaClient({
                       </tr>
                     </thead>
                     <tbody>
-                      {activeGroupTable.map((row, index) => (
-                        <tr
-                          key={row.team}
-                          className={index < 2 ? "advance" : ""}
-                        >
-                          <td>{index + 1}</td>
-                          <td>
-                            <strong>{getSwedishTeamName(row.team)}</strong>
-                            {row.code && <small>{row.code}</small>}
-                          </td>
-                          <td>{row.played}</td>
-                          <td>{row.wins}</td>
-                          <td>{row.draws}</td>
-                          <td>{row.losses}</td>
-                          <td>
-                            {row.goalsFor}-{row.goalsAgainst}
-                          </td>
-                          <td>{row.goalDifference}</td>
-                          <td>
-                            <strong>{row.points}</strong>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
+  {activeGroupTable.map((row, index) => {
+    const isBestThird = thirdPlacedTeams.some(
+      (team) => team.team === row.team && team.group === row.group
+    );
+
+    return (
+      <tr
+        key={row.team}
+        className={
+          index < 2
+            ? "advance"
+            : isBestThird
+              ? "advance third-advance"
+              : ""
+        }
+      >
+        <td>{index + 1}</td>
+        <td>
+          <strong>{getSwedishTeamName(row.team)}</strong>
+          {row.code && <small>{row.code}</small>}
+        </td>
+        <td>{row.played}</td>
+        <td>{row.wins}</td>
+        <td>{row.draws}</td>
+        <td>{row.losses}</td>
+        <td>
+          {row.goalsFor}-{row.goalsAgainst}
+        </td>
+        <td>{row.goalDifference}</td>
+        <td>
+          <strong>{row.points}</strong>
+        </td>
+      </tr>
+    );
+  })}
+</tbody>
                   </table>
                 </div>
 
@@ -1348,6 +1360,27 @@ export default function TippaClient({
               letter-spacing: 0.12em;
               text-transform: uppercase;
             }
+
+            .group-table-card tr.third-advance td:first-child {
+  color: #e5b94d;
+  font-weight: 950;
+}
+
+.group-table-card tr.third-advance td:nth-child(2) strong::after {
+  content: "Bästa trea";
+  display: inline-flex;
+  margin-left: 10px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(229,185,77,0.12);
+  border: 1px solid rgba(229,185,77,0.22);
+  color: #e5b94d;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
 
             .live-badge {
               color: #fecaca;
