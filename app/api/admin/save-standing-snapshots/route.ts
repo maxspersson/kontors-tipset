@@ -106,11 +106,14 @@ async function saveStandingSnapshots() {
 
     if (standings.length === 0) continue;
 
+    const snapshotCreatedAt = new Date().toISOString();
+
     const snapshotRows = standings.map((player, index) => ({
       league_id: league.id,
       user_id: player.user_id,
       rank: index + 1,
       points: player.points,
+      created_at: snapshotCreatedAt,
     }));
 
     const { error: insertError } = await supabase
