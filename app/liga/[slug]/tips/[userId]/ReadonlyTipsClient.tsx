@@ -682,9 +682,11 @@ export default function ReadonlyTipsClient({
             }
 
             .tips-head h1 {
-              max-width: 980px;
-              white-space: nowrap;
-            }
+  max-width: 980px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
 
             .tips-head .intro {
               max-width: 760px;
@@ -713,13 +715,13 @@ export default function ReadonlyTipsClient({
             }
 
             .tips-head h1 {
-              margin: 0;
-              max-width: 980px;
-              font-size: clamp(42px, 6vw, 78px);
-              line-height: 0.95;
-              letter-spacing: 0.005em;
-              color: white;
-            }
+  margin: 0;
+  max-width: 980px;
+  font-size: clamp(38px, 5.4vw, 78px);
+  line-height: 0.98;
+  letter-spacing: 0.005em;
+  color: white;
+}
 
             .intro {
               margin: 22px 0 0;
