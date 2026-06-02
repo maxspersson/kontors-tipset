@@ -122,7 +122,7 @@ export async function GET(request: Request) {
     .eq("league_id", leagueId)
     .in("user_id", submittedUserIds)
     .order("created_at", { ascending: false })
-    .limit(500);
+    .limit(5000);
 
   const snapshotRows = (snapshots ?? []) as StandingSnapshot[];
 

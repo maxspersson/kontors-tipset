@@ -1,3 +1,4 @@
+import CopyTextButton from "@/app/components/CopyTextButton";
 import MembersPager, { type MemberPagerItem } from "@/app/components/MembersPager";
 import LeagueAutoRefresh from "@/app/components/LeagueAutoRefresh";
 import LeagueDangerAction from "@/app/components/LeagueDangerAction";
@@ -679,7 +680,10 @@ export default async function LeagueDetailPage({
                   direkt i rätt liga.
                 </span>
 
-                <div className="invite-link-preview">{inviteDisplayUrl}</div>
+                <div className="invite-link-row">
+  <div className="invite-link-preview">{inviteDisplayUrl}</div>
+  <CopyTextButton value={inviteDisplayUrl} label="Kopiera länk" />
+</div>
               </div>
 
               <div className="invite-hero-action">
@@ -1233,6 +1237,35 @@ export default async function LeagueDetailPage({
               text-overflow: ellipsis;
               white-space: nowrap;
             }
+
+            .invite-link-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.invite-link-row .invite-link-preview {
+  margin-top: 0;
+}
+
+.copy-text-button {
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid rgba(229,185,77,0.24);
+  border-radius: 14px;
+  background: rgba(229,185,77,0.10);
+  color: #e5b94d;
+  font-size: 13px;
+  font-weight: 950;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.copy-text-button:hover {
+  background: rgba(229,185,77,0.16);
+}
 
             .invite-hero-action {
               position: relative;
@@ -1788,6 +1821,10 @@ export default async function LeagueDetailPage({
               .league-wrap {
                 padding: 56px 18px 46px;
               }
+
+              .invite-link-row {
+  grid-template-columns: 1fr;
+}
 
               .league-head,
               .content-grid,
