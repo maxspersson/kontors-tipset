@@ -18,6 +18,8 @@ export type Match = {
   away_team: string;
   home_team_code: string | null;
   away_team_code: string | null;
+  home_fifa_ranking?: number | null;
+  away_fifa_ranking?: number | null;
   kickoff_utc: string;
   stadium: string | null;
   city: string | null;
@@ -59,11 +61,55 @@ type CopyLeagueOption = {
   name: string;
 };
 
+type TeamRankingRow = {
+  name: string;
+  code: string | null;
+  fifa_ranking: number | null;
+};
+
 type TippaPageProps = {
   searchParams?: Promise<{
     leagueId?: string;
   }>;
 };
+
+function normalizeTeamKey(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function addFifaRankingsToMatches(
+  matches: Match[],
+  teams: TeamRankingRow[]
+): Match[] {
+  const rankingByName = new Map<string, number | null>();
+  const rankingByCode = new Map<string, number | null>();
+
+  for (const team of teams) {
+    rankingByName.set(normalizeTeamKey(team.name), team.fifa_ranking);
+
+    if (team.code) {
+      rankingByCode.set(normalizeTeamKey(team.code), team.fifa_ranking);
+    }
+  }
+
+  return matches.map((match) => {
+    const homeRanking =
+      rankingByName.get(normalizeTeamKey(match.home_team)) ??
+      rankingByCode.get(normalizeTeamKey(match.home_team_code)) ??
+      null;
+
+    const awayRanking =
+      rankingByName.get(normalizeTeamKey(match.away_team)) ??
+      rankingByCode.get(normalizeTeamKey(match.away_team_code)) ??
+      null;
+
+    return {
+      ...match,
+      home_fifa_ranking: homeRanking,
+      away_fifa_ranking: awayRanking,
+    };
+  });
+}
 
 export default async function TippaPage({ searchParams }: TippaPageProps) {
   const supabase = await createClient();
@@ -462,6 +508,16 @@ export default async function TippaPage({ searchParams }: TippaPageProps) {
     .eq("tournament_id", TOURNAMENT_ID)
     .order("fifa_match_number", { ascending: true });
 
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("name, code, fifa_ranking")
+    .eq("tournament_id", TOURNAMENT_ID);
+
+  const rankedMatches = addFifaRankingsToMatches(
+    (matches ?? []) as Match[],
+    (teams ?? []) as TeamRankingRow[]
+  );
+
   const { data: savedPredictions } = await supabase
     .from("predictions")
     .select("match_id, predicted_home_score, predicted_away_score, advancing_team")
@@ -475,18 +531,16 @@ export default async function TippaPage({ searchParams }: TippaPageProps) {
     .eq("league_id", leagueId)
     .maybeSingle();
 
-  const groupMatches = (matches ?? []).filter(
-    (match) => match.stage === "group"
-  );
+  const groupMatches = rankedMatches.filter((match) => match.stage === "group");
 
-  const playoffMatches = (matches ?? []).filter(
+  const playoffMatches = rankedMatches.filter(
     (match) => match.stage !== "group"
   );
 
   return (
     <TippaClient
-      groupMatches={groupMatches as Match[]}
-      playoffMatches={playoffMatches as Match[]}
+      groupMatches={groupMatches}
+      playoffMatches={playoffMatches}
       savedPredictions={(savedPredictions ?? []) as SavedPrediction[]}
       submission={submission as LeagueSubmission | null}
       isLocked={Boolean(submission?.submitted_at)}

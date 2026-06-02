@@ -1,6 +1,21 @@
 import Container from "@/app/components/Container";
 
 export default function RulesPage() {
+  const knowItems = [
+  "Gruppspelsmatcher kan ändras fram till 60 minuter före avspark.",
+  "Slutspelet låses när du skickar in hela tipset.",
+  "Matchpoäng räknas när ett faktiskt resultat finns registrerat.",
+  "Gruppspel räknas efter ordinarie tid, alltså 90 minuter plus eventuell stopptid.",
+  "Slutspel räknas efter spelad matchtid, alltså 90 minuter plus eventuell förlängning.",
+  "Straffläggning används bara för att avgöra vilket lag som går vidare, inte för matchpoäng.",
+  "Tabellen uppdateras utifrån inskickade tips och spelade matcher.",
+  "Gruppordningen följer VM:s tiebreaker-logik: poäng, inbördes möten, inbördes målskillnad, inbördes gjorda mål, total målskillnad och totalt antal gjorda mål.",
+  "Om lag fortfarande inte kan skiljas åt används FIFA:s världsranking som sista skiljekriterium i Kontors-tipset. Det påverkar endast mycket ovanliga situationer där lag är helt lika enligt övriga tiebreakers.",
+  "I ovanliga fall kan ett tippat slutspel därför skilja sig från det verkliga VM-slutspelet, eftersom FIFA även kan använda fair play-poäng eller lottning.",
+  "Bästa grupptreor jämförs separat mellan grupperna och rankas på poäng, målskillnad, gjorda mål och därefter FIFA-ranking.",
+  "Andras tips låses upp löpande från 60 minuter före avspark för respektive match.",
+];
+
   return (
     <main className="rules-page">
       <section className="rules-hero">
@@ -23,7 +38,9 @@ export default function RulesPage() {
             <div>
               <p>Deadline</p>
               <strong>10 juni 2026 · 23:59</strong>
-              <span>Hela VM-tipset ska vara inskickat.</span>
+              <span>
+                Senast då ska turneringstipset vara inskickat och slutspelet låst.
+              </span>
             </div>
 
             <div>
@@ -91,11 +108,15 @@ export default function RulesPage() {
             </div>
 
             <div className="deadline-card">
-              <p className="deadline-label">Hela tipset ska skickas in senast</p>
+              <p className="deadline-label">
+                Turneringstipset ska skickas in senast
+              </p>
               <p className="deadline-date">10 juni 2026 · 23:59</p>
               <p className="deadline-text">
-                Då låses ditt slutspel baserat på dina gruppresultat. Efter
-  deadline kan slutspelet inte ändras.
+                Då låses ditt slutspel baserat på dina gruppresultat vid
+                inskickning. Efter deadline kan slutspelet inte ändras, men
+                gruppspelsmatcher kan fortfarande justeras fram till respektive
+                matchlås.
               </p>
             </div>
 
@@ -110,81 +131,85 @@ export default function RulesPage() {
           </div>
 
           <div className="section">
-  <div className="section-head">
-    <p>Poäng</p>
-    <h2>3. Poängsystem</h2>
-  </div>
+            <div className="section-head">
+              <p>Poäng</p>
+              <h2>3. Poängsystem</h2>
+            </div>
 
-  <div className="points-grid">
-    <div className="card main-card">
-      <p className="card-label">Matcher</p>
-      <h3>Resultatpoäng</h3>
+            <div className="points-grid">
+              <div className="card main-card">
+                <p className="card-label">Matcher</p>
+                <h3>Resultatpoäng</h3>
 
-      <ul>
-        <li>
-          <strong>2 p</strong> för rätt antal mål för hemmalaget
-        </li>
-        <li>
-          <strong>2 p</strong> för rätt antal mål för bortalaget
-        </li>
-        <li>
-          <strong>3 p</strong> för rätt tecken, alltså rätt vinnare eller oavgjort
-        </li>
-        <li>
-          <strong>Max 7 p</strong> per match
-        </li>
-      </ul>
+                <ul>
+                  <li>
+                    <strong>2 p</strong> för rätt antal mål för hemmalaget
+                  </li>
+                  <li>
+                    <strong>2 p</strong> för rätt antal mål för bortalaget
+                  </li>
+                  <li>
+                    <strong>3 p</strong> för rätt tecken, alltså rätt vinnare
+                    eller oavgjort
+                  </li>
+                  <li>
+                    <strong>Max 7 p</strong> per match
+                  </li>
+                </ul>
 
-      <div className="example-box">
-        <p>Gruppspel</p>
-        <span>
-          I gruppspelet räknas resultatet efter ordinarie tid, alltså 90 minuter
-          plus eventuell stopptid.
-        </span>
-      </div>
+                <div className="example-box">
+                  <p>Gruppspel</p>
+                  <span>
+                    I gruppspelet räknas resultatet efter ordinarie tid, alltså
+                    90 minuter plus eventuell stopptid.
+                  </span>
+                </div>
 
-      <div className="example-box">
-        <p>Slutspel</p>
-        <span>
-          I slutspelet räknas resultatet efter spelad matchtid, alltså 90 minuter
-          plus eventuell förlängning. Straffar räknas inte in i målresultatet.
-        </span>
-      </div>
-    </div>
+                <div className="example-box">
+                  <p>Slutspel</p>
+                  <span>
+                    I slutspelet räknas resultatet efter spelad matchtid, alltså
+                    90 minuter plus eventuell förlängning. Straffar räknas inte
+                    in i målresultatet.
+                  </span>
+                </div>
+              </div>
 
-    <div className="card">
-      <p className="card-label">Slutspelsbonus</p>
-      <h3>Rätt lag i rätt runda</h3>
+              <div className="card">
+                <p className="card-label">Slutspelsbonus</p>
+                <h3>Rätt lag i rätt runda</h3>
 
-      <ul>
-        <li>
-          <strong>2 p</strong> per rätt lag i åttondelsfinal
-        </li>
-        <li>
-          <strong>4 p</strong> per rätt lag i kvartsfinal
-        </li>
-        <li>
-          <strong>6 p</strong> per rätt lag i semifinal
-        </li>
-        <li>
-          <strong>8 p</strong> per rätt lag i final
-        </li>
-        <li>
-          <strong>20 p</strong> för rätt VM-vinnare
-        </li>
-      </ul>
+                <ul>
+                  <li>
+                    <strong>2 p</strong> per rätt lag i åttondelsfinal
+                  </li>
+                  <li>
+                    <strong>4 p</strong> per rätt lag i kvartsfinal
+                  </li>
+                  <li>
+                    <strong>6 p</strong> per rätt lag i semifinal
+                  </li>
+                  <li>
+                    <strong>8 p</strong> per rätt lag i final
+                  </li>
+                  <li>
+                    <strong>20 p</strong> för rätt VM-vinnare
+                  </li>
+                </ul>
 
-      <div className="example-box">
-        <p>Vid oavgjort i slutspel</p>
-        <span>
-          Om du tippar oavgjort efter spelad matchtid väljer du vilket lag som
-          går vidare efter straffläggning. Det valet används för att bygga vidare
-          ditt slutspel.
-        </span>
-      </div>
-    </div>
-  </div>
-</div>
+                <div className="example-box">
+                  <p>Vid oavgjort i slutspel</p>
+                  <span>
+                    Om matchen är oavgjord efter spelad matchtid, inklusive
+                    eventuell förlängning, väljer du vilket lag som går vidare
+                    efter straffläggning. Straffar räknas inte in i
+                    målresultatet, men valet används både för att bygga vidare
+                    ditt slutspel och för att avgöra rätt vidare lag.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div className="section warning">
             <div className="section-head">
@@ -197,10 +222,9 @@ export default function RulesPage() {
 
               <p>
                 När deadline passerat låses ditt slutspel utifrån de
-  gruppresultat du hade vid inskickning. Om du senare ändrar ett
-  gruppspelsresultat fortsätter du samla poäng för matchen, men
-  ditt slutspel ändras inte.
-
+                gruppresultat du hade vid inskickning. Om du senare ändrar ett
+                gruppspelsresultat fortsätter du samla poäng för matchen, men
+                ditt slutspel ändras inte.
               </p>
 
               <div className="yes-no-grid">
@@ -229,26 +253,13 @@ export default function RulesPage() {
               <h2>5. Bra att veta</h2>
             </div>
 
-            <div className="card">
-              <ul>
-               <li>Gruppspelsmatcher kan ändras fram till 60 minuter före avspark.</li>
-<li>Slutspelet låses när du skickar in hela tipset.</li>
-                <li>
-                  Matchpoäng räknas när ett faktiskt resultat finns registrerat.
-                </li>
-                <li>
-  Gruppspel räknas efter ordinarie tid, alltså 90 minuter plus eventuell stopptid.
-</li>
-<li>
-  Slutspel räknas efter spelad matchtid, alltså 90 minuter plus eventuell förlängning.
-</li>
-<li>
-  Straffläggning används bara för att avgöra vilket lag som går vidare, inte för matchpoäng.
-</li>
-                <li>
-                  Tabellen uppdateras utifrån inskickade tips och spelade matcher.
-                </li>
-              </ul>
+            <div className="know-grid">
+              {knowItems.map((item) => (
+                <div key={item} className="know-card">
+                  <span>✓</span>
+                  <p>{item}</p>
+                </div>
+              ))}
             </div>
           </div>
         </Container>
@@ -339,7 +350,8 @@ export default function RulesPage() {
             .card,
             .deadline-card,
             .rule-note,
-            .warning-card {
+            .warning-card,
+            .know-card {
               background: rgba(5,12,18,0.82);
               border: 1px solid rgba(255,255,255,0.11);
               box-shadow: 0 28px 90px rgba(0,0,0,0.34);
@@ -572,6 +584,44 @@ export default function RulesPage() {
               line-height: 1.5;
             }
 
+            .know-grid {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 14px;
+            }
+
+            .know-card {
+              display: grid;
+              grid-template-columns: 34px 1fr;
+              gap: 14px;
+              align-items: start;
+              padding: 18px;
+              border-radius: 20px;
+              background:
+                linear-gradient(135deg, rgba(229,185,77,0.08), transparent 46%),
+                rgba(5,12,18,0.82);
+            }
+
+            .know-card span {
+              width: 34px;
+              height: 34px;
+              border-radius: 999px;
+              display: grid;
+              place-items: center;
+              color: #090909;
+              background: linear-gradient(180deg, #f3cf69, #d9a935);
+              font-size: 16px;
+              font-weight: 950;
+              box-shadow: 0 10px 28px rgba(229,185,77,0.18);
+            }
+
+            .know-card p {
+              margin: 0;
+              color: rgba(255,255,255,0.68);
+              font-size: 14px;
+              line-height: 1.55;
+            }
+
             @media (max-width: 900px) {
               .rules-hero {
                 padding: 72px 18px 42px;
@@ -595,7 +645,8 @@ export default function RulesPage() {
               .top-summary,
               .steps,
               .points-grid,
-              .yes-no-grid {
+              .yes-no-grid,
+              .know-grid {
                 grid-template-columns: 1fr;
               }
 

@@ -32,6 +32,12 @@ type SnapshotPrediction = {
   advancing_team?: "home" | "away" | null;
 };
 
+type TeamRankingRow = {
+  name: string;
+  code: string | null;
+  fifa_ranking: number | null;
+};
+
 function getDisplayName(profile?: Profile | null) {
   return profile?.display_name || profile?.email?.split("@")[0] || "Spelare";
 }
@@ -42,9 +48,42 @@ function isUuid(value: string) {
   );
 }
 
-function hasMatchStarted(match?: Match) {
-  if (!match?.kickoff_utc) return false;
-  return new Date(match.kickoff_utc).getTime() <= Date.now();
+function normalizeTeamKey(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function addFifaRankingsToMatches(
+  matches: Match[],
+  teams: TeamRankingRow[]
+): Match[] {
+  const rankingByName = new Map<string, number | null>();
+  const rankingByCode = new Map<string, number | null>();
+
+  for (const team of teams) {
+    rankingByName.set(normalizeTeamKey(team.name), team.fifa_ranking);
+
+    if (team.code) {
+      rankingByCode.set(normalizeTeamKey(team.code), team.fifa_ranking);
+    }
+  }
+
+  return matches.map((match) => {
+    const homeRanking =
+      rankingByName.get(normalizeTeamKey(match.home_team)) ??
+      rankingByCode.get(normalizeTeamKey(match.home_team_code)) ??
+      null;
+
+    const awayRanking =
+      rankingByName.get(normalizeTeamKey(match.away_team)) ??
+      rankingByCode.get(normalizeTeamKey(match.away_team_code)) ??
+      null;
+
+    return {
+      ...match,
+      home_fifa_ranking: homeRanking,
+      away_fifa_ranking: awayRanking,
+    };
+  });
 }
 
 export default async function MemberTipsPage({ params }: TipsPageProps) {
@@ -124,8 +163,15 @@ export default async function MemberTipsPage({ params }: TipsPageProps) {
     .eq("tournament_id", TOURNAMENT_ID)
     .order("fifa_match_number", { ascending: true });
 
-  const matchRows = (matches ?? []) as Match[];
-  const matchById = new Map(matchRows.map((match) => [match.id, match]));
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("name, code, fifa_ranking")
+    .eq("tournament_id", TOURNAMENT_ID);
+
+  const matchRows = addFifaRankingsToMatches(
+    (matches ?? []) as Match[],
+    (teams ?? []) as TeamRankingRow[]
+  );
 
   const groupSnapshot = (submission.group_snapshot ??
     []) as SnapshotPrediction[];
@@ -134,14 +180,14 @@ export default async function MemberTipsPage({ params }: TipsPageProps) {
     []) as SnapshotPrediction[];
 
   const savedPredictions: SavedPrediction[] = [
-  ...groupSnapshot,
-  ...playoffSnapshot,
-].map((prediction) => ({
-  match_id: prediction.match_id,
-  predicted_home_score: prediction.predicted_home_score,
-  predicted_away_score: prediction.predicted_away_score,
-  advancing_team: prediction.advancing_team ?? null,
-}));
+    ...groupSnapshot,
+    ...playoffSnapshot,
+  ].map((prediction) => ({
+    match_id: prediction.match_id,
+    predicted_home_score: prediction.predicted_home_score,
+    predicted_away_score: prediction.predicted_away_score,
+    advancing_team: prediction.advancing_team ?? null,
+  }));
 
   const groupMatches = matchRows.filter((match) => match.stage === "group");
 
@@ -149,14 +195,14 @@ export default async function MemberTipsPage({ params }: TipsPageProps) {
 
   return (
     <ReadonlyTipsClient
-  groupMatches={groupMatches}
-  playoffMatches={playoffMatches}
-  savedPredictions={savedPredictions}
-  submission={submission as LeagueSubmission}
-  viewerName={getDisplayName(profile as Profile | null)}
-  backHref={`/liga/${league.slug}`}
-  hasError={!!matchesError}
-  isOwnTips={isOwnTips}
-/>
+      groupMatches={groupMatches}
+      playoffMatches={playoffMatches}
+      savedPredictions={savedPredictions}
+      submission={submission as LeagueSubmission}
+      viewerName={getDisplayName(profile as Profile | null)}
+      backHref={`/liga/${league.slug}`}
+      hasError={!!matchesError}
+      isOwnTips={isOwnTips}
+    />
   );
 }

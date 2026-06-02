@@ -3,69 +3,19 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { formatKickoff } from "@/app/lib/formatDate";
+import {
+  groups,
+  bracketRounds,
+  buildGroupTable,
+  buildPlayoffRounds,
+  rankBestThirdPlacedTeams,
+  isCompletePrediction,
+  type BracketMatch,
+  type PredictionState,
+} from "@/app/lib/worldCupRules";
 import type { LeagueSubmission, Match, SavedPrediction } from "@/app/tippa/page";
 
-const groups = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
-
-const bracketRounds = [
-  { key: "round_of_32", label: "Sextondelsfinal", matches: 16 },
-  { key: "round_of_16", label: "Åttondelsfinal", matches: 8 },
-  { key: "quarter_final", label: "Kvartsfinal", matches: 4 },
-  { key: "semi_final", label: "Semifinal", matches: 2 },
-  { key: "medals", label: "Final & Bronsmatch", matches: 2 },
-] as const;
-
 type Tab = string | "slutspel";
-type AdvancingTeam = "home" | "away";
-
-type PredictionState = Record<
-  string,
-  {
-    home: string;
-    away: string;
-    advancingTeam?: AdvancingTeam | null;
-  }
->;
-
-type GroupTableRow = {
-  team: string;
-  code: string | null;
-  group: string;
-  played: number;
-  wins: number;
-  draws: number;
-  losses: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  goalDifference: number;
-  points: number;
-};
-
-type GroupTable = {
-  group: string;
-  table: GroupTableRow[];
-  completedMatches: number;
-  totalMatches: number;
-};
-
-type SeedSlot =
-  | { type: "group_position"; position: 1 | 2; group: string; label: string }
-  | { type: "best_third"; groups: string[]; label: string }
-  | { type: "winner"; matchNumber: number; label: string }
-  | { type: "loser"; matchNumber: number; label: string };
-
-type PlayoffMatch = {
-  dbMatch: Match;
-  teamA?: GroupTableRow;
-  teamB?: GroupTableRow;
-  slotALabel: string;
-  slotBLabel: string;
-  scoreA: string;
-  scoreB: string;
-  advancingTeam?: AdvancingTeam | null;
-  winner?: GroupTableRow;
-  loser?: GroupTableRow;
-};
 
 type ReadonlyTipsClientProps = {
   groupMatches: Match[];
@@ -76,92 +26,6 @@ type ReadonlyTipsClientProps = {
   backHref: string;
   hasError: boolean;
   isOwnTips: boolean;
-};
-
-const roundOf32Slots: Record<number, [SeedSlot, SeedSlot]> = {
-  73: [
-    { type: "group_position", position: 2, group: "A", label: "2A" },
-    { type: "group_position", position: 2, group: "B", label: "2B" },
-  ],
-  74: [
-    { type: "group_position", position: 1, group: "E", label: "1E" },
-    { type: "best_third", groups: ["A", "B", "C", "D", "F"], label: "3ABCDF" },
-  ],
-  75: [
-    { type: "group_position", position: 1, group: "F", label: "1F" },
-    { type: "group_position", position: 2, group: "C", label: "2C" },
-  ],
-  76: [
-    { type: "group_position", position: 1, group: "C", label: "1C" },
-    { type: "group_position", position: 2, group: "F", label: "2F" },
-  ],
-  77: [
-    { type: "group_position", position: 1, group: "I", label: "1I" },
-    { type: "best_third", groups: ["C", "D", "F", "G", "H"], label: "3CDFGH" },
-  ],
-  78: [
-    { type: "group_position", position: 2, group: "E", label: "2E" },
-    { type: "group_position", position: 2, group: "I", label: "2I" },
-  ],
-  79: [
-    { type: "group_position", position: 1, group: "A", label: "1A" },
-    { type: "best_third", groups: ["C", "E", "F", "H", "I"], label: "3CEFHI" },
-  ],
-  80: [
-    { type: "group_position", position: 1, group: "L", label: "1L" },
-    { type: "best_third", groups: ["E", "H", "I", "J", "K"], label: "3EHIJK" },
-  ],
-  81: [
-    { type: "group_position", position: 1, group: "D", label: "1D" },
-    { type: "best_third", groups: ["B", "E", "F", "I", "J"], label: "3BEFIJ" },
-  ],
-  82: [
-    { type: "group_position", position: 1, group: "G", label: "1G" },
-    { type: "best_third", groups: ["A", "E", "H", "I", "J"], label: "3AEHIJ" },
-  ],
-  83: [
-    { type: "group_position", position: 2, group: "K", label: "2K" },
-    { type: "group_position", position: 2, group: "L", label: "2L" },
-  ],
-  84: [
-    { type: "group_position", position: 1, group: "H", label: "1H" },
-    { type: "group_position", position: 2, group: "J", label: "2J" },
-  ],
-  85: [
-    { type: "group_position", position: 1, group: "B", label: "1B" },
-    { type: "best_third", groups: ["E", "F", "G", "I", "J"], label: "3EFGIJ" },
-  ],
-  86: [
-    { type: "group_position", position: 1, group: "J", label: "1J" },
-    { type: "group_position", position: 2, group: "H", label: "2H" },
-  ],
-  87: [
-    { type: "group_position", position: 1, group: "K", label: "1K" },
-    { type: "best_third", groups: ["D", "E", "I", "J", "L"], label: "3DEIJL" },
-  ],
-  88: [
-    { type: "group_position", position: 2, group: "D", label: "2D" },
-    { type: "group_position", position: 2, group: "G", label: "2G" },
-  ],
-};
-
-const laterRoundSlots: Record<number, [SeedSlot, SeedSlot]> = {
-  89: [{ type: "winner", matchNumber: 74, label: "W74" }, { type: "winner", matchNumber: 77, label: "W77" }],
-  90: [{ type: "winner", matchNumber: 73, label: "W73" }, { type: "winner", matchNumber: 75, label: "W75" }],
-  91: [{ type: "winner", matchNumber: 76, label: "W76" }, { type: "winner", matchNumber: 78, label: "W78" }],
-  92: [{ type: "winner", matchNumber: 79, label: "W79" }, { type: "winner", matchNumber: 80, label: "W80" }],
-  93: [{ type: "winner", matchNumber: 83, label: "W83" }, { type: "winner", matchNumber: 84, label: "W84" }],
-  94: [{ type: "winner", matchNumber: 81, label: "W81" }, { type: "winner", matchNumber: 82, label: "W82" }],
-  95: [{ type: "winner", matchNumber: 86, label: "W86" }, { type: "winner", matchNumber: 88, label: "W88" }],
-  96: [{ type: "winner", matchNumber: 85, label: "W85" }, { type: "winner", matchNumber: 87, label: "W87" }],
-  97: [{ type: "winner", matchNumber: 89, label: "W89" }, { type: "winner", matchNumber: 90, label: "W90" }],
-  98: [{ type: "winner", matchNumber: 93, label: "W93" }, { type: "winner", matchNumber: 94, label: "W94" }],
-  99: [{ type: "winner", matchNumber: 91, label: "W91" }, { type: "winner", matchNumber: 92, label: "W92" }],
-  100: [{ type: "winner", matchNumber: 95, label: "W95" }, { type: "winner", matchNumber: 96, label: "W96" }],
-  101: [{ type: "winner", matchNumber: 97, label: "W97" }, { type: "winner", matchNumber: 98, label: "W98" }],
-  102: [{ type: "winner", matchNumber: 99, label: "W99" }, { type: "winner", matchNumber: 100, label: "W100" }],
-  103: [{ type: "loser", matchNumber: 101, label: "L101" }, { type: "loser", matchNumber: 102, label: "L102" }],
-  104: [{ type: "winner", matchNumber: 101, label: "W101" }, { type: "winner", matchNumber: 102, label: "W102" }],
 };
 
 function getSwedishTeamName(name: string) {
@@ -232,419 +96,16 @@ function getFriendlySlotLabel(label: string) {
   return "Ej klart";
 }
 
-function createEmptyRow(
-  team: string,
-  code: string | null,
-  group: string
-): GroupTableRow {
-  return {
-    team,
-    code,
-    group,
-    played: 0,
-    wins: 0,
-    draws: 0,
-    losses: 0,
-    goalsFor: 0,
-    goalsAgainst: 0,
-    goalDifference: 0,
-    points: 0,
-  };
+function renderReadonlyScoreBox(value: string) {
+  return <div className="readonly-score-box">{value || "-"}</div>;
 }
 
-function isCompletePrediction(prediction?: {
-  home: string;
-  away: string;
-  advancingTeam?: AdvancingTeam | null;
-}) {
-  return !!prediction && prediction.home !== "" && prediction.away !== "";
-}
-
-function isCompletePlayoffPrediction(prediction?: {
-  home: string;
-  away: string;
-  advancingTeam?: AdvancingTeam | null;
-}) {
-  if (!prediction) return false;
-  if (!isCompletePrediction(prediction)) return false;
-  if (prediction.home !== prediction.away) return true;
-
-  return prediction.advancingTeam === "home" || prediction.advancingTeam === "away";
-}
-
-function isGroupTableRow(row: GroupTableRow | undefined): row is GroupTableRow {
-  return !!row;
-}
-
-function buildGroupTable(
-  matchesInGroup: Match[],
-  predictions: PredictionState,
-  group: string
-): GroupTableRow[] {
-  const table = new Map<string, GroupTableRow>();
-
-  for (const match of matchesInGroup) {
-    if (!table.has(match.home_team)) {
-      table.set(
-        match.home_team,
-        createEmptyRow(match.home_team, match.home_team_code, group)
-      );
-    }
-
-    if (!table.has(match.away_team)) {
-      table.set(
-        match.away_team,
-        createEmptyRow(match.away_team, match.away_team_code, group)
-      );
-    }
-
-    const prediction = predictions[match.id];
-
-    if (!isCompletePrediction(prediction)) continue;
-
-    const homeScore = Number(prediction.home);
-    const awayScore = Number(prediction.away);
-
-    const home = table.get(match.home_team)!;
-    const away = table.get(match.away_team)!;
-
-    home.played += 1;
-    away.played += 1;
-
-    home.goalsFor += homeScore;
-    home.goalsAgainst += awayScore;
-    away.goalsFor += awayScore;
-    away.goalsAgainst += homeScore;
-
-    if (homeScore > awayScore) {
-      home.wins += 1;
-      home.points += 3;
-      away.losses += 1;
-    } else if (homeScore < awayScore) {
-      away.wins += 1;
-      away.points += 3;
-      home.losses += 1;
-    } else {
-      home.draws += 1;
-      away.draws += 1;
-      home.points += 1;
-      away.points += 1;
-    }
-
-    home.goalDifference = home.goalsFor - home.goalsAgainst;
-    away.goalDifference = away.goalsFor - away.goalsAgainst;
-  }
-
-  return Array.from(table.values()).sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
-    if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
-    if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-    return a.team.localeCompare(b.team);
-  });
-}
-
-function getWinner(
-  teamA: GroupTableRow | undefined,
-  teamB: GroupTableRow | undefined,
-  prediction?: {
-    home: string;
-    away: string;
-    advancingTeam?: AdvancingTeam | null;
-  }
-) {
-  if (!teamA || !teamB || !prediction) return undefined;
-  if (prediction.home === "" || prediction.away === "") return undefined;
-
-  const home = Number(prediction.home);
-  const away = Number(prediction.away);
-
-  if (home > away) return teamA;
-  if (away > home) return teamB;
-  if (prediction.advancingTeam === "home") return teamA;
-  if (prediction.advancingTeam === "away") return teamB;
-
-  return undefined;
-}
-
-function getLoser(
-  teamA: GroupTableRow | undefined,
-  teamB: GroupTableRow | undefined,
-  prediction?: {
-    home: string;
-    away: string;
-    advancingTeam?: AdvancingTeam | null;
-  }
-) {
-  if (!teamA || !teamB || !prediction) return undefined;
-  if (prediction.home === "" || prediction.away === "") return undefined;
-
-  const home = Number(prediction.home);
-  const away = Number(prediction.away);
-
-  if (home > away) return teamB;
-  if (away > home) return teamA;
-  if (prediction.advancingTeam === "home") return teamB;
-  if (prediction.advancingTeam === "away") return teamA;
-
-  return undefined;
-}
-
-function getThirdPlaceWinner(finalRound?: PlayoffMatch[]) {
+function getThirdPlaceWinner(finalRound?: BracketMatch[]) {
   const thirdPlaceMatch = finalRound?.find(
     (match) => match.dbMatch.stage === "third_place"
   );
 
   return thirdPlaceMatch?.winner;
-}
-
-function resolveGroupPosition(
-  allGroupTables: GroupTable[],
-  group: string,
-  position: 1 | 2
-) {
-  const groupTable = allGroupTables.find((item) => item.group === group);
-
-  if (!groupTable) return undefined;
-  if (groupTable.completedMatches < groupTable.totalMatches) return undefined;
-
-  return groupTable.table[position - 1];
-}
-
-function buildBestThirdAssignment(thirdPlacedTeams: GroupTableRow[]) {
-  const matchNumbers = [74, 77, 79, 80, 81, 82, 85, 87];
-
-  const slots = matchNumbers
-    .map((matchNumber) => {
-      const slot = roundOf32Slots[matchNumber]?.find(
-        (item) => item.type === "best_third"
-      );
-
-      if (!slot || slot.type !== "best_third") return null;
-
-      return {
-        matchNumber,
-        label: slot.label,
-        groups: slot.groups,
-      };
-    })
-    .filter(Boolean) as {
-    matchNumber: number;
-    label: string;
-    groups: string[];
-  }[];
-
-  const tryAssign = (
-    slotIndex: number,
-    usedGroups: Set<string>,
-    assignment: Map<string, GroupTableRow>
-  ): Map<string, GroupTableRow> | null => {
-    if (slotIndex >= slots.length) return assignment;
-
-    const slot = slots[slotIndex];
-
-    const candidates = thirdPlacedTeams.filter(
-      (team) => slot.groups.includes(team.group) && !usedGroups.has(team.group)
-    );
-
-    for (const candidate of candidates) {
-      const nextUsedGroups = new Set(usedGroups);
-      const nextAssignment = new Map(assignment);
-
-      nextUsedGroups.add(candidate.group);
-      nextAssignment.set(slot.label, candidate);
-
-      const result = tryAssign(slotIndex + 1, nextUsedGroups, nextAssignment);
-
-      if (result) return result;
-    }
-
-    return null;
-  };
-
-  return tryAssign(0, new Set<string>(), new Map<string, GroupTableRow>()) ?? new Map();
-}
-
-function resolveSlot({
-  slot,
-  allGroupTables,
-  thirdAssignment,
-  winnersByMatchNumber,
-  losersByMatchNumber,
-}: {
-  slot: SeedSlot;
-  allGroupTables: GroupTable[];
-  thirdAssignment: Map<string, GroupTableRow>;
-  winnersByMatchNumber: Map<number, GroupTableRow>;
-  losersByMatchNumber: Map<number, GroupTableRow>;
-}) {
-  if (slot.type === "group_position") {
-    return resolveGroupPosition(allGroupTables, slot.group, slot.position);
-  }
-
-  if (slot.type === "best_third") {
-    return thirdAssignment.get(slot.label);
-  }
-
-  if (slot.type === "loser") {
-    return losersByMatchNumber.get(slot.matchNumber);
-  }
-
-  return winnersByMatchNumber.get(slot.matchNumber);
-}
-
-function buildPlayoffRounds({
-  playoffMatches,
-  allGroupTables,
-  thirdPlacedTeams,
-  predictions,
-}: {
-  playoffMatches: Match[];
-  allGroupTables: GroupTable[];
-  thirdPlacedTeams: GroupTableRow[];
-  predictions: PredictionState;
-}) {
-  const winnersByMatchNumber = new Map<number, GroupTableRow>();
-  const losersByMatchNumber = new Map<number, GroupTableRow>();
-  const thirdAssignment = buildBestThirdAssignment(thirdPlacedTeams);
-  const rounds: PlayoffMatch[][] = [];
-
-  for (const round of bracketRounds) {
-    const matchesInRound = playoffMatches
-      .filter((match) => {
-        if (round.key === "medals") {
-          return match.stage === "final" || match.stage === "third_place";
-        }
-
-        return match.stage === round.key;
-      })
-      .sort((a, b) => {
-        if (a.stage === "final") return -1;
-        if (b.stage === "final") return 1;
-
-        return (a.fifa_match_number ?? 0) - (b.fifa_match_number ?? 0);
-      });
-
-    const roundMatches: PlayoffMatch[] = [];
-
-    for (const dbMatch of matchesInRound) {
-      const matchNumber = dbMatch.fifa_match_number;
-
-      if (!matchNumber) continue;
-
-      const slots =
-        dbMatch.stage === "round_of_32"
-          ? roundOf32Slots[matchNumber]
-          : laterRoundSlots[matchNumber];
-
-      if (!slots) continue;
-
-      const [slotA, slotB] = slots;
-      const prediction = predictions[dbMatch.id] ?? {
-        home: "",
-        away: "",
-        advancingTeam: null,
-      };
-
-      const teamA = resolveSlot({
-        slot: slotA,
-        allGroupTables,
-        thirdAssignment,
-        winnersByMatchNumber,
-        losersByMatchNumber,
-      });
-
-      const teamB = resolveSlot({
-        slot: slotB,
-        allGroupTables,
-        thirdAssignment,
-        winnersByMatchNumber,
-        losersByMatchNumber,
-      });
-
-      const winner = getWinner(teamA, teamB, prediction);
-      const loser = getLoser(teamA, teamB, prediction);
-
-      if (winner) {
-        winnersByMatchNumber.set(matchNumber, winner);
-      }
-
-      if (loser) {
-        losersByMatchNumber.set(matchNumber, loser);
-      }
-
-      roundMatches.push({
-        dbMatch,
-        teamA,
-        teamB,
-        slotALabel: slotA.label,
-        slotBLabel: slotB.label,
-        scoreA: prediction.home,
-        scoreB: prediction.away,
-        advancingTeam: prediction.advancingTeam,
-        winner,
-        loser,
-      });
-    }
-
-    rounds.push(roundMatches);
-  }
-
-  return rounds;
-}
-
-function renderReadonlyScoreBox(value: string) {
-  return <div className="readonly-score-box">{value || "-"}</div>;
-}
-
-function getMostGoalRichPrediction({
-  groupMatches,
-  playoffMatches,
-  predictions,
-}: {
-  groupMatches: Match[];
-  playoffMatches: Match[];
-  predictions: PredictionState;
-}) {
-  const allMatches = [...groupMatches, ...playoffMatches];
-
-  let best:
-    | {
-        match: Match;
-        home: number;
-        away: number;
-        total: number;
-      }
-    | null = null;
-
-  for (const match of allMatches) {
-    const prediction = predictions[match.id];
-
-    if (!isCompletePrediction(prediction)) continue;
-
-    const home = Number(prediction.home);
-    const away = Number(prediction.away);
-    const total = home + away;
-
-    if (!best || total > best.total) {
-      best = {
-        match,
-        home,
-        away,
-        total,
-      };
-    }
-  }
-
-  return best;
-}
-
-function getDrawCount(predictions: PredictionState) {
-  return Object.values(predictions).filter(
-    (prediction) =>
-      prediction.home !== "" &&
-      prediction.away !== "" &&
-      prediction.home === prediction.away
-  ).length;
 }
 
 function isMatchRevealable(match: Match, isOwnTips: boolean) {
@@ -653,17 +114,10 @@ function isMatchRevealable(match: Match, isOwnTips: boolean) {
 
   const unlockTime = new Date(match.kickoff_utc).getTime() - 60 * 60 * 1000;
 
-  return Date.now() >= unlockTime || match.status === "live" || match.status === "finished";
-}
-
-function isPlayoffRoundRevealable(
-  roundMatches: PlayoffMatch[],
-  isOwnTips: boolean
-) {
-  if (isOwnTips) return true;
-
-  return roundMatches.some((match) =>
-    isMatchRevealable(match.dbMatch, isOwnTips)
+  return (
+    Date.now() >= unlockTime ||
+    match.status === "live" ||
+    match.status === "finished"
   );
 }
 
@@ -712,33 +166,33 @@ export default function ReadonlyTipsClient({
   const [activeTab, setActiveTab] = useState<Tab>("A");
 
   const predictions = useMemo<PredictionState>(() => {
-  const initial: PredictionState = {};
+    const initial: PredictionState = {};
 
-  for (const prediction of savedPredictions) {
-    initial[prediction.match_id] = {
-      home:
-        prediction.predicted_home_score === null
-          ? ""
-          : String(prediction.predicted_home_score),
-      away:
-        prediction.predicted_away_score === null
-          ? ""
-          : String(prediction.predicted_away_score),
-      advancingTeam: prediction.advancing_team,
-    };
-  }
+    for (const prediction of savedPredictions) {
+      initial[prediction.match_id] = {
+        home:
+          prediction.predicted_home_score === null
+            ? ""
+            : String(prediction.predicted_home_score),
+        away:
+          prediction.predicted_away_score === null
+            ? ""
+            : String(prediction.predicted_away_score),
+        advancingTeam: prediction.advancing_team,
+      };
+    }
 
-  return initial;
-}, [savedPredictions]);
+    return initial;
+  }, [savedPredictions]);
 
-const displayPredictions = useMemo(() => {
-  return createMaskedPredictions({
-    groupMatches,
-    playoffMatches,
-    predictions,
-    isOwnTips,
-  });
-}, [groupMatches, playoffMatches, predictions, isOwnTips]);
+  const displayPredictions = useMemo(() => {
+    return createMaskedPredictions({
+      groupMatches,
+      playoffMatches,
+      predictions,
+      isOwnTips,
+    });
+  }, [groupMatches, playoffMatches, predictions, isOwnTips]);
 
   const activeMatches = groupMatches.filter(
     (match) => match.group_name === activeTab
@@ -754,84 +208,68 @@ const displayPredictions = useMemo(() => {
         group,
         table: buildGroupTable(matchesInGroup, displayPredictions, group),
         completedMatches: matchesInGroup.filter((match) =>
-  isCompletePrediction(displayPredictions[match.id])
-).length,
+          isCompletePrediction(displayPredictions[match.id])
+        ).length,
         totalMatches: matchesInGroup.length,
       };
     });
   }, [groupMatches, displayPredictions]);
 
+  const summaryGroupTables = useMemo(() => {
+    return groups.map((group) => {
+      const matchesInGroup = groupMatches.filter(
+        (match) => match.group_name === group
+      );
+
+      return {
+        group,
+        table: buildGroupTable(matchesInGroup, predictions, group),
+        completedMatches: matchesInGroup.filter((match) =>
+          isCompletePrediction(predictions[match.id])
+        ).length,
+        totalMatches: matchesInGroup.length,
+      };
+    });
+  }, [groupMatches, predictions]);
+
   const activeGroupTable =
     allGroupTables.find((item) => item.group === activeTab)?.table ?? [];
-    const summaryGroupTables = useMemo(() => {
-  return groups.map((group) => {
-    const matchesInGroup = groupMatches.filter(
-      (match) => match.group_name === group
-    );
 
-    return {
-      group,
-      table: buildGroupTable(matchesInGroup, predictions, group),
-      completedMatches: matchesInGroup.filter((match) =>
-        isCompletePrediction(predictions[match.id])
-      ).length,
-      totalMatches: matchesInGroup.length,
-    };
-  });
-}, [groupMatches, predictions]);
+  const thirdPlacedTeams = rankBestThirdPlacedTeams(allGroupTables).slice(0, 8);
 
-const summaryThirdPlacedTeams = summaryGroupTables
-  .filter((group) => group.completedMatches === group.totalMatches)
-  .map((group) => group.table[2])
-  .filter(isGroupTableRow)
-  .sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
-    if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
-    if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-    return a.team.localeCompare(b.team);
-  })
-  .slice(0, 8);
-
-  const thirdPlacedTeams = allGroupTables
-    .filter((group) => group.completedMatches === group.totalMatches)
-    .map((group) => group.table[2])
-    .filter(isGroupTableRow)
-    .sort((a, b) => {
-      if (b.points !== a.points) return b.points - a.points;
-      if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
-      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-      return a.team.localeCompare(b.team);
-    })
-    .slice(0, 8);
+  const summaryThirdPlacedTeams = rankBestThirdPlacedTeams(
+    summaryGroupTables
+  ).slice(0, 8);
 
   const playoffRounds = useMemo(() => {
     return buildPlayoffRounds({
       playoffMatches,
       allGroupTables,
       thirdPlacedTeams,
-      predictions,
+      predictions: displayPredictions,
     });
   }, [playoffMatches, allGroupTables, thirdPlacedTeams, displayPredictions]);
+
   const summaryPlayoffRounds = useMemo(() => {
-  return buildPlayoffRounds({
-    playoffMatches,
-    allGroupTables: summaryGroupTables,
-    thirdPlacedTeams: summaryThirdPlacedTeams,
-    predictions,
-  });
-}, [playoffMatches, summaryGroupTables, summaryThirdPlacedTeams, predictions]);
+    return buildPlayoffRounds({
+      playoffMatches,
+      allGroupTables: summaryGroupTables,
+      thirdPlacedTeams: summaryThirdPlacedTeams,
+      predictions,
+    });
+  }, [playoffMatches, summaryGroupTables, summaryThirdPlacedTeams, predictions]);
 
   const finalRound = summaryPlayoffRounds[summaryPlayoffRounds.length - 1];
-const finalMatch = finalRound?.find((match) => match.dbMatch.stage === "final");
-const champion = finalMatch?.winner;
-const finalist = finalMatch?.loser;
-const thirdPlace = getThirdPlaceWinner(finalRound);
+  const finalMatch = finalRound?.find((match) => match.dbMatch.stage === "final");
+  const champion = finalMatch?.winner;
+  const finalist = finalMatch?.loser;
+  const thirdPlace = getThirdPlaceWinner(finalRound);
 
   return (
     <main className="tips-page readonly-tips-page">
       <section className="tips-hero">
         <div className="tips-wrap">
-                    <div className="tips-head">
+          <div className="tips-head">
             <div>
               <Link href={backHref} className="readonly-back-link">
                 ← Till ligan
@@ -842,42 +280,45 @@ const thirdPlace = getThirdPlaceWinner(finalRound);
               <h1>Så här har {viewerName || "spelaren"} tippat.</h1>
 
               <p className="intro">
-  Tipsen låses upp löpande från en timme före avspark för varje match.
-  Gruppspel och slutspel visas successivt under turneringens gång.
-</p>
+                Tipsen låses upp löpande från en timme före avspark för varje
+                match. Gruppspel och slutspel visas successivt under
+                turneringens gång.
+              </p>
             </div>
           </div>
 
-                    <div className="tippa-locked-banner">
+          <div className="tippa-locked-banner">
             <div>
               <p className="tippa-locked-title">Du tittar på ett låst tips</p>
               <p className="tippa-locked-text">
-  Tipset är inskickat och låst. Resultaten går inte att ändra här.
-  {submission?.submitted_at
-    ? ` Inskickat ${formatKickoff(submission.submitted_at)}.`
-    : ""}
-</p>
+                Tipset är inskickat och låst. Resultaten går inte att ändra här.
+                {submission?.submitted_at
+                  ? ` Inskickat ${formatKickoff(submission.submitted_at)}.`
+                  : ""}
+              </p>
             </div>
           </div>
 
-          {hasError && <div className="error-box">Kunde inte hämta matcher.</div>}
+          {hasError && (
+            <div className="error-box">Kunde inte hämta matcher.</div>
+          )}
 
           <div className="match-toolbar readonly-insight-toolbar">
-  <div>
-    <span>{champion ? getSwedishTeamName(champion.team) : "Ej klart"}</span>
-    <p>Tippad världsmästare</p>
-  </div>
+            <div>
+              <span>{champion ? getSwedishTeamName(champion.team) : "Ej klart"}</span>
+              <p>Tippad världsmästare</p>
+            </div>
 
-  <div>
-    <span>{finalist ? getSwedishTeamName(finalist.team) : "Ej klart"}</span>
-    <p>Tippad tvåa</p>
-  </div>
+            <div>
+              <span>{finalist ? getSwedishTeamName(finalist.team) : "Ej klart"}</span>
+              <p>Tippad tvåa</p>
+            </div>
 
-  <div>
-    <span>{thirdPlace ? getSwedishTeamName(thirdPlace.team) : "Ej klart"}</span>
-    <p>Tippad trea</p>
-  </div>
-</div>
+            <div>
+              <span>{thirdPlace ? getSwedishTeamName(thirdPlace.team) : "Ej klart"}</span>
+              <p>Tippad trea</p>
+            </div>
+          </div>
 
           <nav className="tips-tabs">
             {groups.map((group) => (
@@ -930,6 +371,10 @@ const thirdPlace = getThirdPlaceWinner(finalRound);
 
                         <div className="bracket-matches">
                           {roundMatches.map((match) => {
+                            const advancingTeam =
+                              displayPredictions[match.dbMatch.id]
+                                ?.advancingTeam ?? null;
+
                             const isDraw =
                               match.scoreA !== "" &&
                               match.scoreB !== "" &&
@@ -938,11 +383,11 @@ const thirdPlace = getThirdPlaceWinner(finalRound);
                               match.teamB;
 
                             const advancingLabel =
-                              isDraw && match.advancingTeam === "home"
+                              isDraw && advancingTeam === "home"
                                 ? match.teamA
                                   ? getSwedishTeamName(match.teamA.team)
                                   : ""
-                                : isDraw && match.advancingTeam === "away"
+                                : isDraw && advancingTeam === "away"
                                   ? match.teamB
                                     ? getSwedishTeamName(match.teamB.team)
                                     : ""
@@ -1010,9 +455,10 @@ const thirdPlace = getThirdPlaceWinner(finalRound);
                                 {isDraw && advancingLabel && (
                                   <div className="advance-picker readonly-advance-picker">
                                     <p>
-                                      Matchen är oavgjord efter 90 minuter.{" "}
+                                      Matchen är oavgjord efter spelad matchtid,
+                                      inklusive eventuell förlängning.{" "}
                                       <strong>{advancingLabel}</strong> är valt
-                                      lag att gå vidare.
+                                      lag att gå vidare efter straffläggning.
                                     </p>
                                   </div>
                                 )}
@@ -1086,8 +532,9 @@ const thirdPlace = getThirdPlaceWinner(finalRound);
                 </div>
 
                 <p className="table-note">
-                  De två översta lagen markeras som direkt vidare. Tiebreakers
-                  är förenklade just nu: poäng, målskillnad, gjorda mål.
+                  Gruppordningen följer samma regler som i tippavyn: poäng,
+                  inbördes möten, total målskillnad, gjorda mål och därefter
+                  stabil fallback.
                 </p>
               </div>
 
@@ -1200,12 +647,12 @@ const thirdPlace = getThirdPlaceWinner(finalRound);
             }
 
             .tips-head {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 22px;
-  align-items: stretch;
-  margin-bottom: 24px;
-}
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 22px;
+              align-items: stretch;
+              margin-bottom: 24px;
+            }
 
             .tips-head > div:first-child,
             .hero-panel,
@@ -1223,34 +670,34 @@ const thirdPlace = getThirdPlaceWinner(finalRound);
             }
 
             .tips-head > div:first-child {
-  border-radius: 32px;
-  padding: clamp(40px, 6vw, 72px);
-}
+              border-radius: 32px;
+              padding: clamp(40px, 6vw, 72px);
+            }
 
-.tips-head h1,
-.tips-head .intro {
-  margin-left: auto;
-  margin-right: auto;
-  text-align: center;
-}
+            .tips-head h1,
+            .tips-head .intro {
+              margin-left: auto;
+              margin-right: auto;
+              text-align: center;
+            }
 
-.tips-head h1 {
-  max-width: 980px;
-  white-space: nowrap;
-}
+            .tips-head h1 {
+              max-width: 980px;
+              white-space: nowrap;
+            }
 
-.tips-head .intro {
-  max-width: 760px;
-}
+            .tips-head .intro {
+              max-width: 760px;
+            }
 
             .readonly-back-link {
-  display: inline-flex;
-  margin-bottom: 22px;
-  color: rgba(255,255,255,0.58);
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 850;
-}
+              display: inline-flex;
+              margin-bottom: 22px;
+              color: rgba(255,255,255,0.58);
+              text-decoration: none;
+              font-size: 14px;
+              font-weight: 850;
+            }
 
             .readonly-back-link:hover {
               color: #e5b94d;
@@ -1266,13 +713,13 @@ const thirdPlace = getThirdPlaceWinner(finalRound);
             }
 
             .tips-head h1 {
-  margin: 0;
-  max-width: 980px;
-  font-size: clamp(42px, 6vw, 78px);
-  line-height: 0.95;
-  letter-spacing: 0.005em;
-  color: white;
-}
+              margin: 0;
+              max-width: 980px;
+              font-size: clamp(42px, 6vw, 78px);
+              line-height: 0.95;
+              letter-spacing: 0.005em;
+              color: white;
+            }
 
             .intro {
               margin: 22px 0 0;
@@ -1280,51 +727,6 @@ const thirdPlace = getThirdPlaceWinner(finalRound);
               color: rgba(255,255,255,0.62);
               font-size: clamp(16px, 2vw, 19px);
               line-height: 1.6;
-            }
-
-            .hero-panel {
-              border-radius: 32px;
-              padding: 28px;
-              display: flex;
-              flex-direction: column;
-              justify-content: space-between;
-            }
-
-            .hero-panel p {
-              margin: 0;
-              color: rgba(255,255,255,0.48);
-              font-size: 12px;
-              font-weight: 950;
-              letter-spacing: 0.14em;
-              text-transform: uppercase;
-            }
-
-            .hero-panel strong {
-              display: block;
-              margin-top: 18px;
-              color: #e5b94d;
-              font-size: 56px;
-              line-height: 1;
-              letter-spacing: -0.01em;
-            }
-
-            .hero-big-number {
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.hero-big-number span {
-  display: inline-block;
-  margin: 0 0.08em;
-  opacity: 0.72;
-}
-
-            .hero-panel span {
-              display: block;
-              margin-top: 18px;
-              color: rgba(255,255,255,0.58);
-              font-size: 14px;
-              line-height: 1.45;
             }
 
             .tippa-locked-banner {
@@ -1386,20 +788,20 @@ const thirdPlace = getThirdPlaceWinner(finalRound);
             }
 
             .readonly-insight-toolbar div:first-child span {
-  color: #e5b94d;
-  font-size: clamp(22px, 3vw, 34px);
-  line-height: 1.05;
-  word-break: break-word;
-}
+              color: #e5b94d;
+              font-size: clamp(22px, 3vw, 34px);
+              line-height: 1.05;
+              word-break: break-word;
+            }
 
-.readonly-insight-toolbar div:nth-child(2) span,
-.readonly-insight-toolbar div:nth-child(3) span {
-  color: white;
-}
+            .readonly-insight-toolbar div:nth-child(2) span,
+            .readonly-insight-toolbar div:nth-child(3) span {
+              color: white;
+            }
 
-.readonly-insight-toolbar p {
-  max-width: 260px;
-}
+            .readonly-insight-toolbar p {
+              max-width: 260px;
+            }
 
             .tips-tabs {
               display: flex;
@@ -1680,11 +1082,6 @@ const thirdPlace = getThirdPlaceWinner(finalRound);
               color: rgba(255,255,255,0.48);
             }
 
-          
-            .bracket-status .champion-card span {
-              color: #e5b94d;
-            }
-
             .mobile-swipe-hint {
               display: none;
               color: rgba(255,255,255,0.52);
@@ -1830,8 +1227,8 @@ const thirdPlace = getThirdPlaceWinner(finalRound);
 
             @media (max-width: 720px) {
               .tips-head h1 {
-  white-space: normal;
-}
+                white-space: normal;
+              }
 
               .tips-head > div:first-child,
               .hero-panel,
@@ -1840,8 +1237,7 @@ const thirdPlace = getThirdPlaceWinner(finalRound);
                 border-radius: 24px;
               }
 
-              .match-toolbar,
-              .bracket-status {
+              .match-toolbar {
                 grid-template-columns: 1fr;
               }
 
