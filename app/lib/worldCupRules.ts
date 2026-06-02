@@ -351,6 +351,58 @@ export function rankBestThirdPlacedTeams(input: GroupTable[] | GroupTableRow[]) 
   });
 }
 
+function buildBestThirdAssignment(thirdPlacedTeams: GroupTableRow[]) {
+  const bestThirdMatchNumbers = [74, 77, 79, 80, 81, 82, 85, 87];
+
+  const slots = bestThirdMatchNumbers
+    .map((matchNumber) => {
+      const slot = playoffSlots[matchNumber]?.find((label) =>
+        /^3[A-L]+$/.test(label)
+      );
+
+      if (!slot) return null;
+
+      const match = slot.match(/^3([A-L]+)$/);
+      if (!match) return null;
+
+      return {
+        label: slot,
+        groups: match[1].split(""),
+      };
+    })
+    .filter(Boolean) as { label: string; groups: string[] }[];
+
+  function tryAssign(
+    slotIndex: number,
+    usedGroups: Set<string>,
+    assignment: Map<string, GroupTableRow>
+  ): Map<string, GroupTableRow> | null {
+    if (slotIndex >= slots.length) return assignment;
+
+    const slot = slots[slotIndex];
+
+    const candidates = thirdPlacedTeams.filter(
+      (team) => slot.groups.includes(team.group) && !usedGroups.has(team.group)
+    );
+
+    for (const candidate of candidates) {
+      const nextUsedGroups = new Set(usedGroups);
+      const nextAssignment = new Map(assignment);
+
+      nextUsedGroups.add(candidate.group);
+      nextAssignment.set(slot.label, candidate);
+
+      const result = tryAssign(slotIndex + 1, nextUsedGroups, nextAssignment);
+
+      if (result) return result;
+    }
+
+    return null;
+  }
+
+  return tryAssign(0, new Set<string>(), new Map<string, GroupTableRow>()) ?? new Map();
+}
+
 function getGroupWinnerOrRunnerUp(
   label: string,
   allGroupTables: GroupTable[]
@@ -371,23 +423,9 @@ function getGroupWinnerOrRunnerUp(
 
 function getThirdPlacedTeamFromSlot(
   label: string,
-  thirdPlacedTeams: GroupTableRow[],
-  usedThirdGroups: Set<string>
+  thirdAssignment: Map<string, GroupTableRow>
 ): GroupTableRow | null {
-  const match = label.match(/^3([A-L]+)$/);
-  if (!match) return null;
-
-  const allowedGroups = match[1].split("");
-
-  const team = thirdPlacedTeams.find(
-    (row) => allowedGroups.includes(row.group) && !usedThirdGroups.has(row.group)
-  );
-
-  if (team) {
-    usedThirdGroups.add(team.group);
-  }
-
-  return team ?? null;
+  return thirdAssignment.get(label) ?? null;
 }
 
 function getWinnerFromPreviousMatch(
@@ -413,19 +451,17 @@ function getLoserFromPreviousMatch(
 function resolveSlot({
   label,
   allGroupTables,
-  thirdPlacedTeams,
-  usedThirdGroups,
+  thirdAssignment,
   resolvedByMatchNumber,
 }: {
   label: string;
   allGroupTables: GroupTable[];
-  thirdPlacedTeams: GroupTableRow[];
-  usedThirdGroups: Set<string>;
+  thirdAssignment: Map<string, GroupTableRow>;
   resolvedByMatchNumber: Map<number, BracketMatch>;
 }) {
   return (
     getGroupWinnerOrRunnerUp(label, allGroupTables) ??
-    getThirdPlacedTeamFromSlot(label, thirdPlacedTeams, usedThirdGroups) ??
+    getThirdPlacedTeamFromSlot(label, thirdAssignment) ??
     getWinnerFromPreviousMatch(label, resolvedByMatchNumber) ??
     getLoserFromPreviousMatch(label, resolvedByMatchNumber)
   );
@@ -487,7 +523,7 @@ export function buildPlayoffRounds({
   predictions: PredictionState;
 }): BracketMatch[][] {
   const resolvedByMatchNumber = new Map<number, BracketMatch>();
-  const usedThirdGroups = new Set<string>();
+  const thirdAssignment = buildBestThirdAssignment(thirdPlacedTeams);
 
   return bracketRounds.map((round) => {
     const matches =
@@ -512,20 +548,18 @@ export function buildPlayoffRounds({
       const [slotALabel, slotBLabel] = slots;
 
       const teamA = resolveSlot({
-        label: slotALabel,
-        allGroupTables,
-        thirdPlacedTeams,
-        usedThirdGroups,
-        resolvedByMatchNumber,
-      });
+  label: slotALabel,
+  allGroupTables,
+  thirdAssignment,
+  resolvedByMatchNumber,
+});
 
       const teamB = resolveSlot({
-        label: slotBLabel,
-        allGroupTables,
-        thirdPlacedTeams,
-        usedThirdGroups,
-        resolvedByMatchNumber,
-      });
+  label: slotBLabel,
+  allGroupTables,
+  thirdAssignment,
+  resolvedByMatchNumber,
+});
 
       const prediction = predictions[dbMatch.id];
       const scoreA = prediction?.home ?? "";
