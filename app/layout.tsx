@@ -178,364 +178,354 @@ export default async function RootLayout({
         />
 
         <footer className="site-footer">
-          <div className="footer-inner">
-            <div className="footer-brand">
-  <p className="footer-logo">KONTORS-TIPSET</p>
-  <p>VM-tipset för kontoret.</p>
-</div>
+  <div className="footer-inner">
+    <p className="footer-copy">© 2026 Kontors-tipset</p>
 
-            <div className="footer-links">
-              <Link href="/regler">Regler</Link>
-              <Link href="/liga">Liga</Link>
-              <Link href="/tabell">Tabell</Link>
-            </div>
-          </div>
-        </footer>
+    <div className="footer-links">
+      <Link href="/regler">Regler</Link>
+      <Link href="/integritet">Integritet</Link>
+      <Link href="/villkor">Villkor</Link>
+    </div>
+  </div>
+</footer>
 
         <style
           dangerouslySetInnerHTML={{
             __html: `
-              * {
-                box-sizing: border-box;
-              }
+             * {
+  box-sizing: border-box;
+}
 
-              body {
-                margin: 0;
-                background: #020304;
-                color: white;
-              }
+body {
+  margin: 0;
+  background: #020304;
+  color: white;
+}
 
-              .site-header {
-                position: sticky;
-                top: 0;
-                z-index: 999;
-                background: rgba(8, 8, 9, 0.78);
-                border-bottom: 1px solid rgba(255,255,255,0.09);
-                backdrop-filter: blur(18px);
-                -webkit-backdrop-filter: blur(18px);
-              }
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  background: rgba(8, 8, 9, 0.78);
+  border-bottom: 1px solid rgba(255,255,255,0.09);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
 
-              .header-inner {
-                max-width: 1380px;
-                margin: 0 auto;
-                padding: 16px 28px;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 24px;
-              }
-
-              .logo {
-                color: rgba(255,255,255,0.62);
-                text-decoration: none;
-                font-size: 14px;
-                font-weight: 950;
-                letter-spacing: 0.28em;
-                white-space: nowrap;
-              }
-
-              .desktop-nav {
-                display: flex;
-                gap: 34px;
-                align-items: center;
-              }
-
-              .desktop-nav a,
-              .footer-links a {
-                color: rgba(255,255,255,0.55);
-                text-decoration: none;
-                font-size: 14px;
-                font-weight: 750;
-              }
-
-              .desktop-nav a:hover,
-              .footer-links a:hover {
-                color: white;
-              }
-
-              .header-right {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-              }
-
-              .season-pill {
-                border: 1px solid rgba(229,185,77,0.18);
-                background: rgba(229,185,77,0.10);
-                color: #e5b94d;
-                padding: 7px 13px;
-                border-radius: 999px;
-                font-size: 12px;
-                font-weight: 950;
-                white-space: nowrap;
-              }
-
-              .login-link {
-                height: 40px;
-                padding: 0 16px;
-                border-radius: 999px;
-                background: rgba(255,255,255,0.06);
-                border: 1px solid rgba(255,255,255,0.12);
-                color: rgba(255,255,255,0.82);
-                text-decoration: none;
-                font-size: 14px;
-                font-weight: 900;
-                display: inline-flex;
-                align-items: center;
-              }
-
-              .login-link:hover {
-                color: white;
-                background: rgba(255,255,255,0.10);
-              }
-
-              details > summary::-webkit-details-marker {
-                display: none;
-              }
-
-              .user-menu {
-                position: relative;
-              }
-
-              .user-menu summary {
-                height: 42px;
-                border-radius: 999px;
-                display: inline-flex;
-                align-items: center;
-                gap: 10px;
-                cursor: pointer;
-                list-style: none;
-                background: rgba(255,255,255,0.07);
-                border: 1px solid rgba(255,255,255,0.12);
-                color: white;
-                font-size: 13px;
-                font-weight: 950;
-                user-select: none;
-                padding: 4px 11px 4px 4px;
-                transition: background 0.18s ease, border-color 0.18s ease;
-              }
-
-              .user-menu summary:hover {
-                background: rgba(255,255,255,0.10);
-                border-color: rgba(229,185,77,0.28);
-              }
-
-              .avatar-mini {
-                width: 34px;
-                height: 34px;
-                display: grid;
-                place-items: center;
-                border-radius: 999px;
-                background: linear-gradient(180deg, #f3cf69, #d9a935);
-                color: #090909;
-                font-size: 12px;
-                font-weight: 950;
-                box-shadow: 0 12px 32px rgba(218,169,53,0.20);
-              }
-
-              .user-name {
-                max-width: 120px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-              }
-
-              .chevron {
-                color: rgba(255,255,255,0.46);
-                font-size: 11px;
-                margin-left: -2px;
-              }
-
-              .dropdown {
-                position: absolute;
-                right: 0;
-                top: 52px;
-                width: 250px;
-                padding: 10px;
-                border-radius: 20px;
-                background: rgba(6,9,13,0.97);
-                border: 1px solid rgba(255,255,255,0.12);
-                box-shadow: 0 24px 80px rgba(0,0,0,0.55);
-                backdrop-filter: blur(18px);
-                -webkit-backdrop-filter: blur(18px);
-              }
-
-              .account-head {
-                display: flex;
-                gap: 12px;
-                align-items: center;
-                padding: 10px;
-              }
-
-              .avatar-large {
-                width: 46px;
-                height: 46px;
-                display: grid;
-                place-items: center;
-                border-radius: 999px;
-                background: linear-gradient(180deg, #f3cf69, #d9a935);
-                color: #090909;
-                font-size: 15px;
-                font-weight: 950;
-                flex: 0 0 auto;
-              }
-
-              .account-head strong {
-                display: block;
-                color: white;
-                font-size: 15px;
-                line-height: 1.2;
-              }
-
-              .account-head span {
-                display: block;
-                margin-top: 4px;
-                max-width: 160px;
-                color: rgba(255,255,255,0.44);
-                font-size: 12px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-              }
-
-              .dropdown a,
-              .dropdown button {
-                width: 100%;
-                display: block;
-                border: 0;
-                background: transparent;
-                color: rgba(255,255,255,0.74);
-                text-align: left;
-                text-decoration: none;
-                font-size: 14px;
-                font-weight: 800;
-                padding: 11px 12px;
-                border-radius: 12px;
-                cursor: pointer;
-                font-family: inherit;
-              }
-
-              .dropdown a:hover,
-              .dropdown button:hover {
-                background: rgba(255,255,255,0.08);
-                color: white;
-              }
-
-              .divider {
-                height: 1px;
-                margin: 7px 4px;
-                background: rgba(255,255,255,0.10);
-              }
-
-              .mobile-menu {
-                display: none;
-              }
-
-              .mobile-menu summary {
-                width: 42px;
-                padding: 0;
-                justify-content: center;
-                font-size: 19px;
-              }
-
-              .site-footer {
-                background: #020304;
-                border-top: 1px solid rgba(255,255,255,0.10);
-              }
-
-              .footer-inner {
-                max-width: 1380px;
-                margin: 0 auto;
-                padding: 34px 28px;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 24px;
-                color: rgba(255,255,255,0.45);
-                font-size: 14px;
-              }
-
-              .footer-logo {
-                margin: 0 0 8px;
-                color: rgba(255,255,255,0.65);
-                font-weight: 950;
-                letter-spacing: 0.24em;
-              }
-
-              .footer-inner p {
-                margin-top: 0;
-              }
-
-            .footer-links {
+.header-inner {
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: 16px 28px;
   display: flex;
-  justify-content: center;
   align-items: center;
-  gap: 28px;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.logo {
+  color: rgba(255,255,255,0.62);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 950;
+  letter-spacing: 0.28em;
+  white-space: nowrap;
+}
+
+.desktop-nav {
+  display: flex;
+  gap: 34px;
+  align-items: center;
+}
+
+.desktop-nav a {
+  color: rgba(255,255,255,0.55);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.desktop-nav a:hover {
+  color: white;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.season-pill {
+  border: 1px solid rgba(229,185,77,0.18);
+  background: rgba(229,185,77,0.10);
+  color: #e5b94d;
+  padding: 7px 13px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.login-link {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.82);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+}
+
+.login-link:hover {
+  color: white;
+  background: rgba(255,255,255,0.10);
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.user-menu {
+  position: relative;
+}
+
+.user-menu summary {
+  height: 42px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  list-style: none;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: white;
+  font-size: 13px;
+  font-weight: 950;
+  user-select: none;
+  padding: 4px 11px 4px 4px;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.user-menu summary:hover {
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(229,185,77,0.28);
+}
+
+.avatar-mini {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f3cf69, #d9a935);
+  color: #090909;
+  font-size: 12px;
+  font-weight: 950;
+  box-shadow: 0 12px 32px rgba(218,169,53,0.20);
+}
+
+.user-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  color: rgba(255,255,255,0.46);
+  font-size: 11px;
+  margin-left: -2px;
+}
+
+.dropdown {
+  position: absolute;
+  right: 0;
+  top: 52px;
+  width: 250px;
+  padding: 10px;
+  border-radius: 20px;
+  background: rgba(6,9,13,0.97);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.account-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+}
+
+.avatar-large {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f3cf69, #d9a935);
+  color: #090909;
+  font-size: 15px;
+  font-weight: 950;
+  flex: 0 0 auto;
+}
+
+.account-head strong {
+  display: block;
+  color: white;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.account-head span {
+  display: block;
+  margin-top: 4px;
+  max-width: 160px;
+  color: rgba(255,255,255,0.44);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropdown a,
+.dropdown button {
+  width: 100%;
+  display: block;
+  border: 0;
+  background: transparent;
+  color: rgba(255,255,255,0.74);
+  text-align: left;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 11px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.dropdown a:hover,
+.dropdown button:hover {
+  background: rgba(255,255,255,0.08);
+  color: white;
+}
+
+.divider {
+  height: 1px;
+  margin: 7px 4px;
+  background: rgba(255,255,255,0.10);
+}
+
+.mobile-menu {
+  display: none;
+}
+
+.mobile-menu summary {
+  width: 42px;
+  padding: 0;
+  justify-content: center;
+  font-size: 19px;
+}
+
+/* Footer */
+
+.site-footer {
+  background: #020304;
+  border-top: 1px solid rgba(255,255,255,0.10);
+}
+
+.footer-inner {
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: 28px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  color: rgba(255,255,255,0.45);
+  font-size: 14px;
+}
+
+.footer-copy {
+  margin: 0;
+  color: rgba(255,255,255,0.46);
+  font-weight: 700;
+}
+
+.footer-links {
+  display: flex;
+  align-items: center;
+  gap: 22px;
   flex-wrap: wrap;
 }
 
-              @media (max-width: 900px) {
-                .desktop-nav {
-                  gap: 22px;
-                }
-
-                .user-name {
-                  display: none;
-                }
-              }
-
-              @media (max-width: 760px) {
-                .header-inner {
-                  padding: 16px 18px;
-                }
-
-                .desktop-nav,
-                .desktop-user,
-                .season-pill {
-                  display: none;
-                }
-
-                .mobile-menu {
-                  display: block;
-                }
-
-                .logo {
-                  font-size: 13px;
-                  letter-spacing: 0.22em;
-                }
-
-                .mobile-dropdown {
-                  width: min(300px, calc(100vw - 32px));
-                }
-
-                .footer-inner {
-                  padding: 34px 18px 38px;
-                  flex-direction: column;
-                  align-items: center;
-                  justify-content: center;
-                  text-align: center;
-                  gap: 18px;
-                }
-
-                .footer-logo {
-                  margin-bottom: 8px;
-                  letter-spacing: 0.22em;
-                }
-
-                .footer-inner p {
-                  margin-bottom: 0;
-                }
-
-                .footer-links {
-  width: 100%;
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  gap: 28px;
-  flex-wrap: nowrap;
+.footer-links a {
+  color: rgba(255,255,255,0.55);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 750;
 }
-              }
+
+.footer-links a:hover {
+  color: white;
+}
+
+@media (max-width: 900px) {
+  .desktop-nav {
+    gap: 22px;
+  }
+
+  .user-name {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .header-inner {
+    padding: 16px 18px;
+  }
+
+  .desktop-nav,
+  .desktop-user,
+  .season-pill {
+    display: none;
+  }
+
+  .mobile-menu {
+    display: block;
+  }
+
+  .logo {
+    font-size: 13px;
+    letter-spacing: 0.22em;
+  }
+
+  .mobile-dropdown {
+    width: min(300px, calc(100vw - 32px));
+  }
+
+  .footer-inner {
+    padding: 28px 18px 32px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 14px;
+  }
+
+  .footer-links {
+    width: 100%;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+}
             `,
           }}
         />
