@@ -230,42 +230,7 @@ function getHeadToHeadRows(
   return miniTable;
 }
 
-function compareGroupTeams(
-  a: GroupTableRow,
-  b: GroupTableRow,
-  allRows: GroupTableRow[],
-  matchesInGroup: WorldCupMatch[],
-  predictions: PredictionState,
-  group: string
-) {
-  if (b.points !== a.points) return b.points - a.points;
-
-  const tiedTeams = allRows.filter((row) => row.points === a.points);
-
-  if (tiedTeams.length > 1) {
-    const headToHeadRows = getHeadToHeadRows(
-      tiedTeams,
-      matchesInGroup,
-      predictions,
-      group
-    );
-
-    const h2hA = headToHeadRows.get(a.team);
-    const h2hB = headToHeadRows.get(b.team);
-
-    if (h2hA && h2hB) {
-      if (h2hB.points !== h2hA.points) return h2hB.points - h2hA.points;
-
-      if (h2hB.goalDifference !== h2hA.goalDifference) {
-        return h2hB.goalDifference - h2hA.goalDifference;
-      }
-
-      if (h2hB.goalsFor !== h2hA.goalsFor) {
-        return h2hB.goalsFor - h2hA.goalsFor;
-      }
-    }
-  }
-
+function compareByTotalCriteria(a: GroupTableRow, b: GroupTableRow) {
   if (b.goalDifference !== a.goalDifference) {
     return b.goalDifference - a.goalDifference;
   }
@@ -275,6 +240,115 @@ function compareGroupTeams(
   }
 
   return compareByFifaRankingThenName(a, b);
+}
+
+function getHeadToHeadKey(row: GroupTableRow) {
+  return `${row.points}:${row.goalDifference}:${row.goalsFor}`;
+}
+
+function rankByHeadToHeadOnly({
+  tiedTeams,
+  matchesInGroup,
+  predictions,
+  group,
+}: {
+  tiedTeams: GroupTableRow[];
+  matchesInGroup: WorldCupMatch[];
+  predictions: PredictionState;
+  group: string;
+}): GroupTableRow[] | null {
+  if (tiedTeams.length <= 1) return tiedTeams;
+
+  const headToHeadRows = getHeadToHeadRows(
+    tiedTeams,
+    matchesInGroup,
+    predictions,
+    group
+  );
+
+  const sorted = [...tiedTeams].sort((a, b) => {
+    const h2hA = headToHeadRows.get(a.team);
+    const h2hB = headToHeadRows.get(b.team);
+
+    if (!h2hA || !h2hB) return compareByTotalCriteria(a, b);
+
+    if (h2hB.points !== h2hA.points) return h2hB.points - h2hA.points;
+
+    if (h2hB.goalDifference !== h2hA.goalDifference) {
+      return h2hB.goalDifference - h2hA.goalDifference;
+    }
+
+    if (h2hB.goalsFor !== h2hA.goalsFor) {
+      return h2hB.goalsFor - h2hA.goalsFor;
+    }
+
+    return 0;
+  });
+
+  const buckets: GroupTableRow[][] = [];
+
+  for (const team of sorted) {
+    const h2h = headToHeadRows.get(team.team);
+    const key = h2h ? getHeadToHeadKey(h2h) : "missing";
+
+    const lastBucket = buckets[buckets.length - 1];
+    const lastTeam = lastBucket?.[0];
+    const lastH2h = lastTeam ? headToHeadRows.get(lastTeam.team) : null;
+    const lastKey = lastH2h ? getHeadToHeadKey(lastH2h) : "missing";
+
+    if (!lastBucket || key !== lastKey) {
+      buckets.push([team]);
+    } else {
+      lastBucket.push(team);
+    }
+  }
+
+  if (buckets.length === 1) {
+    return null;
+  }
+
+  const ranked: GroupTableRow[] = [];
+
+  for (const bucket of buckets) {
+    if (bucket.length === 1) {
+      ranked.push(bucket[0]);
+      continue;
+    }
+
+    const remainingTeamsRanking = rankByHeadToHeadOnly({
+      tiedTeams: bucket,
+      matchesInGroup,
+      predictions,
+      group,
+    });
+
+    ranked.push(
+      ...(remainingTeamsRanking ?? [...bucket].sort(compareByTotalCriteria))
+    );
+  }
+
+  return ranked;
+}
+
+function rankTiedTeamsByFifaRules({
+  tiedTeams,
+  matchesInGroup,
+  predictions,
+  group,
+}: {
+  tiedTeams: GroupTableRow[];
+  matchesInGroup: WorldCupMatch[];
+  predictions: PredictionState;
+  group: string;
+}) {
+  const headToHeadRanking = rankByHeadToHeadOnly({
+    tiedTeams,
+    matchesInGroup,
+    predictions,
+    group,
+  });
+
+  return headToHeadRanking ?? [...tiedTeams].sort(compareByTotalCriteria);
 }
 
 export function buildGroupTable(
@@ -320,11 +394,38 @@ export function buildGroupTable(
     applyMatchToRows(home, away, Number(prediction.home), Number(prediction.away));
   }
 
-  const rows = Array.from(table.values());
+  const rows = Array.from(table.values()).sort((a, b) => b.points - a.points);
+  const rankedRows: GroupTableRow[] = [];
+  const pointBuckets: GroupTableRow[][] = [];
 
-  return rows.sort((a, b) =>
-    compareGroupTeams(a, b, rows, matchesInGroup, predictions, group)
-  );
+  for (const row of rows) {
+    const lastBucket = pointBuckets[pointBuckets.length - 1];
+    const lastRow = lastBucket?.[0];
+
+    if (!lastBucket || !lastRow || lastRow.points !== row.points) {
+      pointBuckets.push([row]);
+    } else {
+      lastBucket.push(row);
+    }
+  }
+
+  for (const bucket of pointBuckets) {
+    if (bucket.length === 1) {
+      rankedRows.push(bucket[0]);
+      continue;
+    }
+
+    rankedRows.push(
+      ...rankTiedTeamsByFifaRules({
+        tiedTeams: bucket,
+        matchesInGroup,
+        predictions,
+        group,
+      })
+    );
+  }
+
+  return rankedRows;
 }
 
 export function rankBestThirdPlacedTeams(input: GroupTable[] | GroupTableRow[]) {
@@ -400,7 +501,10 @@ function buildBestThirdAssignment(thirdPlacedTeams: GroupTableRow[]) {
     return null;
   }
 
-  return tryAssign(0, new Set<string>(), new Map<string, GroupTableRow>()) ?? new Map();
+  return (
+    tryAssign(0, new Set<string>(), new Map<string, GroupTableRow>()) ??
+    new Map()
+  );
 }
 
 function getGroupWinnerOrRunnerUp(
@@ -544,22 +648,25 @@ export function buildPlayoffRounds({
 
     return matches.map((dbMatch) => {
       const matchNumber = dbMatch.fifa_match_number ?? 0;
-      const slots = playoffSlots[matchNumber] ?? [dbMatch.home_team, dbMatch.away_team];
+      const slots = playoffSlots[matchNumber] ?? [
+        dbMatch.home_team,
+        dbMatch.away_team,
+      ];
       const [slotALabel, slotBLabel] = slots;
 
       const teamA = resolveSlot({
-  label: slotALabel,
-  allGroupTables,
-  thirdAssignment,
-  resolvedByMatchNumber,
-});
+        label: slotALabel,
+        allGroupTables,
+        thirdAssignment,
+        resolvedByMatchNumber,
+      });
 
       const teamB = resolveSlot({
-  label: slotBLabel,
-  allGroupTables,
-  thirdAssignment,
-  resolvedByMatchNumber,
-});
+        label: slotBLabel,
+        allGroupTables,
+        thirdAssignment,
+        resolvedByMatchNumber,
+      });
 
       const prediction = predictions[dbMatch.id];
       const scoreA = prediction?.home ?? "";

@@ -1047,9 +1047,7 @@ export default function TippaClient({
                 </div>
 
                 <p className="table-note">
-                  Gruppordningen följer FIFAs regler: poäng, inbördes möten,
-                  total målskillnad, gjorda mål och därefter FIFA:s
-                  skiljekriterier.
+                  Gruppordningen följer FIFAs regler: poäng, inbördes poäng, inbördes målskillnad, inbördes gjorda mål, total målskillnad, gjorda mål och därefter FIFA-ranking som fallback.
                 </p>
               </div>
 

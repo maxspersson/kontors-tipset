@@ -4,13 +4,48 @@ import { calculateStandings } from "@/app/lib/scoring";
 
 const TOURNAMENT_ID = "3aadd8c0-9236-46a9-bd17-99653f3c2794";
 
+type AdvancingTeam = "home" | "away";
+
 type UpdateMatchPayload = {
   fifa_match_number?: number;
   home_score?: number | null;
   away_score?: number | null;
+  home_pen?: number | null;
+  away_pen?: number | null;
+  actual_advancing_team?: AdvancingTeam | null;
   status?: "scheduled" | "live" | "finished";
   secret?: string;
 };
+
+function getActualAdvancingTeam({
+  stage,
+  homeScore,
+  awayScore,
+  homePen,
+  awayPen,
+  actualAdvancingTeam,
+}: {
+  stage: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  homePen: number | null;
+  awayPen: number | null;
+  actualAdvancingTeam?: AdvancingTeam | null;
+}) {
+  if (stage === "group") return null;
+  if (actualAdvancingTeam) return actualAdvancingTeam;
+  if (homeScore === null || awayScore === null) return null;
+
+  if (homeScore > awayScore) return "home";
+  if (awayScore > homeScore) return "away";
+
+  if (homePen === null || awayPen === null) return null;
+
+  if (homePen > awayPen) return "home";
+  if (awayPen > homePen) return "away";
+
+  return null;
+}
 
 export async function POST(request: Request) {
   const body = (await request.json()) as UpdateMatchPayload;
@@ -33,20 +68,51 @@ export async function POST(request: Request) {
     return new NextResponse("home_score och away_score krävs", { status: 400 });
   }
 
-  const homeScore = status === "scheduled" ? null : body.home_score;
-  const awayScore = status === "scheduled" ? null : body.away_score;
+  const { data: currentMatch, error: currentMatchError } = await supabase
+    .from("matches")
+    .select("stage")
+    .eq("tournament_id", TOURNAMENT_ID)
+    .eq("fifa_match_number", body.fifa_match_number)
+    .single();
+
+  if (currentMatchError) {
+    return new NextResponse(
+      `Kunde inte hämta match: ${currentMatchError.message}`,
+      { status: 500 }
+    );
+  }
+
+  const homeScore = status === "scheduled" ? null : body.home_score ?? null;
+  const awayScore = status === "scheduled" ? null : body.away_score ?? null;
+  const homePen = status === "scheduled" ? null : body.home_pen ?? null;
+  const awayPen = status === "scheduled" ? null : body.away_pen ?? null;
+
+  const actualAdvancingTeam =
+    status === "scheduled"
+      ? null
+      : getActualAdvancingTeam({
+          stage: currentMatch.stage,
+          homeScore,
+          awayScore,
+          homePen,
+          awayPen,
+          actualAdvancingTeam: body.actual_advancing_team ?? null,
+        });
 
   const { data: updatedMatch, error: updateError } = await supabase
     .from("matches")
     .update({
       home_score: homeScore,
       away_score: awayScore,
+      home_pen: homePen,
+      away_pen: awayPen,
+      actual_advancing_team: actualAdvancingTeam,
       status,
     })
     .eq("tournament_id", TOURNAMENT_ID)
     .eq("fifa_match_number", body.fifa_match_number)
     .select(
-      "id, fifa_match_number, home_team, away_team, home_score, away_score, status"
+      "id, fifa_match_number, home_team, away_team, home_score, away_score, home_pen, away_pen, actual_advancing_team, status"
     )
     .single();
 
@@ -110,11 +176,11 @@ export async function POST(request: Request) {
   }
 
   const { data: matches, error: matchesError } = await supabase
-  .from("matches")
-  .select(
-    "id, fifa_match_number, stage, group_name, home_team, away_team, home_team_code, away_team_code, home_fifa_ranking, away_fifa_ranking, home_score, away_score, home_pen, away_pen, actual_advancing_team"
-  )
-  .eq("tournament_id", TOURNAMENT_ID);
+    .from("matches")
+    .select(
+      "id, fifa_match_number, stage, group_name, home_team, away_team, home_team_code, away_team_code, home_fifa_ranking, away_fifa_ranking, home_score, away_score, home_pen, away_pen, actual_advancing_team"
+    )
+    .eq("tournament_id", TOURNAMENT_ID);
 
   if (matchesError) {
     return new NextResponse(
@@ -158,13 +224,19 @@ export async function POST(request: Request) {
 
   const now = new Date().toISOString();
 
-  const snapshotRows = allStandings.map((standing, index) => ({
-    league_id: standing.league_id,
-    user_id: standing.user_id,
-    rank: index + 1,
-    points: standing.points,
-    created_at: now,
-  }));
+  const snapshotRows = submittedLeagueIds.flatMap((leagueId) => {
+    const leagueStandings = allStandings.filter(
+      (standing) => standing.league_id === leagueId
+    );
+
+    return leagueStandings.map((standing, index) => ({
+      league_id: standing.league_id,
+      user_id: standing.user_id,
+      rank: index + 1,
+      points: standing.points,
+      created_at: now,
+    }));
+  });
 
   if (snapshotRows.length > 0) {
     const { error: snapshotError } = await supabase
