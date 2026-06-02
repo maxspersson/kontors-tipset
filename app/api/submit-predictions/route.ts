@@ -31,7 +31,7 @@ type ProfileRow = {
 };
 
 const TOTAL_REQUIRED_PREDICTIONS = 104;
-const SUBMISSION_DEADLINE_UTC = Date.UTC(2026, 5, 10, 21, 59, 59, 999);
+const SUBMISSION_DEADLINE_UTC = Date.UTC(2026, 5, 11, 18, 30, 0, 0);
 
 function isAfterSubmissionDeadline() {
   return Date.now() > SUBMISSION_DEADLINE_UTC;
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
 
   if (isAfterSubmissionDeadline()) {
     return new NextResponse(
-      "Deadline har passerat. Hela tipset skulle vara inskickat senast 10 juni 2026 kl. 23:59.",
+      "Deadline har passerat. Hela tipset skulle vara inskickat senast 11 juni 2026 kl. 20:00.",
       { status: 403 }
     );
   }

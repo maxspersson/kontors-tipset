@@ -56,60 +56,55 @@ function getFlagEmoji(code: string | null) {
   if (!code) return "🏳️";
 
   const map: Record<string, string> = {
-    ARG: "🇦🇷",
-    AUS: "🇦🇺",
-    AUT: "🇦🇹",
-    BEL: "🇧🇪",
-    BRA: "🇧🇷",
-    CAN: "🇨🇦",
-    CHI: "🇨🇱",
-    CHL: "🇨🇱",
-    COL: "🇨🇴",
-    CRC: "🇨🇷",
-    CRO: "🇭🇷",
-    CMR: "🇨🇲",
-    CPV: "🇨🇻",
-    CZE: "🇨🇿",
-    DEN: "🇩🇰",
-    ECU: "🇪🇨",
-    EGY: "🇪🇬",
-    ENG: "🏴",
-    FRA: "🇫🇷",
-    GAB: "🇬🇦",
-    GER: "🇩🇪",
-    GHA: "🇬🇭",
-    HAI: "🇭🇹",
-    ITA: "🇮🇹",
-    JPN: "🇯🇵",
-    KOR: "🇰🇷",
-    KSA: "🇸🇦",
-    MAR: "🇲🇦",
-    MEX: "🇲🇽",
-    MKD: "🇲🇰",
-    NED: "🇳🇱",
-    NGA: "🇳🇬",
-    NOR: "🇳🇴",
-    NZL: "🇳🇿",
-    PAN: "🇵🇦",
-    PAR: "🇵🇾",
-    PRY: "🇵🇾",
-    PER: "🇵🇪",
-    PHI: "🇵🇭",
-    POL: "🇵🇱",
-    POR: "🇵🇹",
-    RSA: "🇿🇦",
-    SAU: "🇸🇦",
-    SEN: "🇸🇳",
-    SRB: "🇷🇸",
-    ESP: "🇪🇸",
-    SUI: "🇨🇭",
-    SWE: "🇸🇪",
-    TUN: "🇹🇳",
-    TUR: "🇹🇷",
-    URU: "🇺🇾",
-    USA: "🇺🇸",
-    ZAF: "🇿🇦",
-  };
+  ALG: "🇩🇿",
+  ARG: "🇦🇷",
+  AUS: "🇦🇺",
+  AUT: "🇦🇹",
+  BEL: "🇧🇪",
+  BIH: "🇧🇦",
+  BRA: "🇧🇷",
+  CAN: "🇨🇦",
+  CIV: "🇨🇮",
+  COD: "🇨🇩",
+  COL: "🇨🇴",
+  CPV: "🇨🇻",
+  CUW: "🇨🇼",
+  CZE: "🇨🇿",
+  DEN: "🇩🇰",
+  ECU: "🇪🇨",
+  EGY: "🇪🇬",
+  ENG: "🏴",
+  ESP: "🇪🇸",
+  FRA: "🇫🇷",
+  GER: "🇩🇪",
+  GHA: "🇬🇭",
+  HAI: "🇭🇹",
+  IRN: "🇮🇷",
+  IRQ: "🇮🇶",
+  JOR: "🇯🇴",
+  JPN: "🇯🇵",
+  KOR: "🇰🇷",
+  KSA: "🇸🇦",
+  MAR: "🇲🇦",
+  MEX: "🇲🇽",
+  NED: "🇳🇱",
+  NOR: "🇳🇴",
+  NZL: "🇳🇿",
+  PAN: "🇵🇦",
+  PAR: "🇵🇾",
+  POR: "🇵🇹",
+  QAT: "🇶🇦",
+  RSA: "🇿🇦",
+  SCO: "🏴",
+  SEN: "🇸🇳",
+  SUI: "🇨🇭",
+  SWE: "🇸🇪",
+  TUN: "🇹🇳",
+  TUR: "🇹🇷",
+  URU: "🇺🇾",
+  USA: "🇺🇸",
+  UZB: "🇺🇿",
+};
 
   return map[code.toUpperCase()] ?? "🏳️";
 }
@@ -301,7 +296,7 @@ export default async function Home() {
 
               <div className="hero-actions">
                 <Link href={user ? "/liga" : "/login"} className="primary-btn">
-                  {user ? "Skapa liga" : "Skapa konto"} →
+                  {user ? "Mina ligor" : "Skapa konto"} →
                 </Link>
 
                 <Link href="/regler" className="secondary-btn">
@@ -316,7 +311,7 @@ export default async function Home() {
               <div className="feature-grid">
                 {[
                   ["👥", "Skapa din liga", "Starta en liga och bjud in vänner."],
-                  ["🏆", "Tippa matcher", "Sätt resultaten före deadline."],
+                  ["🏆", "Tippa matcher", "Fyll i resultaten och bygg ditt slutspel"],
                   ["📊", "Klättra i tabellen", "Följ poängen live under VM."],
                   ["🎁", "Vinn ära", "Skryt resten av sommaren."],
                 ].map(([icon, title, text]) => (
@@ -953,7 +948,9 @@ function MatchCard({
         <div className="deadline-box">Matchschemat laddas snart in.</div>
       )}
 
-      <div className="deadline-box">Tips låses 60 minuter före matchstart</div>
+      <div className="deadline-box">
+  Matchen låses 60 minuter före avspark.
+</div>
 
       <div className="leaderboard">
         <p className="leaderboard-label">Global topplista</p>
@@ -981,7 +978,7 @@ function MatchCard({
         ) : (
           <div className="leader-row">
             <strong style={{ flex: 1, color: "rgba(255,255,255,0.65)" }}>
-              Ingen leaderboard ännu
+              Topplistan visas när matcherna börjar räknas.
             </strong>
           </div>
         )}

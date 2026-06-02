@@ -20,6 +20,12 @@ type CopyLeagueOption = {
   id: string;
   name: string;
 };
+const TOURNAMENT_DEADLINE_LABEL = "11 juni 2026 kl. 20:00";
+const TOURNAMENT_SUBMIT_LOCK_DATE = new Date("2026-06-11T20:30:00+02:00");
+
+function isTournamentSubmitDeadlinePassed() {
+  return Date.now() >= TOURNAMENT_SUBMIT_LOCK_DATE.getTime();
+}
 
 function isLiveMatch(match: Match) {
   return match.status === "live";
@@ -210,11 +216,24 @@ export default function TippaClient({
   const [copySourceLeagueId, setCopySourceLeagueId] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
   const [isCopying, setIsCopying] = useState(false);
+  const [submitDeadlinePassed, setSubmitDeadlinePassed] = useState(false);
 
   const hasMounted = useRef(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+  function updateDeadlineStatus() {
+    setSubmitDeadlinePassed(isTournamentSubmitDeadlinePassed());
+  }
 
-  const isPlayoffLocked = hasSubmitted || readonly;
+  updateDeadlineStatus();
+
+  const interval = setInterval(updateDeadlineStatus, 30 * 1000);
+
+  return () => clearInterval(interval);
+}, []);
+
+  const isSubmitDeadlineLocked = submitDeadlinePassed && !readonly;
+const isPlayoffLocked = hasSubmitted || readonly || isSubmitDeadlineLocked;
 
   const [predictions, setPredictions] = useState<PredictionState>(() => {
     const initial: PredictionState = {};
@@ -432,6 +451,10 @@ const thirdPlacedTeams = allGroupsComplete
   }
 
   async function copyPredictionsFromLeague() {
+    if (isSubmitDeadlineLocked) {
+  setCopyStatus("Deadline har passerat. Det går inte längre att kopiera in ett helt tips.");
+  return;
+}
     if (!copySourceLeagueId) {
       setCopyStatus("Välj en liga att kopiera från.");
       return;
@@ -521,6 +544,12 @@ const thirdPlacedTeams = allGroupsComplete
   }
 
   async function submitPredictions() {
+    if (isSubmitDeadlineLocked) {
+  setSubmitStatus(
+    `Deadline har passerat. Tipset skulle vara inskickat senast ${TOURNAMENT_DEADLINE_LABEL}.`
+  );
+  return;
+}
     if (hasSubmitted) {
       setSubmitStatus("Tipset är redan inskickat. Slutspelet är låst.");
       return;
@@ -682,6 +711,18 @@ const thirdPlacedTeams = allGroupsComplete
           {hasError && (
             <div className="error-box">Kunde inte hämta matcher.</div>
           )}
+          {isSubmitDeadlineLocked && !hasSubmitted && (
+  <div className="tippa-locked-banner">
+    <div>
+      <p className="tippa-locked-title">Deadline har passerat</p>
+      <p className="tippa-locked-text">
+        Det går inte längre att skicka in ett nytt turneringstips.
+        Gruppspelsmatcher kan fortfarande ändras fram till 60 minuter före
+        respektive avspark, men bara inskickade tips deltar i ligans tabell.
+      </p>
+    </div>
+  </div>
+)}
 
           {!readonly && !hasSubmitted && copyLeagueOptions.length > 0 && (
             <div className="copy-tips-card">
@@ -982,8 +1023,11 @@ const thirdPlacedTeams = allGroupsComplete
                     <button
                       className="submit-button"
                       disabled={
-                        hasSubmitted || !isEntireBracketComplete || isSubmitting
-                      }
+  isSubmitDeadlineLocked ||
+  hasSubmitted ||
+  !isEntireBracketComplete ||
+  isSubmitting
+}
                       onClick={submitPredictions}
                     >
                       {hasSubmitted
