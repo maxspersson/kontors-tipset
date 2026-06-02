@@ -1,3 +1,6 @@
+import MatchDuelPager, {
+  type MatchDuelPickItem,
+} from "@/app/components/MatchDuelPager";
 import CopyTextButton from "@/app/components/CopyTextButton";
 import MembersPager, { type MemberPagerItem } from "@/app/components/MembersPager";
 import LeagueAutoRefresh from "@/app/components/LeagueAutoRefresh";
@@ -587,6 +590,27 @@ export default async function LeagueDetailPage({
   const memberCount = isDemoMode ? 5 : memberRows.length;
   const submittedCount = isDemoMode ? 5 : submittedUserIds.length;
 
+  const duelPagerPicks: MatchDuelPickItem[] = activeFeaturedMatch
+  ? matchDuelPicks.map((pick) => ({
+      memberId: pick.memberId,
+      displayName: pick.displayName,
+      hasSubmitted: pick.hasSubmitted,
+      homeScore: pick.homeScore,
+      awayScore: pick.awayScore,
+      outcomeLabel:
+        pick.hasSubmitted && pick.homeScore !== null && pick.awayScore !== null
+          ? getPickOutcomeLabel(
+              pick.homeScore,
+              pick.awayScore,
+              activeFeaturedMatch.home_team,
+              activeFeaturedMatch.away_team
+            )
+          : pick.hasSubmitted
+            ? "Inget tips på matchen"
+            : "Inte inskickat",
+    }))
+  : [];
+
   const pagerMembers: MemberPagerItem[] = memberRows.map((member) => {
   const profile = profileMap.get(member.user_id);
   const displayName = getDisplayName(profile);
@@ -711,7 +735,7 @@ export default async function LeagueDetailPage({
 
           <section className="highlights-panel">
             <div className="highlight-card">
-              <p>Dagens klättrare</p>
+              <p>Hetast just nu</p>
               {topClimber ? (
                 <>
                   <strong>{topClimber.display_name}</strong>
@@ -865,70 +889,24 @@ export default async function LeagueDetailPage({
                         </div>
                       </div>
 
-                      <div className="duel-outcome-grid">
-                        <div>
-                          <strong>
-                            {getSwedishTeamName(activeFeaturedMatch.home_team)}
-                          </strong>
-                          <span>{homeWinPicks.length} tips</span>
-                        </div>
+                     <div className="duel-outcome-grid">
+  <div>
+    <strong>{getSwedishTeamName(activeFeaturedMatch.home_team)}</strong>
+    <span>{homeWinPicks.length} tips</span>
+  </div>
 
-                        <div>
-                          <strong>Oavgjort</strong>
-                          <span>{drawPicks.length} tips</span>
-                        </div>
+  <div>
+    <strong>Oavgjort</strong>
+    <span>{drawPicks.length} tips</span>
+  </div>
 
-                        <div>
-                          <strong>
-                            {getSwedishTeamName(activeFeaturedMatch.away_team)}
-                          </strong>
-                          <span>{awayWinPicks.length} tips</span>
-                        </div>
-                      </div>
+  <div>
+    <strong>{getSwedishTeamName(activeFeaturedMatch.away_team)}</strong>
+    <span>{awayWinPicks.length} tips</span>
+  </div>
+</div>
 
-                      <div className="picks-list duel-picks-list">
-                        {matchDuelPicks.map((pick) => {
-                          const hasPrediction =
-                            pick.hasSubmitted &&
-                            pick.homeScore !== null &&
-                            pick.awayScore !== null;
-
-                          return (
-                            <div
-                              key={pick.memberId}
-                              className="pick-row duel-pick-row"
-                            >
-                              <div className="pick-user">
-                                <span className="pick-avatar">
-                                  {pick.initials}
-                                </span>
-
-                                <div>
-                                  <strong>{pick.displayName}</strong>
-                                  <span>
-                                    {hasPrediction
-                                      ? getPickOutcomeLabel(
-                                          pick.homeScore,
-                                          pick.awayScore,
-                                          activeFeaturedMatch.home_team,
-                                          activeFeaturedMatch.away_team
-                                        )
-                                      : pick.hasSubmitted
-                                        ? "Inget tips på matchen"
-                                        : "Inte inskickat"}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <em>
-                                {hasPrediction
-                                  ? `${pick.homeScore}–${pick.awayScore}`
-                                  : "—"}
-                              </em>
-                            </div>
-                          );
-                        })}
-                      </div>
+<MatchDuelPager picks={duelPagerPicks} />
                     </div>
                   )}
                 </section>
@@ -1534,20 +1512,6 @@ export default async function LeagueDetailPage({
               align-items: center;
               gap: 10px;
               min-width: 0;
-            }
-
-            .pick-avatar {
-              width: 30px;
-              height: 30px;
-              border-radius: 999px;
-              display: grid;
-              place-items: center;
-              flex: 0 0 auto;
-              background: rgba(229,185,77,0.12);
-              border: 1px solid rgba(229,185,77,0.22);
-              color: #e5b94d;
-              font-size: 10px;
-              font-weight: 950;
             }
 
             .pick-row strong {

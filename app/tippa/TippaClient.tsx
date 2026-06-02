@@ -8,8 +8,7 @@ import {
   buildPlayoffRounds,
   rankBestThirdPlacedTeams,
   isCompletePrediction,
-  type AdvancingTeam,
-  type GroupTableRow,
+    type AdvancingTeam,
   type PredictionState,
 } from "../lib/worldCupRules";
 import { formatKickoff } from "../lib/formatDate";
@@ -159,6 +158,22 @@ function getFriendlySlotLabel(label: string) {
   if (/^3[A-L]+$/.test(label)) return "Bästa grupptrea";
 
   return "Ej klart";
+}
+
+function getPenaltyDecisionText(stage?: string | null) {
+  if (stage === "final" || stage === "third_place") {
+    return "Välj vinnare efter straffläggning.";
+  }
+
+  return "Välj lag som går vidare efter straffläggning.";
+}
+
+function getPenaltyButtonSuffix(stage?: string | null) {
+  if (stage === "final" || stage === "third_place") {
+    return "vinner";
+  }
+
+  return "vidare";
 }
 
 export default function TippaClient({
@@ -319,7 +334,14 @@ export default function TippaClient({
   const TOTAL_MATCHES = 104;
   const isEntireBracketComplete = completedPredictionsCount >= TOTAL_MATCHES;
 
-  const thirdPlacedTeams = rankBestThirdPlacedTeams(allGroupTables).slice(0, 8);
+  const allGroupsComplete = allGroupTables.every(
+  (group) =>
+    group.totalMatches > 0 && group.completedMatches === group.totalMatches
+);
+
+const thirdPlacedTeams = allGroupsComplete
+  ? rankBestThirdPlacedTeams(allGroupTables).slice(0, 8)
+  : [];
 
   const playoffRounds = useMemo(() => {
     return buildPlayoffRounds({
@@ -743,6 +765,14 @@ export default function TippaClient({
                   <h2>Slutspelsträd</h2>
                 </div>
               </div>
+              <div className="playoff-info-card">
+  <strong>Så tippar du slutspelet</strong>
+  <p>
+    Du tippar resultatet efter ordinarie tid och eventuell förlängning.
+    Om matchen fortfarande är oavgjord väljer du vilket lag som avgör på
+    straffar.
+  </p>
+</div>
 
               <div className="bracket-status podium-status">
                 <div className={champion ? "champion-card" : ""}>
@@ -870,9 +900,9 @@ export default function TippaClient({
                                 match.teamB && (
                                   <div className="advance-picker">
                                     <p>
-                                      Oavgjort efter spelad matchtid. Välj lag
-                                      som går vidare efter straffläggning.
-                                    </p>
+  Oavgjort efter ordinarie tid och eventuell förlängning.{" "}
+  {getPenaltyDecisionText(match.dbMatch.stage)}
+</p>
 
                                     <div className="advance-actions">
                                       <button
@@ -892,7 +922,7 @@ export default function TippaClient({
                                         }
                                       >
                                         {getSwedishTeamName(match.teamA.team)}{" "}
-                                        vidare
+{getPenaltyButtonSuffix(match.dbMatch.stage)}
                                       </button>
 
                                       <button
@@ -912,7 +942,7 @@ export default function TippaClient({
                                         }
                                       >
                                         {getSwedishTeamName(match.teamB.team)}{" "}
-                                        vidare
+{getPenaltyButtonSuffix(match.dbMatch.stage)}
                                       </button>
                                     </div>
                                   </div>
@@ -1441,6 +1471,31 @@ export default function TippaClient({
             .match-status.locking-soon {
               color: #f8e7ad;
             }
+
+            .playoff-info-card {
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: rgba(229,185,77,0.08);
+  border: 1px solid rgba(229,185,77,0.18);
+  color: rgba(255,255,255,0.72);
+}
+
+.playoff-info-card strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #e5b94d;
+  font-size: 13px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.playoff-info-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
 
             .advance-picker {
               margin-top: 12px;

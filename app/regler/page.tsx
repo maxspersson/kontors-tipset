@@ -4,10 +4,10 @@ export default function RulesPage() {
   const knowItems = [
   "Gruppspelsmatcher kan ändras fram till 60 minuter före avspark.",
   "Slutspelet låses när du skickar in hela tipset.",
-  "Matchpoäng räknas när ett faktiskt resultat finns registrerat.",
+  "Matchpoäng räknas först när ett faktiskt resultat finns registrerat.",
   "Gruppspel räknas efter ordinarie tid, alltså 90 minuter plus eventuell stopptid.",
-  "Slutspel räknas efter spelad matchtid, alltså 90 minuter plus eventuell förlängning.",
-  "Straffläggning används bara för att avgöra vilket lag som går vidare, inte för matchpoäng.",
+  "Slutspel räknas efter 90 minuter plus eventuell förlängning.",
+  "Straffläggning används bara för att avgöra vilket lag som går vidare eller vinner final/bronsmatch. Straffar räknas inte in i målresultatet.",
   "Tabellen uppdateras utifrån inskickade tips och spelade matcher.",
   "Gruppordningen följer VM:s tiebreaker-logik: poäng, inbördes möten, inbördes målskillnad, inbördes gjorda mål, total målskillnad och totalt antal gjorda mål.",
   "Om lag fortfarande inte kan skiljas åt används FIFA:s världsranking som sista skiljekriterium i Kontors-tipset. Det påverkar endast mycket ovanliga situationer där lag är helt lika enligt övriga tiebreakers.",
@@ -113,8 +113,8 @@ export default function RulesPage() {
               </p>
               <p className="deadline-date">10 juni 2026 · 23:59</p>
               <p className="deadline-text">
-                Då låses ditt slutspel baserat på dina gruppresultat vid
-                inskickning. Efter deadline kan slutspelet inte ändras, men
+                Då låses ditt slutspel baserat på de gruppresultat du har
+skickat in. Efter deadline kan slutspelet inte ändras, men
                 gruppspelsmatcher kan fortfarande justeras fram till respektive
                 matchlås.
               </p>
@@ -180,32 +180,31 @@ export default function RulesPage() {
                 <h3>Rätt lag i rätt runda</h3>
 
                 <ul>
-                  <li>
-                    <strong>2 p</strong> per rätt lag i åttondelsfinal
-                  </li>
-                  <li>
-                    <strong>4 p</strong> per rätt lag i kvartsfinal
-                  </li>
-                  <li>
-                    <strong>6 p</strong> per rätt lag i semifinal
-                  </li>
-                  <li>
-                    <strong>8 p</strong> per rätt lag i final
-                  </li>
-                  <li>
-                    <strong>20 p</strong> för rätt VM-vinnare
-                  </li>
-                </ul>
+  <li>
+    <strong>2 p</strong> per rätt lag som når åttondelsfinal
+  </li>
+  <li>
+    <strong>4 p</strong> per rätt lag som når kvartsfinal
+  </li>
+  <li>
+    <strong>6 p</strong> per rätt lag som når semifinal
+  </li>
+  <li>
+    <strong>8 p</strong> per rätt lag som når final
+  </li>
+  <li>
+    <strong>20 p</strong> för rätt VM-vinnare
+  </li>
+</ul>
 
                 <div className="example-box">
                   <p>Vid oavgjort i slutspel</p>
                   <span>
-                    Om matchen är oavgjord efter spelad matchtid, inklusive
-                    eventuell förlängning, väljer du vilket lag som går vidare
-                    efter straffläggning. Straffar räknas inte in i
-                    målresultatet, men valet används både för att bygga vidare
-                    ditt slutspel och för att avgöra rätt vidare lag.
-                  </span>
+  Om matchen är oavgjord efter 90 minuter plus eventuell förlängning
+  väljer du vilket lag som går vidare efter straffläggning. I final och
+  bronsmatch väljer du vinnare efter straffläggning. Straffar räknas
+  inte in i målresultatet.
+</span>
                 </div>
               </div>
             </div>
@@ -218,7 +217,7 @@ export default function RulesPage() {
             </div>
 
             <div className="warning-card">
-              <h3>Ditt slutspel baseras på dina gruppresultat vid deadline.</h3>
+              <h3>Ditt slutspel baseras på dina gruppresultat när du skickar in tipset.</h3>
 
               <p>
                 När deadline passerat låses ditt slutspel utifrån de
