@@ -8,6 +8,18 @@ function loginRedirect(request: Request, nextPath: string) {
   return NextResponse.redirect(loginUrl, 303);
 }
 
+function formatDisplayName(email?: string | null) {
+  if (!email) return "Spelare";
+
+  return email
+    .split("@")[0]
+    .replace(/[._-]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 async function joinLeagueByCode(request: Request, code: string) {
   const supabase = await createClient();
 
@@ -25,6 +37,30 @@ async function joinLeagueByCode(request: Request, code: string) {
 
   if (!user) {
     return loginRedirect(request, nextPath);
+  }
+
+  const email = user.email || null;
+  const displayName =
+    user.user_metadata?.full_name ||
+    user.user_metadata?.name ||
+    formatDisplayName(email);
+
+  const { error: profileError } = await supabase.from("profiles").upsert(
+    {
+      id: user.id,
+      email,
+      display_name: displayName,
+    },
+    {
+      onConflict: "id",
+    }
+  );
+
+  if (profileError) {
+    return new NextResponse(
+      `Kunde inte uppdatera profilen: ${profileError.message}`,
+      { status: 500 }
+    );
   }
 
   const { data: league, error: leagueError } = await supabase
