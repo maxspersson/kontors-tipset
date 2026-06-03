@@ -8,7 +8,6 @@ import LeagueAutoRefresh from "@/app/components/LeagueAutoRefresh";
 import LeagueDangerAction from "@/app/components/LeagueDangerAction";
 import { createClient } from "@/app/lib/supabase/server";
 import { formatKickoff } from "@/app/lib/formatDate";
-import CopyInvite from "@/app/components/CopyInvite";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
@@ -223,6 +222,7 @@ export default async function LeagueDetailPage({
   const isOwner = league.owner_user_id === user.id;
   const invitePath = `/join/${league.invite_code}`;
   const inviteDisplayUrl = `kontorstipset.se${invitePath}`;
+  const inviteFullUrl = `https://${inviteDisplayUrl}`;
 
   const { data: currentMembership } = await supabase
     .from("league_members")
@@ -823,8 +823,6 @@ return (
   </section>
 )}
 
-<div className="content-grid"></div>
-
           <div className="content-grid">
             <section className="panel leaderboard-panel">
               <div className="panel-head">
@@ -973,26 +971,29 @@ return (
               )}
 
               <section className="panel invite-panel">
-                <div className="panel-head">
-                  <div>
-                    <p>Bjud in</p>
-                    <h2>Ligakod</h2>
-                  </div>
-                </div>
+  <div className="panel-head">
+    <div>
+      <p>Bjud in</p>
+      <h2>Ligakod</h2>
+    </div>
+  </div>
 
-                <div className="invite-code">{league.invite_code}</div>
+  <div className="invite-code">{league.invite_code}</div>
 
-                <p className="invite-note">
-                  Dela koden eller länken med kollegor och vänner så kan de gå
-                  med i ligan direkt.
-                </p>
+  <div className="invite-actions">
+    <CopyTextButton value={league.invite_code} label="Kopiera kod" />
+  </div>
 
-                <div className="invite-small-link">{inviteDisplayUrl}</div>
+  <div className="invite-divider" />
 
-                <div className="copy-wrap">
-                  <CopyInvite inviteCode={league.invite_code} slug={league.slug} />
-                </div>
-              </section>
+  <p className="invite-label">Invitelänk</p>
+
+  <div className="invite-small-link">{inviteDisplayUrl}</div>
+
+  <div className="invite-actions">
+    <CopyTextButton value={inviteFullUrl} label="Kopiera länk" />
+  </div>
+</section>
 
               <section className="panel members-panel">
                 <div className="panel-head">
@@ -1424,6 +1425,29 @@ return (
   gap: 10px;
   align-items: center;
   margin-top: 16px;
+}
+
+.invite-actions {
+  margin-top: 12px;
+}
+
+.invite-actions .copy-text-button {
+  width: 100%;
+}
+
+.invite-divider {
+  height: 1px;
+  margin: 22px 0;
+  background: rgba(255,255,255,0.10);
+}
+
+.invite-label {
+  margin: 0;
+  color: rgba(255,255,255,0.42);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .invite-link-row .invite-link-preview {
