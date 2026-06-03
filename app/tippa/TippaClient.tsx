@@ -857,10 +857,10 @@ export default function TippaClient({
               <div className="playoff-info-card">
                 <strong>Så tippar du slutspelet</strong>
                 <p>
-                  Du tippar resultatet efter ordinarie tid och eventuell
-                  förlängning. Om matchen fortfarande är oavgjord väljer du
-                  vilket lag som avgör på straffar.
-                </p>
+  Du tippar matchresultatet efter ordinarie tid och eventuell
+  förlängning. Om matchen fortfarande är oavgjord väljer du
+  vilket lag som avgör på straffar.
+</p>
               </div>
 
               <div className="bracket-status podium-status">
@@ -990,10 +990,9 @@ export default function TippaClient({
                                 match.teamB && (
                                   <div className="advance-picker">
                                     <p>
-                                      Oavgjort efter ordinarie tid och eventuell
-                                      förlängning.{" "}
-                                      {getPenaltyDecisionText(match.dbMatch.stage)}
-                                    </p>
+  Oavgjort efter ordinarie tid och förlängning.{" "}
+  {getPenaltyDecisionText(match.dbMatch.stage)}
+</p>
 
                                     <div className="advance-actions">
                                       <button
