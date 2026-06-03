@@ -1,5 +1,6 @@
 import "./globals.css";
 import Link from "next/link";
+import Script from "next/script";
 import LogoutButton from "@/app/components/LogoutButton";
 import { createClient } from "@/app/lib/supabase/server";
 
@@ -34,6 +35,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const gaId = process.env.NEXT_PUBLIC_GA_ID;
   const supabase = await createClient();
 
   const {
@@ -176,6 +178,24 @@ export default async function RootLayout({
             `,
           }}
         />
+
+        {gaId && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+              strategy="afterInteractive"
+            />
+
+            <Script id="google-analytics" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){window.dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${gaId}');
+              `}
+            </Script>
+          </>
+        )}
 
         <footer className="site-footer">
   <div className="footer-inner">
