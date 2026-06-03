@@ -8,7 +8,7 @@ import {
   buildPlayoffRounds,
   rankBestThirdPlacedTeams,
   isCompletePrediction,
-    type AdvancingTeam,
+  type AdvancingTeam,
   type PredictionState,
 } from "../lib/worldCupRules";
 import { formatKickoff } from "../lib/formatDate";
@@ -20,6 +20,7 @@ type CopyLeagueOption = {
   id: string;
   name: string;
 };
+
 const TOURNAMENT_DEADLINE_LABEL = "11 juni 2026 kl. 20:00";
 const TOURNAMENT_SUBMIT_LOCK_DATE = new Date("2026-06-11T20:30:00+02:00");
 
@@ -96,6 +97,42 @@ function isCompletePlayoffPrediction(prediction?: {
   if (prediction.home !== prediction.away) return true;
 
   return prediction.advancingTeam === "home" || prediction.advancingTeam === "away";
+}
+
+function getSingleMatchPoints({
+  predictedHome,
+  predictedAway,
+  actualHome,
+  actualAway,
+}: {
+  predictedHome: number | null;
+  predictedAway: number | null;
+  actualHome: number | null;
+  actualAway: number | null;
+}) {
+  if (
+    predictedHome === null ||
+    predictedAway === null ||
+    actualHome === null ||
+    actualAway === null
+  ) {
+    return null;
+  }
+
+  let points = 0;
+
+  if (predictedHome === actualHome) points += 2;
+  if (predictedAway === actualAway) points += 2;
+
+  const predictedDiff = predictedHome - predictedAway;
+  const actualDiff = actualHome - actualAway;
+
+  const predictedSign = predictedDiff === 0 ? 0 : predictedDiff > 0 ? 1 : -1;
+  const actualSign = actualDiff === 0 ? 0 : actualDiff > 0 ? 1 : -1;
+
+  if (predictedSign === actualSign) points += 3;
+
+  return points;
 }
 
 function getSwedishTeamName(name: string) {
@@ -208,9 +245,9 @@ export default function TippaClient({
   backHref?: string;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("A");
-  const [saveStatus, setSaveStatus] = useState<string>("");
-  const [autoSaveStatus, setAutoSaveStatus] = useState<string>("");
-  const [submitStatus, setSubmitStatus] = useState<string>("");
+  const [saveStatus, setSaveStatus] = useState("");
+  const [autoSaveStatus, setAutoSaveStatus] = useState("");
+  const [submitStatus, setSubmitStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(isLocked);
   const [copySourceLeagueId, setCopySourceLeagueId] = useState("");
@@ -220,20 +257,21 @@ export default function TippaClient({
 
   const hasMounted = useRef(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-  function updateDeadlineStatus() {
-    setSubmitDeadlinePassed(isTournamentSubmitDeadlinePassed());
-  }
+    function updateDeadlineStatus() {
+      setSubmitDeadlinePassed(isTournamentSubmitDeadlinePassed());
+    }
 
-  updateDeadlineStatus();
+    updateDeadlineStatus();
 
-  const interval = setInterval(updateDeadlineStatus, 30 * 1000);
+    const interval = setInterval(updateDeadlineStatus, 30 * 1000);
 
-  return () => clearInterval(interval);
-}, []);
+    return () => clearInterval(interval);
+  }, []);
 
   const isSubmitDeadlineLocked = submitDeadlinePassed && !readonly;
-const isPlayoffLocked = hasSubmitted || readonly || isSubmitDeadlineLocked;
+  const isPlayoffLocked = hasSubmitted || readonly || isSubmitDeadlineLocked;
 
   const [predictions, setPredictions] = useState<PredictionState>(() => {
     const initial: PredictionState = {};
@@ -354,13 +392,13 @@ const isPlayoffLocked = hasSubmitted || readonly || isSubmitDeadlineLocked;
   const isEntireBracketComplete = completedPredictionsCount >= TOTAL_MATCHES;
 
   const allGroupsComplete = allGroupTables.every(
-  (group) =>
-    group.totalMatches > 0 && group.completedMatches === group.totalMatches
-);
+    (group) =>
+      group.totalMatches > 0 && group.completedMatches === group.totalMatches
+  );
 
-const thirdPlacedTeams = allGroupsComplete
-  ? rankBestThirdPlacedTeams(allGroupTables).slice(0, 8)
-  : [];
+  const thirdPlacedTeams = allGroupsComplete
+    ? rankBestThirdPlacedTeams(allGroupTables).slice(0, 8)
+    : [];
 
   const playoffRounds = useMemo(() => {
     return buildPlayoffRounds({
@@ -452,9 +490,12 @@ const thirdPlacedTeams = allGroupsComplete
 
   async function copyPredictionsFromLeague() {
     if (isSubmitDeadlineLocked) {
-  setCopyStatus("Deadline har passerat. Det går inte längre att kopiera in ett helt tips.");
-  return;
-}
+      setCopyStatus(
+        "Deadline har passerat. Det går inte längre att kopiera in ett helt tips."
+      );
+      return;
+    }
+
     if (!copySourceLeagueId) {
       setCopyStatus("Välj en liga att kopiera från.");
       return;
@@ -545,11 +586,12 @@ const thirdPlacedTeams = allGroupsComplete
 
   async function submitPredictions() {
     if (isSubmitDeadlineLocked) {
-  setSubmitStatus(
-    `Deadline har passerat. Tipset skulle vara inskickat senast ${TOURNAMENT_DEADLINE_LABEL}.`
-  );
-  return;
-}
+      setSubmitStatus(
+        `Deadline har passerat. Tipset skulle vara inskickat senast ${TOURNAMENT_DEADLINE_LABEL}.`
+      );
+      return;
+    }
+
     if (hasSubmitted) {
       setSubmitStatus("Tipset är redan inskickat. Slutspelet är låst.");
       return;
@@ -559,12 +601,11 @@ const thirdPlacedTeams = allGroupsComplete
       setSubmitStatus(
         `Du måste fylla i alla ${TOTAL_MATCHES} matcher innan du kan skicka in tipset. Just nu är ${completedPredictionsCount}/${TOTAL_MATCHES} ifyllda.`
       );
-
       return;
     }
 
     const confirmed = window.confirm(
-      "Är du säker på att du vill skicka in tipset? Då låses ditt slutspel och en snapshot sparas. Gruppspelsmatcher kan fortfarande ändras fram till 60 minuter före avspark."
+      "Är du säker på att du vill skicka in tipset? Då låses ditt slutspel och en sparad kopia skapas. Gruppspelsmatcher kan fortfarande ändras fram till 60 minuter före avspark."
     );
 
     if (!confirmed) return;
@@ -604,7 +645,7 @@ const thirdPlacedTeams = allGroupsComplete
       const data = JSON.parse(text);
 
       setSubmitStatus(
-        `Tipset är inskickat! ${data.totalPredictionsCount} tips låsta i snapshot.`
+        `Tipset är inskickat! ${data.totalPredictionsCount} tips är låsta.`
       );
     } catch {
       setSubmitStatus("Tipset är inskickat!");
@@ -659,13 +700,13 @@ const thirdPlacedTeams = allGroupsComplete
               <h1>
                 {readonly
                   ? `Så här har ${viewerName || "spelaren"} tippat.`
-                  : "Tippa gruppspelet."}
+                  : "Bygg ditt VM-tips."}
               </h1>
 
               <p className="intro">
                 {readonly
                   ? "Här visas det låsta VM-tipset i ligan. Jämför gruppspel, slutspel och potentiella skrällar."
-                  : "Välj grupp, fyll i dina resultat och bygg ditt VM-tips steg för steg. När gruppspelet är klart skapas ditt slutspel automatiskt utifrån dina tips."}
+                  : "Fyll i dina resultat i lugn och ro. Tipsen sparas automatiskt och du kan pausa och fortsätta senare. När gruppspelet är klart byggs slutspelet utifrån dina tips."}
               </p>
             </div>
 
@@ -682,10 +723,10 @@ const thirdPlacedTeams = allGroupsComplete
               </strong>
               <span>
                 {readonly
-                  ? "Det här är spelarens inskickade snapshot."
+                  ? "Det här är spelarens inskickade tips."
                   : hasSubmitted
                     ? "Slutspelet är låst. Gruppspelsmatcher kan ändras fram till 60 minuter före avspark."
-                    : "Tipset kan skickas in när alla matcher är ifyllda."}
+                    : "Tipsen sparas automatiskt medan du bygger ditt VM-tips."}
               </span>
             </div>
           </div>
@@ -699,7 +740,7 @@ const thirdPlacedTeams = allGroupsComplete
                 <p className="tippa-locked-text">
                   {readonly
                     ? `Det här är ${viewerName || "spelarens"} inskickade VM-tips. Resultaten går inte att ändra här.`
-                    : "Slutspelet är låst och din snapshot är sparad. Gruppspelsmatcher kan fortfarande ändras fram till 60 minuter före avspark."}
+                    : "Slutspelet är låst och en sparad kopia av tipset finns. Gruppspelsmatcher kan fortfarande ändras fram till 60 minuter före avspark."}
                   {submission?.submitted_at
                     ? ` Inskickat ${formatKickoff(submission.submitted_at)}.`
                     : ""}
@@ -711,18 +752,20 @@ const thirdPlacedTeams = allGroupsComplete
           {hasError && (
             <div className="error-box">Kunde inte hämta matcher.</div>
           )}
+
           {isSubmitDeadlineLocked && !hasSubmitted && (
-  <div className="tippa-locked-banner">
-    <div>
-      <p className="tippa-locked-title">Deadline har passerat</p>
-      <p className="tippa-locked-text">
-        Det går inte längre att skicka in ett nytt turneringstips.
-        Gruppspelsmatcher kan fortfarande ändras fram till 60 minuter före
-        respektive avspark, men bara inskickade tips deltar i ligans tabell.
-      </p>
-    </div>
-  </div>
-)}
+            <div className="tippa-locked-banner">
+              <div>
+                <p className="tippa-locked-title">Deadline har passerat</p>
+                <p className="tippa-locked-text">
+                  Det går inte längre att skicka in ett nytt turneringstips.
+                  Gruppspelsmatcher kan fortfarande ändras fram till 60 minuter
+                  före respektive avspark, men bara inskickade tips deltar i
+                  ligans tabell.
+                </p>
+              </div>
+            </div>
+          )}
 
           {!readonly && !hasSubmitted && copyLeagueOptions.length > 0 && (
             <div className="copy-tips-card">
@@ -766,16 +809,20 @@ const thirdPlacedTeams = allGroupsComplete
 
           <div className="match-toolbar">
             <div>
-              <span>{groupMatches.length}</span>
-              <p>Gruppspelsmatcher</p>
+              <span>
+                {completedGroupMatches}/{groupMatches.length}
+              </span>
+              <p>Gruppspel ifyllt</p>
             </div>
+
             <div>
-              <span>{completedGroupMatches}</span>
-              <p>Ifyllda gruppresultat</p>
+              <span>12</span>
+              <p>Grupper</p>
             </div>
+
             <div>
-              <span>104</span>
-              <p>Matcher totalt i VM</p>
+              <span>32</span>
+              <p>Slutspelsmatcher</p>
             </div>
           </div>
 
@@ -806,14 +853,15 @@ const thirdPlacedTeams = allGroupsComplete
                   <h2>Slutspelsträd</h2>
                 </div>
               </div>
+
               <div className="playoff-info-card">
-  <strong>Så tippar du slutspelet</strong>
-  <p>
-    Du tippar resultatet efter ordinarie tid och eventuell förlängning.
-    Om matchen fortfarande är oavgjord väljer du vilket lag som avgör på
-    straffar.
-  </p>
-</div>
+                <strong>Så tippar du slutspelet</strong>
+                <p>
+                  Du tippar resultatet efter ordinarie tid och eventuell
+                  förlängning. Om matchen fortfarande är oavgjord väljer du
+                  vilket lag som avgör på straffar.
+                </p>
+              </div>
 
               <div className="bracket-status podium-status">
                 <div className={champion ? "champion-card" : ""}>
@@ -868,9 +916,10 @@ const thirdPlacedTeams = allGroupsComplete
                                   : "bracket-match"
                               }
                             >
-                              <div className="bracket-match-label">
-                                Match {match.dbMatch.fifa_match_number}
-                              </div>
+                             <div className="bracket-match-label">
+  <span>Match {match.dbMatch.fifa_match_number}</span>
+  <small>{formatKickoff(match.dbMatch.kickoff_utc)}</small>
+</div>
 
                               <div
                                 className={
@@ -941,9 +990,10 @@ const thirdPlacedTeams = allGroupsComplete
                                 match.teamB && (
                                   <div className="advance-picker">
                                     <p>
-  Oavgjort efter ordinarie tid och eventuell förlängning.{" "}
-  {getPenaltyDecisionText(match.dbMatch.stage)}
-</p>
+                                      Oavgjort efter ordinarie tid och eventuell
+                                      förlängning.{" "}
+                                      {getPenaltyDecisionText(match.dbMatch.stage)}
+                                    </p>
 
                                     <div className="advance-actions">
                                       <button
@@ -963,7 +1013,7 @@ const thirdPlacedTeams = allGroupsComplete
                                         }
                                       >
                                         {getSwedishTeamName(match.teamA.team)}{" "}
-{getPenaltyButtonSuffix(match.dbMatch.stage)}
+                                        {getPenaltyButtonSuffix(match.dbMatch.stage)}
                                       </button>
 
                                       <button
@@ -983,7 +1033,7 @@ const thirdPlacedTeams = allGroupsComplete
                                         }
                                       >
                                         {getSwedishTeamName(match.teamB.team)}{" "}
-{getPenaltyButtonSuffix(match.dbMatch.stage)}
+                                        {getPenaltyButtonSuffix(match.dbMatch.stage)}
                                       </button>
                                     </div>
                                   </div>
@@ -1006,8 +1056,8 @@ const thirdPlacedTeams = allGroupsComplete
                     </h3>
                     <span>
                       {hasSubmitted
-                        ? "Din snapshot är sparad. Slutspelsträdet kan inte längre ändras."
-                        : `${completedPredictionsCount}/${TOTAL_MATCHES} matcher ifyllda. När hela tipset är klart kan du låsa och skicka in din snapshot.`}
+                        ? "Ditt inskickade tips är sparat. Slutspelsträdet kan inte längre ändras."
+                        : `${completedPredictionsCount}/${TOTAL_MATCHES} matcher ifyllda. När hela tipset är klart kan du låsa och skicka in det.`}
                     </span>
                   </div>
 
@@ -1023,11 +1073,11 @@ const thirdPlacedTeams = allGroupsComplete
                     <button
                       className="submit-button"
                       disabled={
-  isSubmitDeadlineLocked ||
-  hasSubmitted ||
-  !isEntireBracketComplete ||
-  isSubmitting
-}
+                        isSubmitDeadlineLocked ||
+                        hasSubmitted ||
+                        !isEntireBracketComplete ||
+                        isSubmitting
+                      }
                       onClick={submitPredictions}
                     >
                       {hasSubmitted
@@ -1062,7 +1112,7 @@ const thirdPlacedTeams = allGroupsComplete
                     <p>{readonly ? "Tabell från tipset" : "Live från dina tips"}</p>
                     <h3>Tabell Grupp {activeTab}</h3>
                   </div>
-                  <span>{readonly ? "Låst snapshot" : "Uppdateras direkt"}</span>
+                  <span>{readonly ? "Låst tips" : "Uppdateras direkt"}</span>
                 </div>
 
                 <div className="group-table-scroll">
@@ -1081,47 +1131,50 @@ const thirdPlacedTeams = allGroupsComplete
                       </tr>
                     </thead>
                     <tbody>
-  {activeGroupTable.map((row, index) => {
-    const isBestThird = thirdPlacedTeams.some(
-      (team) => team.team === row.team && team.group === row.group
-    );
+                      {activeGroupTable.map((row, index) => {
+                        const isBestThird = thirdPlacedTeams.some(
+                          (team) =>
+                            team.team === row.team && team.group === row.group
+                        );
 
-    return (
-      <tr
-        key={row.team}
-        className={
-          index < 2
-            ? "advance"
-            : isBestThird
-              ? "advance third-advance"
-              : ""
-        }
-      >
-        <td>{index + 1}</td>
-        <td>
-          <strong>{getSwedishTeamName(row.team)}</strong>
-          {row.code && <small>{row.code}</small>}
-        </td>
-        <td>{row.played}</td>
-        <td>{row.wins}</td>
-        <td>{row.draws}</td>
-        <td>{row.losses}</td>
-        <td>
-          {row.goalsFor}-{row.goalsAgainst}
-        </td>
-        <td>{row.goalDifference}</td>
-        <td>
-          <strong>{row.points}</strong>
-        </td>
-      </tr>
-    );
-  })}
-</tbody>
+                        return (
+                          <tr
+                            key={row.team}
+                            className={
+                              index < 2
+                                ? "advance"
+                                : isBestThird
+                                  ? "advance third-advance"
+                                  : ""
+                            }
+                          >
+                            <td>{index + 1}</td>
+                            <td>
+                              <strong>{getSwedishTeamName(row.team)}</strong>
+                              {row.code && <small>{row.code}</small>}
+                            </td>
+                            <td>{row.played}</td>
+                            <td>{row.wins}</td>
+                            <td>{row.draws}</td>
+                            <td>{row.losses}</td>
+                            <td>
+                              {row.goalsFor}-{row.goalsAgainst}
+                            </td>
+                            <td>{row.goalDifference}</td>
+                            <td>
+                              <strong>{row.points}</strong>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
                   </table>
                 </div>
 
                 <p className="table-note">
-                  Gruppordningen följer FIFAs regler: poäng, inbördes poäng, inbördes målskillnad, inbördes gjorda mål, total målskillnad, gjorda mål och därefter FIFA-ranking som fallback.
+                  Gruppordningen följer FIFAs regler: poäng, inbördes poäng,
+                  inbördes målskillnad, inbördes gjorda mål, total målskillnad,
+                  gjorda mål och därefter FIFA-ranking som fallback.
                 </p>
               </div>
 
@@ -1129,6 +1182,32 @@ const thirdPlacedTeams = allGroupsComplete
                 {activeMatches.map((match) => {
                   const matchLocked = isMatchLocked(match);
                   const matchLockingSoon = isMatchLockingSoon(match);
+                  const prediction = predictions[match.id];
+
+                  const predictedHome =
+                    prediction?.home === "" || prediction?.home === undefined
+                      ? null
+                      : Number(prediction.home);
+
+                  const predictedAway =
+                    prediction?.away === "" || prediction?.away === undefined
+                      ? null
+                      : Number(prediction.away);
+
+                  const matchPoints = getSingleMatchPoints({
+                    predictedHome,
+                    predictedAway,
+                    actualHome: match.home_score,
+                    actualAway: match.away_score,
+                  });
+
+                  const shouldShowResult =
+                    isFinishedMatch(match) &&
+                    predictedHome !== null &&
+                    predictedAway !== null &&
+                    match.home_score !== null &&
+                    match.away_score !== null &&
+                    matchPoints !== null;
 
                   return (
                     <article
@@ -1147,7 +1226,9 @@ const thirdPlacedTeams = allGroupsComplete
                         <span>Match {match.fifa_match_number}</span>
 
                         <div className="match-top-right">
-                          {readonly && <span className="readonly-badge">Låst tips</span>}
+                          {readonly && (
+                            <span className="readonly-badge">Låst tips</span>
+                          )}
 
                           {!readonly && isLiveMatch(match) && (
                             <span className="live-badge">
@@ -1221,6 +1302,29 @@ const thirdPlacedTeams = allGroupsComplete
                           {getMatchStatusText(match, matchLocked, readonly)}
                         </span>
                       </div>
+
+                      {shouldShowResult && (
+                        <div className="match-result-panel">
+                          <div>
+                            <span>Ditt tips</span>
+                            <strong>
+                              {predictedHome}–{predictedAway}
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span>Resultat</span>
+                            <strong>
+                              {match.home_score}–{match.away_score}
+                            </strong>
+                          </div>
+
+                          <div className={matchPoints === 7 ? "full-points" : ""}>
+                            <span>Poäng</span>
+                            <strong>{matchPoints} p</strong>
+                          </div>
+                        </div>
+                      )}
                     </article>
                   );
                 })}
@@ -1285,6 +1389,51 @@ const thirdPlacedTeams = allGroupsComplete
 
             .match-card-readonly {
               border-color: rgba(229,185,77,0.16) !important;
+            }
+
+            .match-result-panel {
+              margin-top: 18px;
+              padding: 14px;
+              border-radius: 18px;
+              background: rgba(255,255,255,0.045);
+              border: 1px solid rgba(255,255,255,0.10);
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 10px;
+            }
+
+            .match-result-panel div {
+  min-height: 58px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(5,12,18,0.72);
+  border: 1px solid rgba(255,255,255,0.08);
+  text-align: center;
+}
+
+            .match-result-panel span {
+              display: block;
+              margin-bottom: 6px;
+              color: rgba(255,255,255,0.42);
+              font-size: 11px;
+              font-weight: 950;
+              letter-spacing: 0.10em;
+              text-transform: uppercase;
+            }
+
+            .match-result-panel strong {
+              color: white;
+              font-size: 18px;
+              font-weight: 950;
+            }
+
+            .match-result-panel .full-points {
+              background: rgba(229,185,77,0.12);
+              border-color: rgba(229,185,77,0.24);
+            }
+
+            .match-result-panel .full-points strong {
+              color: #e5b94d;
             }
 
             .copy-tips-card {
@@ -1434,25 +1583,25 @@ const thirdPlacedTeams = allGroupsComplete
             }
 
             .group-table-card tr.third-advance td:first-child {
-  color: #e5b94d;
-  font-weight: 950;
-}
+              color: #e5b94d;
+              font-weight: 950;
+            }
 
-.group-table-card tr.third-advance td:nth-child(2) strong::after {
-  content: "Bästa trea";
-  display: inline-flex;
-  margin-left: 10px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: rgba(229,185,77,0.12);
-  border: 1px solid rgba(229,185,77,0.22);
-  color: #e5b94d;
-  font-size: 10px;
-  font-weight: 950;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  vertical-align: middle;
-}
+            .group-table-card tr.third-advance td:nth-child(2) strong::after {
+              content: "Bästa trea";
+              display: inline-flex;
+              margin-left: 10px;
+              padding: 3px 8px;
+              border-radius: 999px;
+              background: rgba(229,185,77,0.12);
+              border: 1px solid rgba(229,185,77,0.22);
+              color: #e5b94d;
+              font-size: 10px;
+              font-weight: 950;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              vertical-align: middle;
+            }
 
             .live-badge {
               color: #fecaca;
@@ -1517,29 +1666,29 @@ const thirdPlacedTeams = allGroupsComplete
             }
 
             .playoff-info-card {
-  margin: 0 0 18px;
-  padding: 16px 18px;
-  border-radius: 20px;
-  background: rgba(229,185,77,0.08);
-  border: 1px solid rgba(229,185,77,0.18);
-  color: rgba(255,255,255,0.72);
-}
+              margin: 0 0 18px;
+              padding: 16px 18px;
+              border-radius: 20px;
+              background: rgba(229,185,77,0.08);
+              border: 1px solid rgba(229,185,77,0.18);
+              color: rgba(255,255,255,0.72);
+            }
 
-.playoff-info-card strong {
-  display: block;
-  margin-bottom: 6px;
-  color: #e5b94d;
-  font-size: 13px;
-  font-weight: 950;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
+            .playoff-info-card strong {
+              display: block;
+              margin-bottom: 6px;
+              color: #e5b94d;
+              font-size: 13px;
+              font-weight: 950;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+            }
 
-.playoff-info-card p {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.45;
-}
+            .playoff-info-card p {
+              margin: 0;
+              font-size: 14px;
+              line-height: 1.45;
+            }
 
             .advance-picker {
               margin-top: 12px;
@@ -1639,6 +1788,10 @@ const thirdPlacedTeams = allGroupsComplete
               }
 
               .advance-actions {
+                grid-template-columns: 1fr;
+              }
+
+              .match-result-panel {
                 grid-template-columns: 1fr;
               }
             }
