@@ -2,7 +2,7 @@ import Container from "@/app/components/Container";
 
 export default function RulesPage() {
   const knowItems = [
-  "Du måste fylla i alla 104 matcher innan du kan skicka in tipset.",
+  "Du behöver inte fylla i alla 104 matcher på en gång, men alla matcher måste vara ifyllda innan du kan skicka in tipset.",,
   "När du skickar in tipset låses ditt slutspel.",
   "Gruppspelsmatcher kan fortfarande ändras fram till 60 minuter före avspark.",
   "Om du ändrar ett gruppspelsresultat efter att du skickat in tipset kan du få nya matchpoäng, men ditt slutspel ändras inte.",

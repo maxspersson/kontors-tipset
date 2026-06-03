@@ -1,3 +1,4 @@
+import WorldCupCountdown from "@/app/components/WorldCupCountdown";
 import MatchDuelPager, {
   type MatchDuelPickItem,
 } from "@/app/components/MatchDuelPager";
@@ -633,8 +634,55 @@ export default async function LeagueDetailPage({
   };
 });
 
-  return (
-    <main className="league-detail-page">
+const recentMemberActivities = memberRows
+  .slice()
+  .sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  )
+  .slice(0, 5)
+  .map((member) => {
+    const profile = profileMap.get(member.user_id);
+    const displayName = getDisplayName(profile);
+
+    return {
+      id: `member-${member.id}`,
+      text: `${displayName} gick med i ligan`,
+      createdAt: member.created_at,
+      icon: "👋",
+    };
+  });
+
+const recentSubmissionActivities = submissionRows
+  .filter((submission) => submission.submitted_at)
+  .slice()
+  .sort(
+    (a, b) =>
+      new Date(b.submitted_at || "").getTime() -
+      new Date(a.submitted_at || "").getTime()
+  )
+  .slice(0, 5)
+  .map((submission) => {
+    const profile = profileMap.get(submission.user_id);
+    const displayName = getDisplayName(profile);
+
+    return {
+      id: `submission-${submission.user_id}`,
+      text: `${displayName} skickade in sitt tips`,
+      createdAt: submission.submitted_at || "",
+      icon: "✅",
+    };
+  });
+
+const activityItems = [...recentMemberActivities, ...recentSubmissionActivities]
+  .sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )
+  .slice(0, 5);
+
+return (
+  <main className="league-detail-page">
       <section className="league-detail-hero">
         <div className="league-wrap">
           <div className="league-head">
@@ -695,26 +743,13 @@ export default async function LeagueDetailPage({
           </div>
 
           {isMember && (
-            <section className="invite-hero-card">
-              <div className="invite-hero-copy">
-                <p>Bjud in kollegor</p>
-                <h2>Få igång ligan på 2 sekunder.</h2>
-                <span>
-                  Dela länken i Teams, Slack eller Messenger. Nya spelare hamnar
-                  direkt i rätt liga.
-                </span>
-
-                <div className="invite-link-row">
-  <div className="invite-link-preview">{inviteDisplayUrl}</div>
-  <CopyTextButton value={inviteDisplayUrl} label="Kopiera länk" />
-</div>
-              </div>
-
-              <div className="invite-hero-action">
-                <CopyInvite inviteCode={league.invite_code} slug={league.slug} />
-              </div>
-            </section>
-          )}
+  <section className="league-live-card">
+    <div className="countdown-card">
+      <p>VM startar om</p>
+      <WorldCupCountdown />
+    </div>
+  </section>
+)}
 
           <div className="stats-grid">
             <div className="stat-card">
@@ -764,6 +799,31 @@ export default async function LeagueDetailPage({
               )}
             </div>
           </section>
+
+          {isMember && (
+  <section className="activity-card activity-card-wide">
+    <div className="activity-head">
+      <p>Senaste i ligan</p>
+    </div>
+
+    {activityItems.length === 0 ? (
+      <div className="activity-empty">
+        Bjud in fler deltagare så börjar ligan vakna till liv.
+      </div>
+    ) : (
+      <div className="activity-list">
+        {activityItems.map((activity) => (
+          <div key={activity.id} className="activity-row">
+            <span>{activity.icon}</span>
+            <p>{activity.text}</p>
+          </div>
+        ))}
+      </div>
+    )}
+  </section>
+)}
+
+<div className="content-grid"></div>
 
           <div className="content-grid">
             <section className="panel leaderboard-panel">
@@ -1143,6 +1203,148 @@ export default async function LeagueDetailPage({
             .status-warning {
               color: #f3cf69;
             }
+
+            .league-live-card {
+  position: relative;
+  overflow: hidden;
+  margin-top: 36px;
+  padding: 26px;
+  border-radius: 28px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  background:
+    linear-gradient(135deg, rgba(229,185,77,0.11), transparent 42%),
+    rgba(5,12,18,0.78);
+  border: 1px solid rgba(229,185,77,0.20);
+  box-shadow: 0 22px 80px rgba(0,0,0,0.30);
+  backdrop-filter: blur(18px);
+}
+
+.league-live-card::before {
+  content: "";
+  position: absolute;
+  inset: -90px -110px auto auto;
+  width: 280px;
+  height: 280px;
+  border-radius: 999px;
+  background: rgba(229,185,77,0.18);
+  filter: blur(36px);
+  pointer-events: none;
+}
+
+.countdown-card,
+.activity-card {
+  position: relative;
+  padding: 22px;
+  border-radius: 22px;
+  background: rgba(0,0,0,0.20);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.activity-card-wide {
+  margin-top: 18px;
+}
+
+.countdown-card p,
+.activity-head p {
+  margin: 0;
+  color: #e5b94d;
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.countdown-card h2,
+.activity-head h2 {
+  margin: 8px 0 0;
+  max-width: 720px;
+  font-size: clamp(30px, 4vw, 52px);
+  line-height: 1.02;
+  letter-spacing: -0.06em;
+}
+
+.countdown-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.countdown-grid div {
+  min-height: 120px;
+  padding: 18px 12px;
+  border-radius: 22px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  background: rgba(229,185,77,0.10);
+  border: 1px solid rgba(229,185,77,0.18);
+}
+
+.countdown-grid strong {
+  color: #e5b94d;
+  font-size: 46px;
+  line-height: 1;
+  font-weight: 950;
+  letter-spacing: -0.06em;
+}
+
+.countdown-grid span {
+  margin-top: 7px;
+  color: rgba(255,255,255,0.56);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.activity-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.activity-row {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 13px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255,255,255,0.075);
+}
+
+.activity-row span {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,0.08);
+  font-size: 18px;
+}
+
+.activity-row p {
+  margin: 0;
+  color: rgba(255,255,255,0.76);
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.activity-empty {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255,255,255,0.075);
+  color: rgba(255,255,255,0.56);
+  font-size: 14px;
+  line-height: 1.5;
+}
 
             .invite-hero-card {
               position: relative;
@@ -1788,6 +1990,29 @@ export default async function LeagueDetailPage({
 
               .invite-link-row {
   grid-template-columns: 1fr;
+}
+
+.league-live-card {
+  grid-template-columns: 1fr;
+  margin-top: 28px;
+  padding: 20px;
+}
+
+.countdown-card,
+.activity-card {
+  padding: 18px;
+}
+
+.countdown-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.countdown-grid div {
+  min-height: 96px;
+}
+
+.countdown-grid strong {
+  font-size: 34px;
 }
 
               .league-head,

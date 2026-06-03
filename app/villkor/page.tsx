@@ -38,24 +38,25 @@ export default function TermsPage() {
           </div>
 
           <h2>Tillgänglighet</h2>
-          <p>
-            Vi försöker hålla tjänsten tillgänglig, men kan inte garantera att
-            den alltid fungerar utan avbrott. Funktioner kan ändras eller
-            uppdateras vid behov.
-          </p>
+<p>
+  Kontors-tipset utvecklas och förbättras löpande. Vi strävar efter att
+  tjänsten ska vara tillgänglig och fungera så bra som möjligt, men tillfälliga
+  driftstörningar eller uppdateringar kan förekomma.
+</p>
 
           <h2>Ansvar</h2>
-          <p>
-            Resultat hämtas från externa datakällor. Kontors-tipset ansvarar
-            inte för tillfälliga tekniska fel, felaktig extern data eller andra
-            problem som kan påverka poängräkningen.
-          </p>
+<p>
+  Resultat hämtas automatiskt från externa datakällor och poängen räknas enligt
+  reglerna på sajten. Om något skulle bli fel försöker vi självklart rätta till
+  det så snabbt vi kan.
+</p>
 
-          <h2>Kontakt</h2>
-          <p>Har du frågor om villkoren kan du kontakta:</p>
-          <p className="contact">max.persson@lintigroup.se</p>
-
-          <p className="updated">Senast uppdaterad: 2 juni 2026</p>
+          <h2>Frågor eller synpunkter?</h2>
+<p>
+  Hittar du något som inte fungerar eller har förslag på förbättringar är du
+  välkommen att höra av dig.
+</p>
+<p className="contact">max.persson@lintigroup.se</p>
         </div>
       </section>
 
