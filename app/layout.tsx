@@ -58,6 +58,8 @@ export default async function RootLayout({
   }
 
   const initials = user ? getInitials(displayName) : "KT";
+  const clarityUserId = user?.id || null;
+  const clarityUserName = user ? displayName : null;
 
   return (
     <html lang="sv">
@@ -199,16 +201,24 @@ export default async function RootLayout({
         )}
 
                 {clarityId && (
-          <Script id="microsoft-clarity" strategy="afterInteractive">
-            {`
-              (function(c,l,a,r,i,t,y){
-                  c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-                  t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-                  y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-              })(window, document, "clarity", "script", "${clarityId}");
-            `}
-          </Script>
-        )}
+  <Script id="microsoft-clarity" strategy="afterInteractive">
+    {`
+      (function(c,l,a,r,i,t,y){
+          c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+          t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+          y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+      })(window, document, "clarity", "script", "${clarityId}");
+
+      ${
+        clarityUserId
+          ? `window.clarity("identify", ${JSON.stringify(
+              clarityUserId
+            )}, undefined, undefined, ${JSON.stringify(clarityUserName)});`
+          : ""
+      }
+    `}
+  </Script>
+)}
 
         <footer className="site-footer">
   <div className="footer-inner">
