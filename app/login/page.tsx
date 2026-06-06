@@ -186,10 +186,11 @@ export default function LoginPage() {
                   : "Fortsätt med Google"}
               </button>
 
-              <p className="login-browser-note">
-                Google-inloggning hanteras säkert via Supabase Auth. Om du
-                öppnat länken i Messenger kan Google blockeras. Öppna då sidan
-                i Safari eller Chrome.
+                <p className="login-browser-note">
+                Problem med Google-inloggning? Om du öppnat länken via
+                Snapchat, Messenger, Instagram eller LinkedIn kan Google
+                blockera inloggningen. Öppna då sidan i Safari eller Chrome och
+                försök igen.
               </p>
 
               <div className="divider">
@@ -430,11 +431,11 @@ export default function LoginPage() {
             }
 
             .login-browser-note {
-              margin: 10px 2px 0;
-              color: rgba(255,255,255,0.46);
-              font-size: 12px;
-              line-height: 1.45;
-            }
+  margin: 10px 2px 18px;
+  color: rgba(255,255,255,0.46);
+  font-size: 12px;
+  line-height: 1.45;
+}
 
             .google-btn:disabled,
             .submit-btn:disabled {

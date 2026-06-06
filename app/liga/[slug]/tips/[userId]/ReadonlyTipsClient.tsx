@@ -279,19 +279,21 @@ export default function ReadonlyTipsClient({
 
               <h1>Så här har {viewerName || "spelaren"} tippat.</h1>
 
-              <p className="intro">
-                Tipsen låses upp löpande från en timme före avspark för varje
-                match. Gruppspel och slutspel visas successivt under
-                turneringens gång.
+                <p className="intro">
+                Andra deltagares tips visas stegvis under VM. Varje match blir
+                synlig en timme före avspark för att behålla spänningen hela
+                vägen till finalen.
               </p>
             </div>
           </div>
 
-          <div className="tippa-locked-banner">
+                    <div className="tippa-locked-banner">
             <div>
-              <p className="tippa-locked-title">Du tittar på ett låst tips</p>
+              <p className="tippa-locked-title">
+                Du tittar på ett inskickat tips
+              </p>
               <p className="tippa-locked-text">
-                Tipset är inskickat och låst. Resultaten går inte att ändra här.
+                Här visas {viewerName || "spelarens"} VM-tips.
                 {submission?.submitted_at
                   ? ` Inskickat ${formatKickoff(submission.submitted_at)}.`
                   : ""}
@@ -488,7 +490,7 @@ export default function ReadonlyTipsClient({
                     <p>Tabell från tipset</p>
                     <h3>Tabell Grupp {activeTab}</h3>
                   </div>
-                  <span>Låst snapshot</span>
+                  <span>Inskickat tips</span>
                 </div>
 
                 <div className="group-table-scroll">
@@ -531,10 +533,10 @@ export default function ReadonlyTipsClient({
                   </table>
                 </div>
 
-                <p className="table-note">
-                  Gruppordningen följer samma regler som i tippavyn: poäng,
-                  inbördes möten, total målskillnad, gjorda mål och därefter
-                  stabil fallback.
+                  <p className="table-note">
+                  Gruppordningen följer FIFAs regler: poäng, inbördes poäng,
+                  inbördes målskillnad, inbördes gjorda mål, total målskillnad,
+                  gjorda mål och därefter FIFA-ranking som sista skiljekriterium.
                 </p>
               </div>
 
@@ -770,9 +772,13 @@ export default function ReadonlyTipsClient({
             }
 
             .match-toolbar div {
-              padding: 22px;
-              background: rgba(255,255,255,0.035);
-            }
+  padding: 30px 24px;
+  background: rgba(255,255,255,0.035);
+  min-height: 128px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
 
             .match-toolbar span {
               display: block;
@@ -783,11 +789,11 @@ export default function ReadonlyTipsClient({
             }
 
             .match-toolbar p {
-              margin: 5px 0 0;
-              color: rgba(255,255,255,0.48);
-              font-size: 13px;
-              font-weight: 800;
-            }
+  margin: 10px 0 0;
+  color: rgba(255,255,255,0.48);
+  font-size: 13px;
+  font-weight: 800;
+}
 
             .readonly-insight-toolbar div:first-child span {
               color: #e5b94d;
