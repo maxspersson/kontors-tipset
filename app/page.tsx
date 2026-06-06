@@ -37,6 +37,7 @@ type GlobalTopPlayer = {
   display_name: string;
   points: number;
   exactScores: number;
+  playedMatches: number;
 };
 
 function formatDisplayName(email?: string | null) {
@@ -273,6 +274,10 @@ export default async function Home() {
     });
   }
 
+  const hasGlobalScoredMatches = globalTop.some(
+  (player) => player.playedMatches > 0
+);
+
   return (
     <main>
       <section className="hero-section">
@@ -305,7 +310,11 @@ export default async function Home() {
               </div>
 
               <div className="mobile-match-card">
-                <MatchCard nextMatch={nextMatch} globalTop={globalTop} />
+                <MatchCard
+  nextMatch={nextMatch}
+  globalTop={globalTop}
+  hasGlobalScoredMatches={hasGlobalScoredMatches}
+/>
               </div>
 
               <div className="feature-grid">
@@ -325,7 +334,11 @@ export default async function Home() {
             </div>
 
             <div className="desktop-card">
-              <MatchCard nextMatch={nextMatch} globalTop={globalTop} />
+              <MatchCard
+  nextMatch={nextMatch}
+  globalTop={globalTop}
+  hasGlobalScoredMatches={hasGlobalScoredMatches}
+/>
             </div>
           </div>
 
@@ -915,9 +928,11 @@ export default async function Home() {
 function MatchCard({
   nextMatch,
   globalTop,
+  hasGlobalScoredMatches,
 }: {
   nextMatch: NextMatch;
   globalTop: GlobalTopPlayer[];
+  hasGlobalScoredMatches: boolean;
 }) {
   const homeName = nextMatch ? getSwedishTeamName(nextMatch.home_team) : "";
   const awayName = nextMatch ? getSwedishTeamName(nextMatch.away_team) : "";
@@ -955,7 +970,7 @@ function MatchCard({
       <div className="leaderboard">
         <p className="leaderboard-label">Global topplista</p>
 
-        {globalTop.length > 0 ? (
+                {hasGlobalScoredMatches && globalTop.length > 0 ? (
           globalTop.map((player, index) => (
             <div
               key={`${player.league_id}-${player.user_id}-${index}`}
@@ -976,9 +991,9 @@ function MatchCard({
             </div>
           ))
         ) : (
-          <div className="leader-row">
+                    <div className="leader-row">
             <strong style={{ flex: 1, color: "rgba(255,255,255,0.65)" }}>
-              Topplistan visas när matcherna börjar räknas.
+              Topplistan vaknar när första matchen är spelad.
             </strong>
           </div>
         )}
