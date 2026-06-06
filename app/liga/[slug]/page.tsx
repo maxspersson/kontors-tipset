@@ -590,6 +590,9 @@ export default async function LeagueDetailPage({
   const leader = activeStandings[0];
   const memberCount = isDemoMode ? 5 : memberRows.length;
   const submittedCount = isDemoMode ? 5 : submittedUserIds.length;
+  const hasScoredMatches = activeStandings.some(
+  (standing) => standing.playedMatches > 0
+);
 
   const duelPagerPicks: MatchDuelPickItem[] = activeFeaturedMatch
   ? matchDuelPicks.map((pick) => ({
@@ -763,9 +766,11 @@ return (
             </div>
 
             <div className="stat-card">
-              <p>Leder just nu</p>
-              <strong>{leader?.display_name || "Ingen ännu"}</strong>
-            </div>
+  <p>Leder just nu</p>
+  <strong>
+    {hasScoredMatches && leader ? leader.display_name : "Ingen ledare ännu"}
+  </strong>
+</div>
           </div>
 
           <section className="highlights-panel">
