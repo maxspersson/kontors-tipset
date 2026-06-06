@@ -265,6 +265,10 @@ export default function ReadonlyTipsClient({
   const finalist = finalMatch?.loser;
   const thirdPlace = getThirdPlaceWinner(finalRound);
 
+  const possessiveName = viewerName.endsWith("s")
+    ? `${viewerName}'`
+    : `${viewerName}s`;
+
   return (
     <main className="tips-page readonly-tips-page">
       <section className="tips-hero">
@@ -293,11 +297,11 @@ export default function ReadonlyTipsClient({
                 Du tittar på ett inskickat tips
               </p>
               <p className="tippa-locked-text">
-                Här visas {viewerName || "spelarens"} VM-tips.
-                {submission?.submitted_at
-                  ? ` Inskickat ${formatKickoff(submission.submitted_at)}.`
-                  : ""}
-              </p>
+  Här visas {possessiveName} VM-tips.
+  {submission?.submitted_at
+    ? ` Inskickat ${formatKickoff(submission.submitted_at)}.`
+    : ""}
+</p>
             </div>
           </div>
 
