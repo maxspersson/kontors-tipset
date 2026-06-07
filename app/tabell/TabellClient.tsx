@@ -138,7 +138,10 @@ export default function TabellClient({
   const [status, setStatus] = useState("");
   const [isDemoMovement, setIsDemoMovement] = useState(false);
 
-  const leader = standings[0];
+  const hasScoredMatches =
+  isDemoMovement || standings.some((standing) => standing.playedMatches > 0);
+
+const leader = hasScoredMatches ? standings[0] : null;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -265,13 +268,21 @@ export default function TabellClient({
             </div>
 
             <div className="leader-card">
-              <p>Leder just nu</p>
-              <strong>{leader ? leader.display_name : "Ingen ännu"}</strong>
-              <span>{leader ? `${leader.points} poäng` : "0 poäng"}</span>
-              <small className="live-refresh">
-                {isDemoMovement ? "Demo-data" : "Uppdateras automatiskt"}
-              </small>
-            </div>
+  <p>{hasScoredMatches ? "Leder just nu" : "Inte igång ännu"}</p>
+  <strong>
+    {hasScoredMatches && leader
+      ? leader.display_name
+      : "Tabellen vaknar snart"}
+  </strong>
+  <span>
+    {hasScoredMatches && leader
+      ? `${leader.points} poäng`
+      : "När första matchen är spelad"}
+  </span>
+  <small className="live-refresh">
+    {isDemoMovement ? "Demo-data" : "Uppdateras automatiskt"}
+  </small>
+</div>
           </div>
 
           {isLoading && !isDemoMovement && (
@@ -286,9 +297,16 @@ export default function TabellClient({
             </div>
           )}
 
-          {standings.length > 0 && (
-            <>
-              <div className="podium">
+          {standings.length > 0 && !hasScoredMatches && (
+  <div className="table-status">
+    Tabellen vaknar när första matchen är spelad. Då börjar poängen räknas och
+    leaderboarden uppdateras automatiskt.
+  </div>
+)}
+
+{standings.length > 0 && hasScoredMatches && (
+  <>
+    <div className="podium">
                 {standings.slice(0, 3).map((player, index) => (
                   <div
                     key={player.user_id}

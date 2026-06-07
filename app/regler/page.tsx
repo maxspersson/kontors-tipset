@@ -2,19 +2,23 @@ import Container from "@/app/components/Container";
 
 export default function RulesPage() {
   const knowItems = [
-  "Du behöver inte fylla i alla 104 matcher på en gång, men alla matcher måste vara ifyllda innan du kan skicka in tipset.",,
-  "När du skickar in tipset låses ditt slutspel.",
-  "Gruppspelsmatcher kan fortfarande ändras fram till 60 minuter före avspark.",
-  "Om du ändrar ett gruppspelsresultat efter att du skickat in tipset kan du få nya matchpoäng, men ditt slutspel ändras inte.",
-  "Matchpoäng räknas först när ett faktiskt resultat finns registrerat.",
-  "Gruppspel räknas efter ordinarie tid, alltså 90 minuter plus eventuell stopptid.",
-  "Slutspel räknas efter 90 minuter plus eventuell förlängning.",
-  "Straffläggning används bara för att avgöra vilket lag som går vidare eller vinner final/bronsmatch. Straffar räknas inte in i målresultatet.",
-  "Andras tips låses upp löpande från 60 minuter före avspark för respektive match.",
-  "Bästa grupptreor jämförs separat mellan grupperna och rankas på poäng, målskillnad, gjorda mål och därefter FIFA-ranking.",
-  "Om lag fortfarande inte kan skiljas åt används FIFA:s världsranking som sista skiljekriterium i Kontors-tipset.",
-  "I mycket ovanliga fall kan ditt tippade slutspel skilja sig från det verkliga VM-slutspelet, eftersom FIFA även kan använda fair play-poäng eller lottning.",
-];
+    "Du behöver inte fylla i alla 104 matcher på en gång, men alla matcher måste vara ifyllda innan du kan skicka in tipset.",
+    "Du kan låsa upp och redigera ett redan inskickat tips fram till deadline.",
+    "Deadline för turneringstipset är 11 juni 2026 kl. 20:00.",
+    "Fram till deadline kan du ändra både gruppspel och slutspel och skicka in tipset på nytt.",
+    "Efter deadline är slutspelet permanent låst. Gruppspelsmatcher kan fortfarande ändras fram till 60 minuter före respektive avspark.",
+    "Efter deadline byggs slutspelet aldrig om, även om du ändrar gruppspelsmatcher.",
+    "Efter att en enskild match har låsts kan just den matchen inte ändras.",
+    "Om gruppresultat ändras före deadline så att slutspelsträdet påverkas kan berörda slutspelsmatcher behöva tippas om.",
+    "Matchpoäng räknas först när ett faktiskt resultat finns registrerat.",
+    "Gruppspel räknas efter ordinarie tid, alltså 90 minuter plus eventuell stopptid.",
+    "Slutspel räknas efter 90 minuter plus eventuell förlängning.",
+    "Straffläggning används bara för att avgöra vilket lag som går vidare eller vinner final/bronsmatch. Straffar räknas inte in i målresultatet.",
+    "Andras tips låses upp löpande från 60 minuter före avspark för respektive match.",
+    "Bästa grupptreor jämförs separat mellan grupperna och rankas på poäng, målskillnad, gjorda mål och därefter FIFA-ranking.",
+    "Om lag fortfarande inte kan skiljas åt används FIFA:s världsranking som sista skiljekriterium i Kontors-tipset.",
+    "I mycket ovanliga fall kan ditt tippade slutspel skilja sig från det verkliga VM-slutspelet, eftersom FIFA även kan använda fair play-poäng eller lottning.",
+  ];
 
   return (
     <main className="rules-page">
@@ -38,9 +42,10 @@ export default function RulesPage() {
             <div>
               <p>Deadline</p>
               <strong>11 juni 2026 · 20:00</strong>
-<span>
-  Senast då ska hela tipset vara inskickat och slutspelet låst.
-</span>
+              <span>
+                Fram till dess kan du redigera hela tipset. Efter deadline är
+                slutspelet låst.
+              </span>
             </div>
 
             <div>
@@ -85,8 +90,8 @@ export default function RulesPage() {
                 <span>03</span>
                 <h3>Tippa slutspelet</h3>
                 <p>
-                  Fyll i resultat i varje slutspelsmatch. Vinnarna flyttas vidare
-automatiskt i ditt slutspel.
+                  Fyll i resultat i varje slutspelsmatch. Vinnarna flyttas
+                  vidare automatiskt i ditt slutspel.
                 </p>
               </div>
 
@@ -94,8 +99,9 @@ automatiskt i ditt slutspel.
                 <span>04</span>
                 <h3>Skicka in tipset</h3>
                 <p>
-                  När alla 104 matcher är ifyllda kan du skicka in och låsa ditt
-                  turneringstips.
+                  När alla 104 matcher är ifyllda kan du skicka in ditt
+                  turneringstips. Du kan fortfarande låsa upp och ändra det fram
+                  till deadline.
                 </p>
               </div>
             </div>
@@ -113,23 +119,24 @@ automatiskt i ditt slutspel.
               </p>
               <p className="deadline-date">11 juni 2026 · 20:00</p>
               <p className="deadline-text">
-  Då måste hela tipset vara inskickat. Deadline är 60 minuter före
-  VM:s premiärmatch. När du skickar in tipset låses ditt slutspel
-  utifrån de gruppresultat du har fyllt i just då. Efter det kan du
-  fortfarande ändra gruppspelsmatcher fram till 60 minuter före respektive
-  avspark, men slutspelet ändras inte.
-</p>
+                Hela turneringstipset ska vara inskickat senast 11 juni 2026
+                kl. 20:00. Fram till dess kan du skicka in tipset, låsa upp det
+                igen, ändra både gruppspel och slutspel och skicka in på nytt.
+                Efter deadline är slutspelet låst, men gruppspelsmatcher kan fortfarande ändras fram till 60 minuter före respektive avspark.
+              </p>
             </div>
 
             <div className="rule-note">
-  <strong>Viktigt: gruppspelet kan ändras, men inte slutspelet.</strong>
-  <span>
-    Eftersom du redan har skickat in tipset är ditt slutspel låst.
-    Du kan fortfarande ändra gruppspelsmatcher fram till 60 minuter före
-    avspark, men de ändringarna påverkar bara dina matchpoäng, inte vilka
-    lag du har i slutspelet.
-  </span>
-</div>
+              <strong>
+                Gruppspelsmatcher kan fortfarande ändras efter deadline.
+              </strong>
+              <span>
+                Efter deadline kan du inte längre låsa upp hela tipset eller
+                ändra slutspelet. Gruppspelsmatcher är däremot öppna fram till
+                60 minuter före respektive avspark. Sådana ändringar påverkar
+                bara dina matchpoäng, inte vilka lag du har i slutspelet.
+              </span>
+            </div>
           </div>
 
           <div className="section">
@@ -151,8 +158,8 @@ automatiskt i ditt slutspel.
                     <strong>2 p</strong> för rätt antal mål för bortalaget
                   </li>
                   <li>
-                    <strong>3 p</strong> för rätt matchutfall, alltså rätt vinnare
-eller oavgjort
+                    <strong>3 p</strong> för rätt matchutfall, alltså rätt
+                    vinnare eller oavgjort
                   </li>
                   <li>
                     <strong>Max 7 p</strong> per match
@@ -182,31 +189,32 @@ eller oavgjort
                 <h3>Rätt lag i rätt runda</h3>
 
                 <ul>
-  <li>
-    <strong>2 p</strong> per rätt lag som når åttondelsfinal
-  </li>
-  <li>
-    <strong>4 p</strong> per rätt lag som når kvartsfinal
-  </li>
-  <li>
-    <strong>6 p</strong> per rätt lag som når semifinal
-  </li>
-  <li>
-    <strong>8 p</strong> per rätt lag som når final
-  </li>
-  <li>
-    <strong>20 p</strong> för rätt VM-vinnare
-  </li>
-</ul>
+                  <li>
+                    <strong>2 p</strong> per rätt lag som når åttondelsfinal
+                  </li>
+                  <li>
+                    <strong>4 p</strong> per rätt lag som når kvartsfinal
+                  </li>
+                  <li>
+                    <strong>6 p</strong> per rätt lag som når semifinal
+                  </li>
+                  <li>
+                    <strong>8 p</strong> per rätt lag som når final
+                  </li>
+                  <li>
+                    <strong>20 p</strong> för rätt VM-vinnare
+                  </li>
+                </ul>
 
                 <div className="example-box">
                   <p>Vid oavgjort i slutspel</p>
                   <span>
-  Om matchen är oavgjord efter 90 minuter plus eventuell förlängning
-  väljer du vilket lag som går vidare efter straffläggning. I final och
-  bronsmatch väljer du vinnare efter straffläggning. Straffar räknas
-  inte in i målresultatet.
-</span>
+                    Om matchen är oavgjord efter 90 minuter plus eventuell
+                    förlängning väljer du vilket lag som går vidare efter
+                    straffläggning. I final och bronsmatch väljer du vinnare
+                    efter straffläggning. Straffar räknas inte in i
+                    målresultatet.
+                  </span>
                 </div>
               </div>
             </div>
@@ -219,29 +227,38 @@ eller oavgjort
             </div>
 
             <div className="warning-card">
-              <h3>Ditt slutspel baseras på dina gruppresultat när du skickar in tipset.</h3>
+              <h3>
+                Före deadline kan hela tipset ändras. Efter deadline är
+                slutspelet låst.
+              </h3>
 
               <p>
-  När du skickar in tipset sparas ditt slutspel utifrån hur dina
-  grupptabeller ser ut just då. Om du senare ändrar en gruppspelsmatch
-  räknas den ändringen bara för matchpoängen. Ditt slutspel ligger kvar
-  som det såg ut när du skickade in tipset.
+  Fram till 11 juni 2026 kl. 20:00 kan du låsa upp tipset, ändra
+  dina gruppresultat, bygga om slutspelet och skicka in igen.
+  Efter deadline ligger slutspelet fast. Då kan du fortfarande
+  ändra enskilda gruppspelsmatcher fram till 60 minuter före
+  avspark, men de ändringarna påverkar bara matchpoängen.
 </p>
+
+<div className="important-rule">
+  Efter deadline byggs slutspelet aldrig om.
+</div>
 
               <div className="yes-no-grid">
                 <div>
-                  <strong>✔ Du kan fortfarande få matchpoäng</strong>
+                  <strong>✔ Före deadline: hela tipset kan ändras</strong>
                   <span>
-                    Gruppspelsmatcher kan justeras fram till 60 minuter före
-                    avspark.
+                    Du kan låsa upp, ändra gruppspel och slutspel och skicka in
+                    igen fram till 11 juni 2026 kl. 20:00.
                   </span>
                 </div>
 
                 <div>
-                  <strong>✕ Slutspelet ändras inte</strong>
-<span>
-  Lagen i ditt slutspel är låsta från det ögonblick du skickar in tipset.
-</span>
+                  <strong>✕ Efter deadline: slutspelet är låst</strong>
+                  <span>
+                    Gruppspelsmatcher kan fortfarande ändras till 60 minuter
+                    före avspark, men slutspelet påverkas inte längre.
+                  </span>
                 </div>
               </div>
             </div>
@@ -621,6 +638,18 @@ eller oavgjort
               font-size: 14px;
               line-height: 1.55;
             }
+
+             .important-rule {
+  margin-top: 18px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(229,185,77,0.12);
+  border: 1px solid rgba(229,185,77,0.22);
+  color: #e5b94d;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.5;
+}
 
             @media (max-width: 900px) {
               .rules-hero {

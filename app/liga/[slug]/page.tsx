@@ -577,22 +577,29 @@ export default async function LeagueDetailPage({
     .filter((standing) => standing.climb > 0)
     .sort((a, b) => b.climb - a.climb);
 
-  const topClimber = isDemoMode
-    ? { display_name: "Alex", climb: 4 }
-    : climbers[0] ?? null;
-
-  const exactScoreLeader = isDemoMode
-    ? { display_name: "Maja", exactScores: 12 }
-    : [...standings]
-        .filter((standing) => standing.exactScores > 0)
-        .sort((a, b) => b.exactScores - a.exactScores)[0] ?? null;
-
-  const leader = activeStandings[0];
   const memberCount = isDemoMode ? 5 : memberRows.length;
-  const submittedCount = isDemoMode ? 5 : submittedUserIds.length;
-  const hasScoredMatches = activeStandings.some(
-  (standing) => standing.playedMatches > 0
-);
+const submittedCount = isDemoMode ? 5 : submittedUserIds.length;
+
+const hasScoredMatches =
+  isDemoMode || activeStandings.some((standing) => standing.playedMatches > 0);
+
+const leader = hasScoredMatches ? activeStandings[0] : null;
+
+const topClimber =
+  isDemoMode || hasScoredMatches
+    ? isDemoMode
+      ? { display_name: "Alex", climb: 4 }
+      : climbers[0] ?? null
+    : null;
+
+const exactScoreLeader =
+  isDemoMode || hasScoredMatches
+    ? isDemoMode
+      ? { display_name: "Maja", exactScores: 12 }
+      : [...standings]
+          .filter((standing) => standing.exactScores > 0)
+          .sort((a, b) => b.exactScores - a.exactScores)[0] ?? null
+    : null;
 
   const duelPagerPicks: MatchDuelPickItem[] = activeFeaturedMatch
   ? matchDuelPicks.map((pick) => ({
@@ -766,7 +773,7 @@ return (
             </div>
 
             <div className="stat-card">
-  <p>Leder just nu</p>
+  <p>{hasScoredMatches ? "Leder just nu" : "Inte igång ännu"}</p>
   <strong>
     {hasScoredMatches && leader ? leader.display_name : "Ingen ledare ännu"}
   </strong>
@@ -838,11 +845,16 @@ return (
               </div>
 
               {activeStandings.length === 0 ? (
-                <div className="empty-state">
-                  Inga inskickade tips finns i ligan ännu.
-                </div>
-              ) : (
-                <div className="leaderboard-list">
+  <div className="empty-state">
+    Inga inskickade tips finns i ligan ännu.
+  </div>
+) : !hasScoredMatches ? (
+  <div className="empty-state">
+    Tabellen vaknar när första matchen är spelad. Då börjar poängen räknas och
+    ligans riktiga leaderboard visas här.
+  </div>
+) : (
+  <div className="leaderboard-list">
                   {activeStandings.map((row, index) => {
                     const isCurrentUser = row.user_id === user.id;
 

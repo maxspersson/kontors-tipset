@@ -21,7 +21,7 @@ type CopyLeagueOption = {
   name: string;
 };
 
-const TOURNAMENT_DEADLINE_LABEL = "11 juni 2026 kl. 20:00";
+const TOURNAMENT_DEADLINE_LABEL = "11 juni 2026 kl. 20:30";
 const TOURNAMENT_SUBMIT_LOCK_DATE = new Date("2026-06-11T20:30:00+02:00");
 
 function isTournamentSubmitDeadlinePassed() {
@@ -249,14 +249,20 @@ export default function TippaClient({
   const [autoSaveStatus, setAutoSaveStatus] = useState("");
   const [submitStatus, setSubmitStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [hasSubmitted, setHasSubmitted] = useState(isLocked);
+  const [isUnsubmitting, setIsUnsubmitting] = useState(false);
+ const [hasSubmitted, setHasSubmitted] = useState(isLocked);
+
+useEffect(() => {
+  setHasSubmitted(isLocked);
+}, [isLocked]);
   const [copySourceLeagueId, setCopySourceLeagueId] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
   const [isCopying, setIsCopying] = useState(false);
   const [submitDeadlinePassed, setSubmitDeadlinePassed] = useState(false);
 
   const hasMounted = useRef(false);
-  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+const previousPlayoffTeams = useRef<Record<string, string> | null>(null);
 
   useEffect(() => {
     function updateDeadlineStatus() {
@@ -408,6 +414,80 @@ export default function TippaClient({
       predictions,
     });
   }, [playoffMatches, allGroupTables, thirdPlacedTeams, predictions]);
+  useEffect(() => {
+  if (readonly || hasSubmitted) return;
+
+  const currentTeamsByMatch: Record<string, string> = {};
+
+  for (const round of playoffRounds) {
+    for (const match of round) {
+      const homeTeamKey =
+        match.teamA?.team ?? `slot:${match.slotALabel ?? "unknown"}`;
+      const awayTeamKey =
+        match.teamB?.team ?? `slot:${match.slotBLabel ?? "unknown"}`;
+
+      currentTeamsByMatch[match.dbMatch.id] =
+        `${homeTeamKey}__vs__${awayTeamKey}`;
+    }
+  }
+
+  if (!previousPlayoffTeams.current) {
+    previousPlayoffTeams.current = currentTeamsByMatch;
+    return;
+  }
+
+  const previousTeamsByMatch = previousPlayoffTeams.current;
+
+  const changedMatchIds = Object.entries(currentTeamsByMatch)
+    .filter(([matchId, currentTeams]) => {
+      const previousTeams = previousTeamsByMatch[matchId];
+
+      return previousTeams && previousTeams !== currentTeams;
+    })
+    .map(([matchId]) => matchId);
+
+  previousPlayoffTeams.current = currentTeamsByMatch;
+
+  if (changedMatchIds.length === 0) return;
+
+  let didClearPredictions = false;
+
+  setPredictions((prev) => {
+    let hasChanges = false;
+    const next = { ...prev };
+
+    for (const matchId of changedMatchIds) {
+      const currentPrediction = next[matchId];
+
+      if (
+        currentPrediction &&
+        (currentPrediction.home !== "" ||
+          currentPrediction.away !== "" ||
+          currentPrediction.advancingTeam)
+      ) {
+        next[matchId] = {
+          home: "",
+          away: "",
+          advancingTeam: null,
+        };
+
+        hasChanges = true;
+      }
+    }
+
+    didClearPredictions = hasChanges;
+
+    return hasChanges ? next : prev;
+  });
+
+  if (didClearPredictions) {
+    setSaveStatus("");
+    setAutoSaveStatus("");
+    setSubmitStatus(
+      "Slutspelstipset har uppdaterats eftersom gruppresultaten ändrade lagen i trädet."
+    );
+  }
+}, [playoffRounds, readonly, hasSubmitted]);
 
   const finalRound = playoffRounds[playoffRounds.length - 1];
   const finalMatch = finalRound?.find((match) => match.dbMatch.stage === "final");
@@ -585,75 +665,117 @@ export default function TippaClient({
   }
 
   async function submitPredictions() {
-    if (isSubmitDeadlineLocked) {
-      setSubmitStatus(
-        `Deadline har passerat. Tipset skulle vara inskickat senast ${TOURNAMENT_DEADLINE_LABEL}.`
-      );
-      return;
-    }
-
-    if (hasSubmitted) {
-      setSubmitStatus("Tipset är redan inskickat. Slutspelet är låst.");
-      return;
-    }
-
-    if (!isEntireBracketComplete) {
-      setSubmitStatus(
-        `Du måste fylla i alla ${TOTAL_MATCHES} matcher innan du kan skicka in tipset. Just nu är ${completedPredictionsCount}/${TOTAL_MATCHES} ifyllda.`
-      );
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "Är du säker på att du vill skicka in tipset? Då låses ditt slutspel och en sparad kopia skapas. Gruppspelsmatcher kan fortfarande ändras fram till 60 minuter före avspark."
+  if (isSubmitDeadlineLocked) {
+    setSubmitStatus(
+      `Deadline har passerat. Tipset skulle vara inskickat senast ${TOURNAMENT_DEADLINE_LABEL}.`
     );
-
-    if (!confirmed) return;
-
-    setIsSubmitting(true);
-    setSubmitStatus("Sparar senaste ändringar...");
-
-    const saved = await savePredictions();
-
-    if (!saved) {
-      setSubmitStatus("Kunde inte skicka in eftersom tipset inte kunde sparas.");
-      setIsSubmitting(false);
-      return;
-    }
-
-    setSubmitStatus("Skickar in tipset...");
-
-    const response = await fetch("/api/submit-predictions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        leagueId,
-      }),
-    });
-
-    const text = await response.text();
-
-    if (!response.ok) {
-      setSubmitStatus(text || "Kunde inte skicka in tipset.");
-      setIsSubmitting(false);
-      return;
-    }
-
-    try {
-      const data = JSON.parse(text);
-
-      setSubmitStatus(
-        `Tipset är inskickat! ${data.totalPredictionsCount} tips är låsta.`
-      );
-    } catch {
-      setSubmitStatus("Tipset är inskickat!");
-    }
-
-    setHasSubmitted(true);
-    setIsSubmitting(false);
+    return;
   }
+
+  if (hasSubmitted) {
+    setSubmitStatus("Tipset är redan inskickat. Klicka på Redigera tips om du vill ändra före deadline.");
+    return;
+  }
+
+  if (!isEntireBracketComplete) {
+    setSubmitStatus(
+      `Du måste fylla i alla ${TOTAL_MATCHES} matcher innan du kan skicka in tipset. Just nu är ${completedPredictionsCount}/${TOTAL_MATCHES} ifyllda.`
+    );
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Är du säker på att du vill skicka in tipset? En sparad kopia skapas. Du kan låsa upp och redigera tipset igen fram till deadline."
+  );
+
+  if (!confirmed) return;
+
+  setIsSubmitting(true);
+  setSubmitStatus("Sparar senaste ändringar...");
+
+  const saved = await savePredictions();
+
+  if (!saved) {
+    setSubmitStatus("Kunde inte skicka in eftersom tipset inte kunde sparas.");
+    setIsSubmitting(false);
+    return;
+  }
+
+  setSubmitStatus("Skickar in tipset...");
+
+  const response = await fetch("/api/submit-predictions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      leagueId,
+    }),
+  });
+
+  const text = await response.text();
+
+  if (!response.ok) {
+    setSubmitStatus(text || "Kunde inte skicka in tipset.");
+    setIsSubmitting(false);
+    return;
+  }
+
+  try {
+    const data = JSON.parse(text);
+
+    setSubmitStatus(
+      `Tipset är inskickat! ${data.totalPredictionsCount} tips är låsta.`
+    );
+  } catch {
+    setSubmitStatus("Tipset är inskickat!");
+  }
+
+  setHasSubmitted(true);
+  setIsSubmitting(false);
+}
+
+async function unsubmitPredictions() {
+  if (isSubmitDeadlineLocked) {
+    setSubmitStatus(
+      "Deadline har passerat. Det går inte längre att redigera ett inskickat tips."
+    );
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Vill du låsa upp ditt inskickade tips? Du kan redigera och skicka in igen fram till deadline."
+  );
+
+  if (!confirmed) return;
+
+  setIsUnsubmitting(true);
+  setSubmitStatus("Låser upp tipset...");
+
+  const response = await fetch("/api/unsubmit-predictions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      leagueId,
+    }),
+  });
+
+  const text = await response.text();
+
+if (!response.ok) {
+  setSubmitStatus(text || "Kunde inte låsa upp tipset.");
+  setIsUnsubmitting(false);
+  return;
+}
+
+setHasSubmitted(false);
+setIsUnsubmitting(false);
+setSubmitStatus("Tipset är upplåst. Du kan redigera och skicka in igen.");
+
+window.location.reload();
+}
 
   function renderScoreInput({
     matchId,
@@ -738,13 +860,28 @@ export default function TippaClient({
                   {readonly ? "Du tittar på ett låst tips" : "Tipset är inskickat"}
                 </p>
                 <p className="tippa-locked-text">
-                  {readonly
-                    ? `Det här är ${viewerName || "spelarens"} inskickade VM-tips. Resultaten går inte att ändra här.`
-                    : "Slutspelet är låst och en sparad kopia av tipset finns. Gruppspelsmatcher kan fortfarande ändras fram till 60 minuter före avspark."}
-                  {submission?.submitted_at
-                    ? ` Inskickat ${formatKickoff(submission.submitted_at)}.`
-                    : ""}
-                </p>
+  {readonly
+    ? `Det här är ${viewerName || "spelarens"} inskickade VM-tips. Resultaten går inte att ändra här.`
+    : "Tipset är inskickat och sparat. Du kan redigera och skicka in igen fram till deadline."}
+  {submission?.submitted_at
+    ? ` Inskickat ${formatKickoff(submission.submitted_at)}.`
+    : ""}
+</p>
+
+{!readonly && hasSubmitted && (
+  <button
+    type="button"
+    className="inline-edit-button"
+    disabled={isUnsubmitting || isSubmitDeadlineLocked}
+    onClick={unsubmitPredictions}
+  >
+    {isUnsubmitting
+      ? "Låser upp..."
+      : isSubmitDeadlineLocked
+        ? "Deadline passerad"
+        : "Redigera tips"}
+  </button>
+)}
               </div>
             </div>
           )}
@@ -1055,37 +1192,50 @@ export default function TippaClient({
                     </h3>
                     <span>
                       {hasSubmitted
-                        ? "Ditt inskickade tips är sparat. Slutspelsträdet kan inte längre ändras."
+                        ? "Ditt inskickade tips är sparat. Du kan redigera det fram till deadline."
                         : `${completedPredictionsCount}/${TOTAL_MATCHES} matcher ifyllda. När hela tipset är klart kan du låsa och skicka in det.`}
                     </span>
                   </div>
 
                   <div className="submit-actions">
-                    <button
-                      className="secondary-button"
-                      disabled={isSubmitting}
-                      onClick={savePredictions}
-                    >
-                      Spara tips
-                    </button>
+  {hasSubmitted ? (
+    <button
+      className="submit-button"
+      disabled={isUnsubmitting || isSubmitDeadlineLocked}
+      onClick={unsubmitPredictions}
+    >
+      {isUnsubmitting
+        ? "Låser upp..."
+        : isSubmitDeadlineLocked
+          ? "Deadline passerad"
+          : "Redigera tips"}
+    </button>
+  ) : (
+    <>
+      <button
+        className="secondary-button"
+        disabled={isSubmitting}
+        onClick={savePredictions}
+      >
+        Spara tips
+      </button>
 
-                    <button
-                      className="submit-button"
-                      disabled={
-                        isSubmitDeadlineLocked ||
-                        hasSubmitted ||
-                        !isEntireBracketComplete ||
-                        isSubmitting
-                      }
-                      onClick={submitPredictions}
-                    >
-                      {hasSubmitted
-                        ? "Tipset inskickat"
-                        : isSubmitting
-                          ? "Skickar in..."
-                          : "Skicka in tipset"}
-                    </button>
-                  </div>
+      <button
+        className="submit-button"
+        disabled={
+          isSubmitDeadlineLocked ||
+          !isEntireBracketComplete ||
+          isSubmitting
+        }
+        onClick={submitPredictions}
+      >
+        {isSubmitting ? "Skickar in..." : "Skicka in tipset"}
+      </button>
+    </>
+  )}
+</div>
+
+                  
 
                   {(saveStatus || submitStatus || autoSaveStatus) && (
                     <p className="submit-status">
@@ -1353,6 +1503,24 @@ export default function TippaClient({
               font-size: 14px;
               font-weight: 850;
             }
+
+            .inline-edit-button {
+  margin-top: 14px;
+  height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f3cf69, #d9a935);
+  color: #090909;
+  font-size: 13px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.inline-edit-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
             .readonly-back-link:hover {
               color: #e5b94d;
