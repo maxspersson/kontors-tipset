@@ -12,7 +12,6 @@ import { redirect } from "next/navigation";
 import {
   calculateStandings,
   type MatchRow,
-  type PredictionRow,
   type ProfileRow,
   type SubmissionRow,
 } from "@/app/lib/scoring";
@@ -54,6 +53,18 @@ type StandingSnapshotRow = {
   rank: number;
   points: number;
   created_at: string;
+};
+
+type SnapshotPick = {
+  match_id: string;
+  predicted_home_score: number | null;
+  predicted_away_score: number | null;
+  advancing_team?: "home" | "away" | null;
+  match: {
+    stage?: string | null;
+    home_team: string;
+    away_team: string;
+  };
 };
 
 function formatNameFromEmail(email?: string | null) {
@@ -175,6 +186,43 @@ function getMostCommonResult(
   );
 }
 
+function getPredictedWinner(snapshotItem: SnapshotPick | undefined | null) {
+  if (!snapshotItem) return null;
+
+  const homeScore = snapshotItem.predicted_home_score;
+  const awayScore = snapshotItem.predicted_away_score;
+
+  if (homeScore === null || awayScore === null) return null;
+
+  if (homeScore > awayScore) return snapshotItem.match.home_team;
+  if (awayScore > homeScore) return snapshotItem.match.away_team;
+
+  if (snapshotItem.advancing_team === "home") return snapshotItem.match.home_team;
+  if (snapshotItem.advancing_team === "away") return snapshotItem.match.away_team;
+
+  return null;
+}
+
+function getPredictedLoser(snapshotItem: SnapshotPick | undefined | null) {
+  const winner = getPredictedWinner(snapshotItem);
+  if (!winner || !snapshotItem) return null;
+
+  return winner === snapshotItem.match.home_team
+    ? snapshotItem.match.away_team
+    : snapshotItem.match.home_team;
+}
+
+function getTopTeam(counts: Map<string, number>) {
+  return (
+    Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([team, count]) => ({
+        team: getSwedishTeamName(team),
+        count,
+      }))[0] ?? null
+  );
+}
+
 export default async function LeagueDetailPage({
   params,
   searchParams,
@@ -200,8 +248,8 @@ export default async function LeagueDetailPage({
 
   if (leagueError || !league) {
     return (
-  <main className="league-detail-page">
-    <LeagueAutoRefresh intervalMs={30000} />
+      <main className="league-detail-page">
+        <LeagueAutoRefresh intervalMs={30000} />
         <section className="league-detail-hero">
           <div className="league-wrap">
             <p className="eyebrow">Liga</p>
@@ -272,35 +320,20 @@ export default async function LeagueDetailPage({
   }
 
   const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
+
   if (!profileMap.has(user.id)) {
-  profileMap.set(user.id, {
-    id: user.id,
-    email: user.email ?? null,
-    display_name:
-      user.user_metadata?.display_name ??
-      user.user_metadata?.full_name ??
-      user.user_metadata?.name ??
-      null,
-  });
-}
-
-  let predictions: PredictionRow[] = [];
-
-  if (submittedUserIds.length > 0) {
-    const { data: predictionRows } = await supabase
-      .from("predictions")
-      .select(
-        "league_id, user_id, match_id, predicted_home_score, predicted_away_score"
-      )
-      .eq("league_id", league.id)
-      .in("user_id", submittedUserIds);
-
-    predictions = (predictionRows ?? []) as PredictionRow[];
+    profileMap.set(user.id, {
+      id: user.id,
+      email: user.email ?? null,
+      display_name:
+        user.user_metadata?.display_name ??
+        user.user_metadata?.full_name ??
+        user.user_metadata?.name ??
+        null,
+    });
   }
 
-  const { data: matches } = await supabase
-  .from("matches")
-  .select(
+  const { data: matches } = await supabase.from("matches").select(
     "id, fifa_match_number, stage, group_name, home_team, away_team, home_team_code, away_team_code, home_fifa_ranking, away_fifa_ranking, home_score, away_score, home_pen, away_pen, actual_advancing_team, kickoff_utc, status"
   );
 
@@ -407,30 +440,28 @@ export default async function LeagueDetailPage({
   ];
 
   function getSubmittedPickForMatch(userId: string, matchId: string) {
-  const submission = submissionByUserId.get(userId);
+    const submission = submissionByUserId.get(userId);
 
-  if (!submission) return null;
+    if (!submission) return null;
 
-  const snapshot = [
-    ...(submission.group_snapshot ?? []),
-    ...(submission.playoff_snapshot ?? []),
-  ];
+    const snapshot = [
+      ...(submission.group_snapshot ?? []),
+      ...(submission.playoff_snapshot ?? []),
+    ];
 
-  return snapshot.find((item) => item.match_id === matchId) ?? null;
-}
+    return snapshot.find((item) => item.match_id === matchId) ?? null;
+  }
+
   const matchDuelPicks = isDemoMode
     ? demoMatchDuelPicks
     : activeFeaturedMatch
       ? memberRows.map((member) => {
           const profile = profileMap.get(member.user_id);
           const displayName = getDisplayName(profile);
-          const prediction =
-  getSubmittedPickForMatch(member.user_id, activeFeaturedMatch.id) ??
-  predictions.find(
-    (item) =>
-      item.user_id === member.user_id &&
-      item.match_id === activeFeaturedMatch.id
-  );
+          const prediction = getSubmittedPickForMatch(
+            member.user_id,
+            activeFeaturedMatch.id
+          );
 
           return {
             memberId: member.id,
@@ -450,15 +481,24 @@ export default async function LeagueDetailPage({
   );
 
   const homeWinPicks = submittedMatchDuelPicks.filter(
-    (pick) => pick.homeScore !== null && pick.awayScore !== null && pick.homeScore > pick.awayScore
+    (pick) =>
+      pick.homeScore !== null &&
+      pick.awayScore !== null &&
+      pick.homeScore > pick.awayScore
   );
 
   const drawPicks = submittedMatchDuelPicks.filter(
-    (pick) => pick.homeScore !== null && pick.awayScore !== null && pick.homeScore === pick.awayScore
+    (pick) =>
+      pick.homeScore !== null &&
+      pick.awayScore !== null &&
+      pick.homeScore === pick.awayScore
   );
 
   const awayWinPicks = submittedMatchDuelPicks.filter(
-    (pick) => pick.homeScore !== null && pick.awayScore !== null && pick.homeScore < pick.awayScore
+    (pick) =>
+      pick.homeScore !== null &&
+      pick.awayScore !== null &&
+      pick.homeScore < pick.awayScore
   );
 
   const mostCommonResult = getMostCommonResult(submittedMatchDuelPicks);
@@ -492,7 +532,7 @@ export default async function LeagueDetailPage({
 
   const standings = calculateStandings({
     submissions: submissionRows,
-    predictions,
+    predictions: [],
     matches: matchRows as MatchRow[],
     profiles: profiles as ProfileRow[],
   });
@@ -591,121 +631,155 @@ export default async function LeagueDetailPage({
     .sort((a, b) => b.climb - a.climb);
 
   const memberCount = isDemoMode ? 5 : memberRows.length;
-const submittedCount = isDemoMode ? 5 : submittedUserIds.length;
+  const submittedCount = isDemoMode ? 5 : submittedUserIds.length;
 
-const hasScoredMatches =
-  isDemoMode || activeStandings.some((standing) => standing.playedMatches > 0);
+  const hasScoredMatches =
+    isDemoMode || activeStandings.some((standing) => standing.playedMatches > 0);
 
-const leader = hasScoredMatches ? activeStandings[0] : null;
+  const leader = hasScoredMatches ? activeStandings[0] : null;
 
-const topClimber =
-  isDemoMode || hasScoredMatches
-    ? isDemoMode
-      ? { display_name: "Alex", climb: 4 }
-      : climbers[0] ?? null
-    : null;
+  const topClimber =
+    isDemoMode || hasScoredMatches
+      ? isDemoMode
+        ? { display_name: "Alex", climb: 4 }
+        : climbers[0] ?? null
+      : null;
 
-const exactScoreLeader =
-  isDemoMode || hasScoredMatches
-    ? isDemoMode
-      ? { display_name: "Maja", exactScores: 12 }
-      : [...standings]
-          .filter((standing) => standing.exactScores > 0)
-          .sort((a, b) => b.exactScores - a.exactScores)[0] ?? null
-    : null;
+  const exactScoreLeader =
+    isDemoMode || hasScoredMatches
+      ? isDemoMode
+        ? { display_name: "Maja", exactScores: 12 }
+        : [...standings]
+            .filter((standing) => standing.exactScores > 0)
+            .sort((a, b) => b.exactScores - a.exactScores)[0] ?? null
+      : null;
+
+  const goldCounts = new Map<string, number>();
+  const silverCounts = new Map<string, number>();
+  const bronzeCounts = new Map<string, number>();
+
+  submissionRows.forEach((submission) => {
+    const playoffSnapshot = (submission.playoff_snapshot ?? []) as SnapshotPick[];
+
+    const finalPick = playoffSnapshot.find(
+      (item) => item.match?.stage === "final"
+    );
+
+    const bronzePick = playoffSnapshot.find(
+      (item) => item.match?.stage === "third_place"
+    );
+
+    const goldTeam = getPredictedWinner(finalPick);
+    const silverTeam = getPredictedLoser(finalPick);
+    const bronzeTeam = getPredictedWinner(bronzePick);
+
+    if (goldTeam) goldCounts.set(goldTeam, (goldCounts.get(goldTeam) ?? 0) + 1);
+    if (silverTeam) {
+      silverCounts.set(silverTeam, (silverCounts.get(silverTeam) ?? 0) + 1);
+    }
+    if (bronzeTeam) {
+      bronzeCounts.set(bronzeTeam, (bronzeCounts.get(bronzeTeam) ?? 0) + 1);
+    }
+  });
+
+  const leaguePodiumPrediction = {
+    gold: getTopTeam(goldCounts),
+    silver: getTopTeam(silverCounts),
+    bronze: getTopTeam(bronzeCounts),
+  };
 
   const duelPagerPicks: MatchDuelPickItem[] = activeFeaturedMatch
-  ? matchDuelPicks.map((pick) => ({
-      memberId: pick.memberId,
-      displayName: pick.displayName,
-      hasSubmitted: pick.hasSubmitted,
-      homeScore: pick.homeScore,
-      awayScore: pick.awayScore,
-      outcomeLabel:
-        pick.hasSubmitted && pick.homeScore !== null && pick.awayScore !== null
-          ? getPickOutcomeLabel(
-              pick.homeScore,
-              pick.awayScore,
-              activeFeaturedMatch.home_team,
-              activeFeaturedMatch.away_team
-            )
-          : pick.hasSubmitted
-            ? "Inget tips på matchen"
-            : "Inte inskickat",
-    }))
-  : [];
+    ? matchDuelPicks.map((pick) => ({
+        memberId: pick.memberId,
+        displayName: pick.displayName,
+        hasSubmitted: pick.hasSubmitted,
+        homeScore: pick.homeScore,
+        awayScore: pick.awayScore,
+        outcomeLabel:
+          pick.hasSubmitted && pick.homeScore !== null && pick.awayScore !== null
+            ? getPickOutcomeLabel(
+                pick.homeScore,
+                pick.awayScore,
+                activeFeaturedMatch.home_team,
+                activeFeaturedMatch.away_team
+              )
+            : pick.hasSubmitted
+              ? "Inget tips på matchen"
+              : "Inte inskickat",
+      }))
+    : [];
 
   const pagerMembers: MemberPagerItem[] = memberRows.map((member) => {
-  const profile = profileMap.get(member.user_id);
-  const displayName = getDisplayName(profile);
-  const hasSubmitted = submittedUserSet.has(member.user_id);
-  const isCurrentUser = member.user_id === user.id;
-  const memberSubmission = submissionByUserId.get(member.user_id);
-  const tipsPath = memberSubmission?.public_slug || member.user_id;
-
-  return {
-    id: member.id,
-    displayName,
-    email:
-      profile?.email ||
-      (isCurrentUser ? user.email ?? "" : "") ||
-      "Ingen e-post",
-    initials: getInitials(displayName),
-    isCurrentUser,
-    hasSubmitted,
-    tipsHref: hasSubmitted ? `/liga/${league.slug}/tips/${tipsPath}` : null,
-  };
-});
-
-const recentMemberActivities = memberRows
-  .slice()
-  .sort(
-    (a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  )
-  .slice(0, 5)
-  .map((member) => {
     const profile = profileMap.get(member.user_id);
     const displayName = getDisplayName(profile);
+    const hasSubmitted = submittedUserSet.has(member.user_id);
+    const isCurrentUser = member.user_id === user.id;
+    const memberSubmission = submissionByUserId.get(member.user_id);
+    const tipsPath = memberSubmission?.public_slug || member.user_id;
 
     return {
-      id: `member-${member.id}`,
-      text: `${displayName} gick med i ligan`,
-      createdAt: member.created_at,
-      icon: "👋",
+      id: member.id,
+      displayName,
+      email:
+        profile?.email ||
+        (isCurrentUser ? user.email ?? "" : "") ||
+        "Ingen e-post",
+      initials: getInitials(displayName),
+      isCurrentUser,
+      hasSubmitted,
+      tipsHref: hasSubmitted ? `/liga/${league.slug}/tips/${tipsPath}` : null,
     };
   });
 
-const recentSubmissionActivities = submissionRows
-  .filter((submission) => submission.submitted_at)
-  .slice()
-  .sort(
-    (a, b) =>
-      new Date(b.submitted_at || "").getTime() -
-      new Date(a.submitted_at || "").getTime()
-  )
-  .slice(0, 5)
-  .map((submission) => {
-    const profile = profileMap.get(submission.user_id);
-    const displayName = getDisplayName(profile);
+  const recentMemberActivities = memberRows
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+    .slice(0, 5)
+    .map((member) => {
+      const profile = profileMap.get(member.user_id);
+      const displayName = getDisplayName(profile);
 
-    return {
-      id: `submission-${submission.user_id}`,
-      text: `${displayName} skickade in sitt tips`,
-      createdAt: submission.submitted_at || "",
-      icon: "✅",
-    };
-  });
+      return {
+        id: `member-${member.id}`,
+        text: `${displayName} gick med i ligan`,
+        createdAt: member.created_at,
+        icon: "👋",
+      };
+    });
 
-const activityItems = [...recentMemberActivities, ...recentSubmissionActivities]
-  .sort(
-    (a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  )
-  .slice(0, 5);
+  const recentSubmissionActivities = submissionRows
+    .filter((submission) => submission.submitted_at)
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.submitted_at || "").getTime() -
+        new Date(a.submitted_at || "").getTime()
+    )
+    .slice(0, 5)
+    .map((submission) => {
+      const profile = profileMap.get(submission.user_id);
+      const displayName = getDisplayName(profile);
 
-return (
-  <main className="league-detail-page">
+      return {
+        id: `submission-${submission.user_id}`,
+        text: `${displayName} skickade in sitt tips`,
+        createdAt: submission.submitted_at || "",
+        icon: "✅",
+      };
+    });
+
+  const activityItems = [...recentMemberActivities, ...recentSubmissionActivities]
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+    .slice(0, 5);
+
+  return (
+    <main className="league-detail-page">
       <section className="league-detail-hero">
         <div className="league-wrap">
           <div className="league-head">
@@ -765,21 +839,32 @@ return (
             </div>
           </div>
 
-         {isMember && (
-  <section className="league-live-card">
-    <div className="countdown-card">
-      <p>VM 2026</p>
+          {isMember && (
+            <section className="league-live-card">
+              <div className="countdown-card">
+                <p>VM 2026</p>
 
-      <h2>NU GÅR TÅGET</h2>
+                <h2>DETTA TROR LIGAN</h2>
 
-      <div className="activity-empty" style={{ marginTop: "16px" }}>
-        {memberCount} deltagare. {submittedCount} inskickade tips. Inga fler ändringar.
-        <br />
-        Nu börjar jakten på semesterkassan.
-      </div>
-    </div>
-  </section>
-)}
+                <div className="activity-empty" style={{ marginTop: "16px" }}>
+                  🥇 Guld: {leaguePodiumPrediction.gold?.team ?? "Inte klart"}{" "}
+                  {leaguePodiumPrediction.gold
+                    ? `(${leaguePodiumPrediction.gold.count} tips)`
+                    : ""}
+                  <br />
+                  🥈 Silver: {leaguePodiumPrediction.silver?.team ?? "Inte klart"}{" "}
+                  {leaguePodiumPrediction.silver
+                    ? `(${leaguePodiumPrediction.silver.count} tips)`
+                    : ""}
+                  <br />
+                  🥉 Brons: {leaguePodiumPrediction.bronze?.team ?? "Inte klart"}{" "}
+                  {leaguePodiumPrediction.bronze
+                    ? `(${leaguePodiumPrediction.bronze.count} tips)`
+                    : ""}
+                </div>
+              </div>
+            </section>
+          )}
 
           <div className="stats-grid">
             <div className="stat-card">
@@ -793,11 +878,11 @@ return (
             </div>
 
             <div className="stat-card">
-  <p>{hasScoredMatches ? "Leder just nu" : "Inte igång ännu"}</p>
-  <strong>
-    {hasScoredMatches && leader ? leader.display_name : "Ingen ledare ännu"}
-  </strong>
-</div>
+              <p>{hasScoredMatches ? "Leder just nu" : "Inte igång ännu"}</p>
+              <strong>
+                {hasScoredMatches && leader ? leader.display_name : "Ingen ledare ännu"}
+              </strong>
+            </div>
           </div>
 
           <section className="highlights-panel">
@@ -833,27 +918,27 @@ return (
           </section>
 
           {isMember && (
-  <section className="activity-card activity-card-wide">
-    <div className="activity-head">
-      <p>Senaste i ligan</p>
-    </div>
+            <section className="activity-card activity-card-wide">
+              <div className="activity-head">
+                <p>Senaste i ligan</p>
+              </div>
 
-    {activityItems.length === 0 ? (
-      <div className="activity-empty">
-        Bjud in fler deltagare så börjar ligan vakna till liv.
-      </div>
-    ) : (
-      <div className="activity-list">
-        {activityItems.map((activity) => (
-          <div key={activity.id} className="activity-row">
-            <span>{activity.icon}</span>
-            <p>{activity.text}</p>
-          </div>
-        ))}
-      </div>
-    )}
-  </section>
-)}
+              {activityItems.length === 0 ? (
+                <div className="activity-empty">
+                  Bjud in fler deltagare så börjar ligan vakna till liv.
+                </div>
+              ) : (
+                <div className="activity-list">
+                  {activityItems.map((activity) => (
+                    <div key={activity.id} className="activity-row">
+                      <span>{activity.icon}</span>
+                      <p>{activity.text}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
           <div className="content-grid">
             <section className="panel leaderboard-panel">
@@ -865,25 +950,23 @@ return (
               </div>
 
               {activeStandings.length === 0 ? (
-  <div className="empty-state">
-    Inga inskickade tips finns i ligan ännu.
-  </div>
-) : !hasScoredMatches ? (
-  <div className="empty-state">
-    Tabellen vaknar när första matchen är spelad. Då börjar poängen räknas och
-    ligans riktiga leaderboard visas här.
-  </div>
-) : (
-  <div className="leaderboard-list">
+                <div className="empty-state">
+                  Inga inskickade tips finns i ligan ännu.
+                </div>
+              ) : !hasScoredMatches ? (
+                <div className="empty-state">
+                  Tabellen vaknar när första matchen är spelad. Då börjar poängen räknas och
+                  ligans riktiga leaderboard visas här.
+                </div>
+              ) : (
+                <div className="leaderboard-list">
                   {activeStandings.map((row, index) => {
                     const isCurrentUser = row.user_id === user.id;
 
                     return (
                       <div
                         key={row.user_id}
-                        className={`leader-row ${
-                          isCurrentUser ? "is-current" : ""
-                        }`}
+                        className={`leader-row ${isCurrentUser ? "is-current" : ""}`}
                       >
                         <div className="rank">{index + 1}</div>
 
@@ -929,11 +1012,7 @@ return (
                     </div>
                   </div>
 
-                  <p
-                    className={
-                      isLiveMatch ? "match-time match-live-time" : "match-time"
-                    }
-                  >
+                  <p className={isLiveMatch ? "match-time match-live-time" : "match-time"}>
                     {isLiveMatch ? (
                       <>
                         <span className="live-dot-small" />
@@ -963,9 +1042,7 @@ return (
 
                       <div className="duel-insights">
                         <div>
-                          <span>
-                            {mostCommonResult ? mostCommonResult[0] : "—"}
-                          </span>
+                          <span>{mostCommonResult ? mostCommonResult[0] : "—"}</span>
                           <p>Vanligaste resultat</p>
                         </div>
 
@@ -984,53 +1061,53 @@ return (
                         </div>
                       </div>
 
-                     <div className="duel-outcome-grid">
-  <div>
-    <strong>{getSwedishTeamName(activeFeaturedMatch.home_team)}</strong>
-    <span>{homeWinPicks.length} tips</span>
-  </div>
+                      <div className="duel-outcome-grid">
+                        <div>
+                          <strong>{getSwedishTeamName(activeFeaturedMatch.home_team)}</strong>
+                          <span>{homeWinPicks.length} tips</span>
+                        </div>
 
-  <div>
-    <strong>Oavgjort</strong>
-    <span>{drawPicks.length} tips</span>
-  </div>
+                        <div>
+                          <strong>Oavgjort</strong>
+                          <span>{drawPicks.length} tips</span>
+                        </div>
 
-  <div>
-    <strong>{getSwedishTeamName(activeFeaturedMatch.away_team)}</strong>
-    <span>{awayWinPicks.length} tips</span>
-  </div>
-</div>
+                        <div>
+                          <strong>{getSwedishTeamName(activeFeaturedMatch.away_team)}</strong>
+                          <span>{awayWinPicks.length} tips</span>
+                        </div>
+                      </div>
 
-<MatchDuelPager picks={duelPagerPicks} />
+                      <MatchDuelPager picks={duelPagerPicks} />
                     </div>
                   )}
                 </section>
               )}
 
               <section className="panel invite-panel">
-  <div className="panel-head">
-    <div>
-      <p>Bjud in</p>
-      <h2>Ligakod</h2>
-    </div>
-  </div>
+                <div className="panel-head">
+                  <div>
+                    <p>Bjud in</p>
+                    <h2>Ligakod</h2>
+                  </div>
+                </div>
 
-  <div className="invite-code">{league.invite_code}</div>
+                <div className="invite-code">{league.invite_code}</div>
 
-  <div className="invite-actions">
-    <CopyTextButton value={league.invite_code} label="Kopiera kod" />
-  </div>
+                <div className="invite-actions">
+                  <CopyTextButton value={league.invite_code} label="Kopiera kod" />
+                </div>
 
-  <div className="invite-divider" />
+                <div className="invite-divider" />
 
-  <p className="invite-label">Invitelänk</p>
+                <p className="invite-label">Invitelänk</p>
 
-  <div className="invite-small-link">{inviteDisplayUrl}</div>
+                <div className="invite-small-link">{inviteDisplayUrl}</div>
 
-  <div className="invite-actions">
-    <CopyTextButton value={inviteFullUrl} label="Kopiera länk" />
-  </div>
-</section>
+                <div className="invite-actions">
+                  <CopyTextButton value={inviteFullUrl} label="Kopiera länk" />
+                </div>
+              </section>
 
               <section className="panel members-panel">
                 <div className="panel-head">
@@ -1045,10 +1122,10 @@ return (
                 )}
 
                 {pagerMembers.length === 0 ? (
-  <div className="empty-state">Inga medlemmar än.</div>
-) : (
-  <MembersPager members={pagerMembers} />
-)}
+                  <div className="empty-state">Inga medlemmar än.</div>
+                ) : (
+                  <MembersPager members={pagerMembers} />
+                )}
               </section>
 
               {isMember && (
@@ -1243,179 +1320,50 @@ return (
             }
 
             .league-live-card {
-  position: relative;
-  overflow: hidden;
-  margin-top: 36px;
-  padding: 26px;
-  border-radius: 28px;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 18px;
-  background:
-    linear-gradient(135deg, rgba(229,185,77,0.11), transparent 42%),
-    rgba(5,12,18,0.78);
-  border: 1px solid rgba(229,185,77,0.20);
-  box-shadow: 0 22px 80px rgba(0,0,0,0.30);
-  backdrop-filter: blur(18px);
-}
-
-.league-live-card::before {
-  content: "";
-  position: absolute;
-  inset: -90px -110px auto auto;
-  width: 280px;
-  height: 280px;
-  border-radius: 999px;
-  background: rgba(229,185,77,0.18);
-  filter: blur(36px);
-  pointer-events: none;
-}
-
-.countdown-card,
-.activity-card {
-  position: relative;
-  padding: 22px;
-  border-radius: 22px;
-  background: rgba(0,0,0,0.20);
-  border: 1px solid rgba(255,255,255,0.08);
-}
-
-.activity-card-wide {
-  margin-top: 18px;
-}
-
-.countdown-card p,
-.activity-head p {
-  margin: 0;
-  color: #e5b94d;
-  font-size: 12px;
-  font-weight: 950;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.countdown-card h2,
-.activity-head h2 {
-  margin: 8px 0 0;
-  max-width: 720px;
-  font-size: clamp(30px, 4vw, 52px);
-  line-height: 1.02;
-  letter-spacing: -0.06em;
-}
-
-.countdown-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-top: 24px;
-}
-
-.countdown-grid div {
-  min-height: 120px;
-  padding: 18px 12px;
-  border-radius: 22px;
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  background: rgba(229,185,77,0.10);
-  border: 1px solid rgba(229,185,77,0.18);
-}
-
-.countdown-grid strong {
-  color: #e5b94d;
-  font-size: 46px;
-  line-height: 1;
-  font-weight: 950;
-  letter-spacing: -0.06em;
-}
-
-.countdown-grid span {
-  margin-top: 7px;
-  color: rgba(255,255,255,0.56);
-  font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.activity-list {
-  display: grid;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.activity-row {
-  display: grid;
-  grid-template-columns: 38px 1fr;
-  gap: 12px;
-  align-items: center;
-  padding: 13px;
-  border-radius: 16px;
-  background: rgba(255,255,255,0.045);
-  border: 1px solid rgba(255,255,255,0.075);
-}
-
-.activity-row span {
-  width: 38px;
-  height: 38px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  background: rgba(255,255,255,0.08);
-  font-size: 18px;
-}
-
-.activity-row p {
-  margin: 0;
-  color: rgba(255,255,255,0.76);
-  font-size: 14px;
-  font-weight: 850;
-  line-height: 1.35;
-}
-
-.activity-empty {
-  margin-top: 18px;
-  padding: 16px;
-  border-radius: 16px;
-  background: rgba(255,255,255,0.045);
-  border: 1px solid rgba(255,255,255,0.075);
-  color: rgba(255,255,255,0.56);
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-            .invite-hero-card {
               position: relative;
               overflow: hidden;
               margin-top: 36px;
               padding: 26px;
               border-radius: 28px;
               display: grid;
-              grid-template-columns: 1fr auto;
-              gap: 24px;
-              align-items: center;
-              border-color: rgba(229,185,77,0.22);
+              grid-template-columns: 1fr;
+              gap: 18px;
+              background:
+                linear-gradient(135deg, rgba(229,185,77,0.11), transparent 42%),
+                rgba(5,12,18,0.78);
+              border: 1px solid rgba(229,185,77,0.20);
+              box-shadow: 0 22px 80px rgba(0,0,0,0.30);
+              backdrop-filter: blur(18px);
             }
 
-            .invite-hero-card::before,
-            .highlight-card::before {
+            .league-live-card::before {
               content: "";
               position: absolute;
-              inset: -80px -120px auto auto;
-              width: 260px;
-              height: 260px;
+              inset: -90px -110px auto auto;
+              width: 280px;
+              height: 280px;
               border-radius: 999px;
-              background: rgba(229,185,77,0.16);
-              filter: blur(34px);
+              background: rgba(229,185,77,0.18);
+              filter: blur(36px);
               pointer-events: none;
             }
 
-            .invite-hero-copy {
+            .countdown-card,
+            .activity-card {
               position: relative;
+              padding: 22px;
+              border-radius: 22px;
+              background: rgba(0,0,0,0.20);
+              border: 1px solid rgba(255,255,255,0.08);
             }
 
-            .invite-hero-copy p {
-              margin: 0 0 10px;
+            .activity-card-wide {
+              margin-top: 18px;
+            }
+
+            .countdown-card p,
+            .activity-head p {
+              margin: 0;
               color: #e5b94d;
               font-size: 12px;
               font-weight: 950;
@@ -1423,22 +1371,59 @@ return (
               text-transform: uppercase;
             }
 
-            .invite-hero-copy h2 {
-              margin: 0;
-              max-width: 560px;
-              font-size: clamp(28px, 3vw, 42px);
-              line-height: 1.05;
-              letter-spacing: -0.055em;
+            .countdown-card h2,
+            .activity-head h2 {
+              margin: 8px 0 0;
+              max-width: 720px;
+              font-size: clamp(30px, 4vw, 52px);
+              line-height: 1.02;
+              letter-spacing: -0.06em;
             }
 
-            .invite-hero-copy span {
-              display: block;
-              margin-top: 12px;
-              max-width: 560px;
-              color: rgba(255,255,255,0.58);
-              font-size: 15px;
-              line-height: 1.55;
-              font-weight: 750;
+            .activity-list {
+              display: grid;
+              gap: 10px;
+              margin-top: 18px;
+            }
+
+            .activity-row {
+              display: grid;
+              grid-template-columns: 38px 1fr;
+              gap: 12px;
+              align-items: center;
+              padding: 13px;
+              border-radius: 16px;
+              background: rgba(255,255,255,0.045);
+              border: 1px solid rgba(255,255,255,0.075);
+            }
+
+            .activity-row span {
+              width: 38px;
+              height: 38px;
+              border-radius: 999px;
+              display: grid;
+              place-items: center;
+              background: rgba(255,255,255,0.08);
+              font-size: 18px;
+            }
+
+            .activity-row p {
+              margin: 0;
+              color: rgba(255,255,255,0.76);
+              font-size: 14px;
+              font-weight: 850;
+              line-height: 1.35;
+            }
+
+            .activity-empty {
+              margin-top: 18px;
+              padding: 16px;
+              border-radius: 16px;
+              background: rgba(255,255,255,0.045);
+              border: 1px solid rgba(255,255,255,0.075);
+              color: rgba(255,255,255,0.56);
+              font-size: 14px;
+              line-height: 1.5;
             }
 
             .invite-link-preview,
@@ -1456,61 +1441,44 @@ return (
               white-space: nowrap;
             }
 
-            .invite-link-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px;
-  align-items: center;
-  margin-top: 16px;
-}
+            .invite-actions {
+              margin-top: 12px;
+            }
 
-.invite-actions {
-  margin-top: 12px;
-}
+            .invite-actions .copy-text-button {
+              width: 100%;
+            }
 
-.invite-actions .copy-text-button {
-  width: 100%;
-}
+            .invite-divider {
+              height: 1px;
+              margin: 22px 0;
+              background: rgba(255,255,255,0.10);
+            }
 
-.invite-divider {
-  height: 1px;
-  margin: 22px 0;
-  background: rgba(255,255,255,0.10);
-}
+            .invite-label {
+              margin: 0;
+              color: rgba(255,255,255,0.42);
+              font-size: 12px;
+              font-weight: 900;
+              letter-spacing: 0.14em;
+              text-transform: uppercase;
+            }
 
-.invite-label {
-  margin: 0;
-  color: rgba(255,255,255,0.42);
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
+            .copy-text-button {
+              height: 48px;
+              padding: 0 16px;
+              border: 1px solid rgba(229,185,77,0.24);
+              border-radius: 14px;
+              background: rgba(229,185,77,0.10);
+              color: #e5b94d;
+              font-size: 13px;
+              font-weight: 950;
+              cursor: pointer;
+              white-space: nowrap;
+            }
 
-.invite-link-row .invite-link-preview {
-  margin-top: 0;
-}
-
-.copy-text-button {
-  height: 48px;
-  padding: 0 16px;
-  border: 1px solid rgba(229,185,77,0.24);
-  border-radius: 14px;
-  background: rgba(229,185,77,0.10);
-  color: #e5b94d;
-  font-size: 13px;
-  font-weight: 950;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.copy-text-button:hover {
-  background: rgba(229,185,77,0.16);
-}
-
-            .invite-hero-action {
-              position: relative;
-              min-width: 210px;
+            .copy-text-button:hover {
+              background: rgba(229,185,77,0.16);
             }
 
             .stats-grid {
@@ -1546,6 +1514,18 @@ return (
               overflow: hidden;
               padding: 22px;
               border-radius: 24px;
+            }
+
+            .highlight-card::before {
+              content: "";
+              position: absolute;
+              inset: -80px -120px auto auto;
+              width: 260px;
+              height: 260px;
+              border-radius: 999px;
+              background: rgba(229,185,77,0.16);
+              filter: blur(34px);
+              pointer-events: none;
             }
 
             .highlight-card p {
@@ -1733,71 +1713,6 @@ return (
               line-height: 1.25;
             }
 
-            .picks-details {
-              border-radius: 16px;
-              background: rgba(255,255,255,0.045);
-              border: 1px solid rgba(255,255,255,0.08);
-              overflow: hidden;
-            }
-
-            .picks-details summary {
-              padding: 15px;
-              color: #e5b94d;
-              cursor: pointer;
-              font-size: 14px;
-              font-weight: 950;
-              list-style-position: inside;
-            }
-
-            .picks-list {
-              display: grid;
-              gap: 8px;
-              padding: 0 12px 12px;
-            }
-
-            .duel-picks-list {
-              padding-top: 0;
-            }
-
-            .pick-row {
-              display: grid;
-              grid-template-columns: 1fr auto;
-              gap: 12px;
-              align-items: center;
-              padding: 12px;
-              border-radius: 14px;
-              background: rgba(0,0,0,0.22);
-              border: 1px solid rgba(255,255,255,0.06);
-            }
-
-            .pick-user {
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              min-width: 0;
-            }
-
-            .pick-row strong {
-              display: block;
-              font-size: 13px;
-            }
-
-            .pick-row span {
-              display: block;
-              margin-top: 4px;
-              color: rgba(255,255,255,0.38);
-              font-size: 11px;
-              font-weight: 800;
-            }
-
-            .pick-row em {
-              color: #e5b94d;
-              font-style: normal;
-              font-size: 18px;
-              font-weight: 950;
-              white-space: nowrap;
-            }
-
             .empty-state,
             .error-state {
               padding: 18px;
@@ -1879,7 +1794,6 @@ return (
               letter-spacing: 0.12em;
             }
 
-            .invite-note,
             .danger-note {
               margin: 12px 0 0;
               color: rgba(255,255,255,0.52);
@@ -1887,120 +1801,41 @@ return (
               line-height: 1.5;
             }
 
-            .invite-small-link {
-              margin-top: 12px;
-              font-size: 12px;
-            }
-
-            .copy-wrap {
-              margin-top: 16px;
-            }
-
-            .member-list {
+            .members-pager {
               display: grid;
+              grid-template-columns: 46px 1fr 46px;
               gap: 10px;
-            }
-
-            .member-row {
-              display: grid;
-              grid-template-columns: 42px 1fr auto;
-              gap: 12px;
               align-items: center;
-              padding: 13px;
-              border-radius: 16px;
-              background: rgba(255,255,255,0.045);
-              border: 1px solid rgba(255,255,255,0.07);
+              margin-top: 12px;
             }
 
-            .member-row.is-current-member {
-              border-color: rgba(229,185,77,0.30);
-              background: rgba(229,185,77,0.07);
+            .members-pager button {
+              height: 46px;
+              border-radius: 14px;
+              border: 1px solid rgba(229,185,77,0.24);
+              background: rgba(229,185,77,0.08);
+              color: #e5b94d;
+              font-size: 18px;
+              font-weight: 950;
+              cursor: pointer;
             }
 
-            .avatar {
-              width: 38px;
-              height: 38px;
-              border-radius: 999px;
+            .members-pager button:disabled {
+              opacity: 0.35;
+              cursor: not-allowed;
+            }
+
+            .members-pager span {
+              height: 46px;
+              border-radius: 14px;
               display: grid;
               place-items: center;
-              background: rgba(255,255,255,0.10);
-              color: white;
-              font-size: 12px;
-              font-weight: 950;
-            }
-
-            .member-row strong {
-              display: block;
-              font-size: 14px;
-            }
-
-            .member-row span {
-              display: block;
-              margin-top: 4px;
-              color: rgba(255,255,255,0.36);
-              font-size: 12px;
-              overflow: hidden;
-              text-overflow: ellipsis;
-              white-space: nowrap;
-              max-width: 160px;
-            }
-
-            .member-row em {
-              font-style: normal;
-              font-size: 12px;
+              background: rgba(255,255,255,0.045);
+              border: 1px solid rgba(255,255,255,0.08);
+              color: rgba(255,255,255,0.72);
+              font-size: 13px;
               font-weight: 900;
-              white-space: nowrap;
             }
-
-            .done {
-              color: #86efac;
-            }
-
-            .pending {
-              color: #f3cf69;
-            }
-
-            .member-actions {
-              display: grid;
-              gap: 7px;
-              justify-items: end;
-            }
-
-            .members-pager {
-  display: grid;
-  grid-template-columns: 46px 1fr 46px;
-  gap: 10px;
-  align-items: center;
-  margin-top: 12px;
-}
-
-.members-pager button {
-  height: 46px;
-  border-radius: 14px;
-  border: 1px solid rgba(229,185,77,0.24);
-  background: rgba(229,185,77,0.08);
-  color: #e5b94d;
-  font-size: 18px;
-  font-weight: 950;
-  cursor: pointer;
-}
-
-.members-pager button:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.members-pager span {
-  height: 46px;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  background: rgba(255,255,255,0.045);
-  border: 1px solid rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.72);
-  font-size: 13px;
-  font-weight: 900;
-}
 
             .view-tips-link {
               height: 28px;
@@ -2049,36 +1884,19 @@ return (
                 padding: 56px 18px 46px;
               }
 
-              .invite-link-row {
-  grid-template-columns: 1fr;
-}
+              .league-live-card {
+                grid-template-columns: 1fr;
+                margin-top: 28px;
+                padding: 20px;
+              }
 
-.league-live-card {
-  grid-template-columns: 1fr;
-  margin-top: 28px;
-  padding: 20px;
-}
-
-.countdown-card,
-.activity-card {
-  padding: 18px;
-}
-
-.countdown-grid {
-  grid-template-columns: repeat(2, 1fr);
-}
-
-.countdown-grid div {
-  min-height: 96px;
-}
-
-.countdown-grid strong {
-  font-size: 34px;
-}
+              .countdown-card,
+              .activity-card {
+                padding: 18px;
+              }
 
               .league-head,
-              .content-grid,
-              .invite-hero-card {
+              .content-grid {
                 grid-template-columns: 1fr;
                 gap: 24px;
               }
@@ -2102,16 +1920,6 @@ return (
                 width: 100%;
               }
 
-              .invite-hero-card {
-                margin-top: 28px;
-                padding: 22px;
-              }
-
-              .invite-hero-action {
-                min-width: 0;
-                width: 100%;
-              }
-
               .stats-grid,
               .highlights-panel {
                 grid-template-columns: 1fr;
@@ -2127,10 +1935,6 @@ return (
 
               .points {
                 grid-column: 2;
-              }
-
-              .member-row span {
-                max-width: 190px;
               }
             }
           `,
