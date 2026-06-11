@@ -1,4 +1,3 @@
-import WorldCupCountdown from "@/app/components/WorldCupCountdown";
 import MatchDuelPager, {
   type MatchDuelPickItem,
 } from "@/app/components/MatchDuelPager";
@@ -752,11 +751,18 @@ return (
             </div>
           </div>
 
-          {isMember && (
+         {isMember && (
   <section className="league-live-card">
     <div className="countdown-card">
-      <p>VM startar om</p>
-      <WorldCupCountdown />
+      <p>VM 2026</p>
+
+      <h2>NU GÅR TÅGET</h2>
+
+      <div className="activity-empty" style={{ marginTop: "16px" }}>
+        {memberCount} deltagare. {submittedCount} inskickade tips. Inga fler ändringar.
+        <br />
+        Nu börjar jakten på semesterkassan.
+      </div>
     </div>
   </section>
 )}
