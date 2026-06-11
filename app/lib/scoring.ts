@@ -426,18 +426,34 @@ export function calculateStandings({
     });
   }
 
-  for (const prediction of predictions) {
-    const key = `${prediction.league_id}:${prediction.user_id}`;
-    if (!submittedKeys.has(key)) continue;
+  for (const submission of submissions) {
+  const key = `${submission.league_id}:${submission.user_id}`;
+  const current = scoreMap.get(key);
 
-    const match = matchMap.get(prediction.match_id);
+  if (!current) continue;
+
+  const fullSnapshot = [
+    ...(submission.group_snapshot ?? []),
+    ...(submission.playoff_snapshot ?? []),
+  ];
+
+  for (const snapshotPrediction of fullSnapshot) {
+    const match = matchMap.get(snapshotPrediction.match_id);
+
     if (!match || match.home_score === null || match.away_score === null) {
       continue;
     }
 
-    const points = getMatchPoints(prediction, match);
-    const current = scoreMap.get(key);
-    if (!current) continue;
+    const points = getMatchPoints(
+      {
+        league_id: submission.league_id,
+        user_id: submission.user_id,
+        match_id: snapshotPrediction.match_id,
+        predicted_home_score: snapshotPrediction.predicted_home_score,
+        predicted_away_score: snapshotPrediction.predicted_away_score,
+      },
+      match
+    );
 
     current.matchPoints += points;
     current.totalPoints += points;
@@ -445,6 +461,7 @@ export function calculateStandings({
 
     if (points === 7) current.exactScores += 1;
   }
+}
 
   for (const [key, current] of scoreMap.entries()) {
     const submission = submissionMap.get(key);
