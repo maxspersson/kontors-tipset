@@ -3,7 +3,6 @@ import { createClient } from "@/app/lib/supabase/server";
 import {
   calculateStandings,
   type MatchRow,
-  type PredictionRow,
   type ProfileRow,
   type SubmissionRow,
 } from "@/app/lib/scoring";
@@ -69,21 +68,6 @@ export async function GET(request: Request) {
     });
   }
 
-  const { data: predictions, error: predictionsError } = await supabase
-    .from("predictions")
-    .select(
-      "league_id, user_id, match_id, predicted_home_score, predicted_away_score"
-    )
-    .eq("league_id", leagueId)
-    .in("user_id", submittedUserIds);
-
-  if (predictionsError) {
-    return new NextResponse(
-      `Kunde inte hämta tips: ${predictionsError.message}`,
-      { status: 500 }
-    );
-  }
-
   const { data: matches, error: matchesError } = await supabase
     .from("matches")
     .select(
@@ -110,11 +94,11 @@ export async function GET(request: Request) {
   }
 
   const standings = calculateStandings({
-    submissions: submissionRows,
-    predictions: (predictions ?? []) as PredictionRow[],
-    matches: (matches ?? []) as MatchRow[],
-    profiles: (profiles ?? []) as ProfileRow[],
-  });
+  submissions: submissionRows,
+  predictions: [],
+  matches: (matches ?? []) as MatchRow[],
+  profiles: (profiles ?? []) as ProfileRow[],
+});
 
   const { data: snapshots } = await supabase
     .from("league_standing_snapshots")
