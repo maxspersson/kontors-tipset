@@ -17,12 +17,8 @@ import {
 } from "@/app/lib/scoring";
 
 type LeaguePageProps = {
-  params: Promise<{
-    slug: string;
-  }>;
-  searchParams?: Promise<{
-    demo?: string;
-  }>;
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ demo?: string }>;
 };
 
 type MemberProfile = {
@@ -55,24 +51,11 @@ type StandingSnapshotRow = {
   created_at: string;
 };
 
-type SnapshotPick = {
-  match_id: string;
-  predicted_home_score: number | null;
-  predicted_away_score: number | null;
-  advancing_team?: "home" | "away" | null;
-  match: {
-    stage?: string | null;
-    home_team: string;
-    away_team: string;
-  };
-};
-
 function formatNameFromEmail(email?: string | null) {
   if (!email) return null;
 
-  const localPart = email.split("@")[0];
-
-  return localPart
+  return email
+    .split("@")[0]
     .replace(/[._-]+/g, " ")
     .trim()
     .split(" ")
@@ -168,10 +151,7 @@ function getPickOutcomeLabel(
 }
 
 function getMostCommonResult(
-  picks: {
-    homeScore: number | null;
-    awayScore: number | null;
-  }[]
+  picks: { homeScore: number | null; awayScore: number | null }[]
 ) {
   const resultCounts = new Map<string, number>();
 
@@ -183,43 +163,6 @@ function getMostCommonResult(
 
   return (
     Array.from(resultCounts.entries()).sort((a, b) => b[1] - a[1])[0] ?? null
-  );
-}
-
-function getPredictedWinner(snapshotItem: SnapshotPick | undefined | null) {
-  if (!snapshotItem) return null;
-
-  const homeScore = snapshotItem.predicted_home_score;
-  const awayScore = snapshotItem.predicted_away_score;
-
-  if (homeScore === null || awayScore === null) return null;
-
-  if (homeScore > awayScore) return snapshotItem.match.home_team;
-  if (awayScore > homeScore) return snapshotItem.match.away_team;
-
-  if (snapshotItem.advancing_team === "home") return snapshotItem.match.home_team;
-  if (snapshotItem.advancing_team === "away") return snapshotItem.match.away_team;
-
-  return null;
-}
-
-function getPredictedLoser(snapshotItem: SnapshotPick | undefined | null) {
-  const winner = getPredictedWinner(snapshotItem);
-  if (!winner || !snapshotItem) return null;
-
-  return winner === snapshotItem.match.home_team
-    ? snapshotItem.match.away_team
-    : snapshotItem.match.home_team;
-}
-
-function getTopTeam(counts: Map<string, number>) {
-  return (
-    Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([team, count]) => ({
-        team: getSwedishTeamName(team),
-        count,
-      }))[0] ?? null
   );
 }
 
@@ -248,8 +191,8 @@ export default async function LeagueDetailPage({
 
   if (leagueError || !league) {
     return (
-      <main className="league-detail-page">
-        <LeagueAutoRefresh intervalMs={30000} />
+  <main className="league-detail-page">
+    <LeagueAutoRefresh intervalMs={30000} />
         <section className="league-detail-hero">
           <div className="league-wrap">
             <p className="eyebrow">Liga</p>
@@ -391,6 +334,18 @@ export default async function LeagueDetailPage({
   const isLiveMatch = activeFeaturedMatch?.status === "live";
   const isFinishedMatch = activeFeaturedMatch?.status === "finished";
 
+  function getSubmittedPickForMatch(userId: string, matchId: string) {
+    const submission = submissionByUserId.get(userId);
+    if (!submission) return null;
+
+    const snapshot = [
+      ...(submission.group_snapshot ?? []),
+      ...(submission.playoff_snapshot ?? []),
+    ];
+
+    return snapshot.find((item) => item.match_id === matchId) ?? null;
+  }
+
   const demoMatchDuelPicks = [
     {
       memberId: "demo-pick-1",
@@ -438,19 +393,6 @@ export default async function LeagueDetailPage({
       awayScore: 1,
     },
   ];
-
-  function getSubmittedPickForMatch(userId: string, matchId: string) {
-    const submission = submissionByUserId.get(userId);
-
-    if (!submission) return null;
-
-    const snapshot = [
-      ...(submission.group_snapshot ?? []),
-      ...(submission.playoff_snapshot ?? []),
-    ];
-
-    return snapshot.find((item) => item.match_id === matchId) ?? null;
-  }
 
   const matchDuelPicks = isDemoMode
     ? demoMatchDuelPicks
@@ -654,40 +596,6 @@ export default async function LeagueDetailPage({
             .sort((a, b) => b.exactScores - a.exactScores)[0] ?? null
       : null;
 
-  const goldCounts = new Map<string, number>();
-  const silverCounts = new Map<string, number>();
-  const bronzeCounts = new Map<string, number>();
-
-  submissionRows.forEach((submission) => {
-    const playoffSnapshot = (submission.playoff_snapshot ?? []) as SnapshotPick[];
-
-    const finalPick = playoffSnapshot.find(
-      (item) => item.match?.stage === "final"
-    );
-
-    const bronzePick = playoffSnapshot.find(
-      (item) => item.match?.stage === "third_place"
-    );
-
-    const goldTeam = getPredictedWinner(finalPick);
-    const silverTeam = getPredictedLoser(finalPick);
-    const bronzeTeam = getPredictedWinner(bronzePick);
-
-    if (goldTeam) goldCounts.set(goldTeam, (goldCounts.get(goldTeam) ?? 0) + 1);
-    if (silverTeam) {
-      silverCounts.set(silverTeam, (silverCounts.get(silverTeam) ?? 0) + 1);
-    }
-    if (bronzeTeam) {
-      bronzeCounts.set(bronzeTeam, (bronzeCounts.get(bronzeTeam) ?? 0) + 1);
-    }
-  });
-
-  const leaguePodiumPrediction = {
-    gold: getTopTeam(goldCounts),
-    silver: getTopTeam(silverCounts),
-    bronze: getTopTeam(bronzeCounts),
-  };
-
   const duelPagerPicks: MatchDuelPickItem[] = activeFeaturedMatch
     ? matchDuelPicks.map((pick) => ({
         memberId: pick.memberId,
@@ -838,33 +746,6 @@ export default async function LeagueDetailPage({
               )}
             </div>
           </div>
-
-          {isMember && (
-            <section className="league-live-card">
-              <div className="countdown-card">
-                <p>VM 2026</p>
-
-                <h2>DETTA TROR LIGAN</h2>
-
-                <div className="activity-empty" style={{ marginTop: "16px" }}>
-                  🥇 Guld: {leaguePodiumPrediction.gold?.team ?? "Inte klart"}{" "}
-                  {leaguePodiumPrediction.gold
-                    ? `(${leaguePodiumPrediction.gold.count} tips)`
-                    : ""}
-                  <br />
-                  🥈 Silver: {leaguePodiumPrediction.silver?.team ?? "Inte klart"}{" "}
-                  {leaguePodiumPrediction.silver
-                    ? `(${leaguePodiumPrediction.silver.count} tips)`
-                    : ""}
-                  <br />
-                  🥉 Brons: {leaguePodiumPrediction.bronze?.team ?? "Inte klart"}{" "}
-                  {leaguePodiumPrediction.bronze
-                    ? `(${leaguePodiumPrediction.bronze.count} tips)`
-                    : ""}
-                </div>
-              </div>
-            </section>
-          )}
 
           <div className="stats-grid">
             <div className="stat-card">
@@ -1273,7 +1154,6 @@ export default async function LeagueDetailPage({
             .status-card,
             .panel,
             .stat-card,
-            .invite-hero-card,
             .highlight-card {
               background: rgba(5,12,18,0.78);
               border: 1px solid rgba(255,255,255,0.11);
@@ -1319,36 +1199,6 @@ export default async function LeagueDetailPage({
               color: #f3cf69;
             }
 
-            .league-live-card {
-              position: relative;
-              overflow: hidden;
-              margin-top: 36px;
-              padding: 26px;
-              border-radius: 28px;
-              display: grid;
-              grid-template-columns: 1fr;
-              gap: 18px;
-              background:
-                linear-gradient(135deg, rgba(229,185,77,0.11), transparent 42%),
-                rgba(5,12,18,0.78);
-              border: 1px solid rgba(229,185,77,0.20);
-              box-shadow: 0 22px 80px rgba(0,0,0,0.30);
-              backdrop-filter: blur(18px);
-            }
-
-            .league-live-card::before {
-              content: "";
-              position: absolute;
-              inset: -90px -110px auto auto;
-              width: 280px;
-              height: 280px;
-              border-radius: 999px;
-              background: rgba(229,185,77,0.18);
-              filter: blur(36px);
-              pointer-events: none;
-            }
-
-            .countdown-card,
             .activity-card {
               position: relative;
               padding: 22px;
@@ -1361,7 +1211,6 @@ export default async function LeagueDetailPage({
               margin-top: 18px;
             }
 
-            .countdown-card p,
             .activity-head p {
               margin: 0;
               color: #e5b94d;
@@ -1369,15 +1218,6 @@ export default async function LeagueDetailPage({
               font-weight: 950;
               letter-spacing: 0.16em;
               text-transform: uppercase;
-            }
-
-            .countdown-card h2,
-            .activity-head h2 {
-              margin: 8px 0 0;
-              max-width: 720px;
-              font-size: clamp(30px, 4vw, 52px);
-              line-height: 1.02;
-              letter-spacing: -0.06em;
             }
 
             .activity-list {
@@ -1426,7 +1266,6 @@ export default async function LeagueDetailPage({
               line-height: 1.5;
             }
 
-            .invite-link-preview,
             .invite-small-link {
               margin-top: 16px;
               padding: 12px 14px;
@@ -1713,6 +1552,55 @@ export default async function LeagueDetailPage({
               line-height: 1.25;
             }
 
+            .picks-list {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.duel-picks-list {
+  padding-top: 0;
+}
+
+.pick-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.pick-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pick-row strong {
+  display: block;
+  font-size: 13px;
+}
+
+.pick-row span {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255,255,255,0.38);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.pick-row em {
+  color: #e5b94d;
+  font-style: normal;
+  font-size: 18px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
             .empty-state,
             .error-state {
               padding: 18px;
@@ -1884,13 +1772,6 @@ export default async function LeagueDetailPage({
                 padding: 56px 18px 46px;
               }
 
-              .league-live-card {
-                grid-template-columns: 1fr;
-                margin-top: 28px;
-                padding: 20px;
-              }
-
-              .countdown-card,
               .activity-card {
                 padding: 18px;
               }
