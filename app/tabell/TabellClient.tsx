@@ -329,7 +329,7 @@ const leader = hasScoredMatches ? standings[0] : null;
                   <span>Placering</span>
                   <span>Spelare</span>
                   <span>Total</span>
-                  <span>Matcher</span>
+                  <span>Matchpoäng</span>
                   <span>Slutspel</span>
                   <span>Fullträffar</span>
                 </div>
