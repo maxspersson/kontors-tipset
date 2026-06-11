@@ -406,17 +406,31 @@ export default async function LeagueDetailPage({
     },
   ];
 
+  function getSubmittedPickForMatch(userId: string, matchId: string) {
+  const submission = submissionByUserId.get(userId);
+
+  if (!submission) return null;
+
+  const snapshot = [
+    ...(submission.group_snapshot ?? []),
+    ...(submission.playoff_snapshot ?? []),
+  ];
+
+  return snapshot.find((item) => item.match_id === matchId) ?? null;
+}
   const matchDuelPicks = isDemoMode
     ? demoMatchDuelPicks
     : activeFeaturedMatch
       ? memberRows.map((member) => {
           const profile = profileMap.get(member.user_id);
           const displayName = getDisplayName(profile);
-          const prediction = predictions.find(
-            (item) =>
-              item.user_id === member.user_id &&
-              item.match_id === activeFeaturedMatch.id
-          );
+          const prediction =
+  getSubmittedPickForMatch(member.user_id, activeFeaturedMatch.id) ??
+  predictions.find(
+    (item) =>
+      item.user_id === member.user_id &&
+      item.match_id === activeFeaturedMatch.id
+  );
 
           return {
             memberId: member.id,
