@@ -15,7 +15,7 @@ type MatchRow = {
 };
 
 const LOCK_MINUTES_BEFORE_KICKOFF = 60;
-const SUBMISSION_DEADLINE_UTC = Date.UTC(2026, 5, 10, 21, 59, 59, 999);
+const SUBMISSION_DEADLINE_UTC = Date.UTC(2026, 5, 11, 18, 30, 0, 0);
 
 function isAfterSubmissionDeadline() {
   return Date.now() > SUBMISSION_DEADLINE_UTC;
