@@ -562,47 +562,48 @@ const currentStartedMatch =
   new Set(snapshotRows.map((snapshot) => snapshot.created_at))
 ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
-const currentRankByUserId = new Map(
-  standings.map((standing, index) => [standing.user_id, index + 1])
-);
+const latestSnapshotTime = snapshotTimes[0] ?? null;
+const previousSnapshotTime = snapshotTimes[1] ?? null;
 
-const comparisonTime =
-  snapshotTimes.find((time) => {
-    const rowsAtTime = snapshotRows.filter(
-      (snapshot) => snapshot.created_at === time
-    );
-
-    return rowsAtTime.some((snapshot) => {
-      const currentRank = currentRankByUserId.get(snapshot.user_id);
-      return currentRank && snapshot.rank !== currentRank;
-    });
-  }) ??
-  snapshotTimes[1] ??
-  snapshotTimes[0] ??
-  null;
-
+const latestRankByUserId = new Map<string, number>();
 const previousRankByUserId = new Map<string, number>();
 
-if (comparisonTime) {
+if (latestSnapshotTime) {
   snapshotRows
-    .filter((snapshot) => snapshot.created_at === comparisonTime)
+    .filter((snapshot) => snapshot.created_at === latestSnapshotTime)
+    .forEach((snapshot) => {
+      latestRankByUserId.set(snapshot.user_id, snapshot.rank);
+    });
+}
+
+if (previousSnapshotTime) {
+  snapshotRows
+    .filter((snapshot) => snapshot.created_at === previousSnapshotTime)
     .forEach((snapshot) => {
       previousRankByUserId.set(snapshot.user_id, snapshot.rank);
     });
 }
 
-    const climbers = standings
-    .map((standing, index) => {
-      const currentRank = index + 1;
-      const previousRank = previousRankByUserId.get(standing.user_id);
+const shouldCompareLiveTable = !!liveMatch || !!currentStartedMatch;
 
-      return {
-        ...standing,
-        climb: previousRank ? previousRank - currentRank : 0,
-      };
-    })
-    .filter((standing) => standing.climb > 0)
-    .sort((a, b) => b.climb - a.climb);
+const climbers = standings
+  .map((standing, index) => {
+    const currentRank = shouldCompareLiveTable
+      ? index + 1
+      : latestRankByUserId.get(standing.user_id);
+
+    const previousRank = previousRankByUserId.get(standing.user_id);
+
+    return {
+      ...standing,
+      climb:
+        currentRank && previousRank
+          ? previousRank - currentRank
+          : 0,
+    };
+  })
+  .filter((standing) => standing.climb > 0)
+  .sort((a, b) => b.climb - a.climb);
 
   const memberCount = isDemoMode ? 5 : memberRows.length;
   const submittedCount = isDemoMode ? 5 : submittedUserIds.length;
