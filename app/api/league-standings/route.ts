@@ -114,37 +114,44 @@ export async function GET(request: Request) {
     new Set(snapshotRows.map((snapshot) => snapshot.created_at))
   ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
-  const currentRankByUserId = new Map(
-    standings.map((player, index) => [player.user_id, index + 1])
-);
+  function getRankMap(time: string) {
+  const map = new Map<string, number>();
+
+  snapshotRows
+    .filter((snapshot) => snapshot.created_at === time)
+    .forEach((snapshot) => {
+      map.set(snapshot.user_id, snapshot.rank);
+    });
+
+  return map;
+}
+
+function getRankSignature(time: string) {
+  return Array.from(getRankMap(time).entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([userId, rank]) => `${userId}:${rank}`)
+    .join("|");
+}
 
 const latestSnapshotTime = snapshotTimes[0] ?? null;
-const previousSnapshotTime = snapshotTimes[1] ?? null;
 
-const latestSnapshotMatchesCurrent =
-  latestSnapshotTime
-    ? snapshotRows
-        .filter((snapshot) => snapshot.created_at === latestSnapshotTime)
-        .every((snapshot) => {
-          const currentRank = currentRankByUserId.get(snapshot.user_id);
-          return currentRank === snapshot.rank;
-        })
-    : false;
+const latestSnapshotSignature = latestSnapshotTime
+  ? getRankSignature(latestSnapshotTime)
+  : null;
 
-const comparisonTime =
-  latestSnapshotMatchesCurrent
-    ? previousSnapshotTime
-    : latestSnapshotTime;
+const comparisonSnapshotTime =
+  snapshotTimes.find((time) => {
+    if (time === latestSnapshotTime) return false;
+    return getRankSignature(time) !== latestSnapshotSignature;
+  }) ?? null;
 
-const previousRankByUserId = new Map<string, number>();
+const latestRankByUserId = latestSnapshotTime
+  ? getRankMap(latestSnapshotTime)
+  : new Map<string, number>();
 
-  if (comparisonTime) {
-    snapshotRows
-      .filter((snapshot) => snapshot.created_at === comparisonTime)
-      .forEach((snapshot) => {
-        previousRankByUserId.set(snapshot.user_id, snapshot.rank);
-      });
-  }
+const previousRankByUserId = comparisonSnapshotTime
+  ? getRankMap(comparisonSnapshotTime)
+  : new Map<string, number>();
 
   const standingsWithMovement = standings.map((player, index) => {
     const currentRank = index + 1;
