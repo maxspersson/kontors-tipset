@@ -510,16 +510,22 @@ export function calculateStandings({
   });
 
   standings.sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
+  if (b.points !== a.points) return b.points - a.points;
 
-    if (b.bracketPoints !== a.bracketPoints) {
-      return b.bracketPoints - a.bracketPoints;
-    }
+  if (b.exactScores !== a.exactScores) {
+    return b.exactScores - a.exactScores;
+  }
 
-    if (b.exactScores !== a.exactScores) return b.exactScores - a.exactScores;
+  if (b.matchPoints !== a.matchPoints) {
+    return b.matchPoints - a.matchPoints;
+  }
 
-    return a.display_name.localeCompare(b.display_name, "sv");
-  });
+  if (b.bracketPoints !== a.bracketPoints) {
+    return b.bracketPoints - a.bracketPoints;
+  }
+
+  return a.display_name.localeCompare(b.display_name, "sv");
+});
 
   return typeof limit === "number" ? standings.slice(0, limit) : standings;
 }
