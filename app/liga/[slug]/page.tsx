@@ -538,7 +538,7 @@ export default async function LeagueDetailPage({
   ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
   const latestSnapshotTime = snapshotTimes[0] ?? null;
-  const previousSnapshotTime = snapshotTimes[1] ?? null;
+  const previousSnapshotTime = snapshotTimes[snapshotTimes.length - 1] ?? null;
 
   const latestRankByUserId = new Map<string, number>();
   const previousRankByUserId = new Map<string, number>();
@@ -581,10 +581,10 @@ export default async function LeagueDetailPage({
   const leader = hasScoredMatches ? activeStandings[0] : null;
 
   const topClimber =
-    isDemoMode || hasScoredMatches
-      ? isDemoMode
-        ? { display_name: "Alex", climb: 4 }
-        : climbers[0] ?? null
+  isDemoMode
+    ? { display_name: "Alex", climb: 4 }
+    : hasScoredMatches
+      ? climbers[0] ?? leader
       : null;
 
   const exactScoreLeader =
@@ -772,7 +772,11 @@ export default async function LeagueDetailPage({
               {topClimber ? (
                 <>
                   <strong>{topClimber.display_name}</strong>
-                  <span>+{topClimber.climb} placeringar</span>
+             <span>
+               {"climb" in topClimber && topClimber.climb > 0
+                 ? `+${topClimber.climb} placeringar`
+                 : "Leder ligan just nu"}
+               </span>
                 </>
               ) : (
                 <>
