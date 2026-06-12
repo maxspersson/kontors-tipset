@@ -310,8 +310,18 @@ export default async function LeagueDetailPage({
           new Date(a.kickoff_utc).getTime()
       )[0] ?? null;
 
+      const ONE_HOUR_MS = 60 * 60 * 1000;
+
+const isNextMatchWithinOneHour =
+  nextUpcomingMatch
+    ? new Date(nextUpcomingMatch.kickoff_utc).getTime() - nowTime <= ONE_HOUR_MS
+    : false;
+
   const featuredMatch =
-    liveMatch ?? finishedMatch ?? latestStartedMatch ?? nextUpcomingMatch;
+  liveMatch ??
+  (isNextMatchWithinOneHour ? nextUpcomingMatch : null) ??
+  finishedMatch ??
+  nextUpcomingMatch;
 
   const demoFeaturedMatch = matchRows[0]
     ? {
@@ -914,11 +924,14 @@ export default async function LeagueDetailPage({
                     )}
                   </p>
 
-                  {!isLiveMatch && !isFinishedMatch && !hasFeaturedMatchStarted ? (
-                    <div className="locked-picks">
-                      Tipsen visas när matchen har börjat.
-                    </div>
-                  ) : (
+                  {!isLiveMatch &&
+!isFinishedMatch &&
+!hasFeaturedMatchStarted &&
+!isNextMatchWithinOneHour ? (
+  <div className="locked-picks">
+    Tipsen visas en timme före avspark.
+  </div>
+) : (
                     <div className="match-duel-card">
                       <div className="match-duel-top">
                         <p>Matchduellen</p>
