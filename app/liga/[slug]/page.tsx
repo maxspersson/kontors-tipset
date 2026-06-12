@@ -1725,6 +1725,76 @@ export default async function LeagueDetailPage({
               font-weight: 900;
             }
 
+            .member-list {
+  display: grid;
+  gap: 10px;
+}
+
+.member-row {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 13px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+.member-row.is-current-member {
+  border-color: rgba(229,185,77,0.30);
+  background: rgba(229,185,77,0.07);
+}
+
+.avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,0.10);
+  color: white;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.member-row strong {
+  display: block;
+  font-size: 14px;
+}
+
+.member-row span {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255,255,255,0.36);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.member-row em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.done {
+  color: #86efac;
+}
+
+.pending {
+  color: #f3cf69;
+}
+
+.member-actions {
+  display: grid;
+  gap: 7px;
+  justify-items: end;
+}
+
             .view-tips-link {
               height: 28px;
               padding: 0 10px;
@@ -1813,6 +1883,10 @@ export default async function LeagueDetailPage({
               .leader-row {
                 grid-template-columns: 42px 1fr;
               }
+
+              .member-row span {
+  max-width: 190px;
+}
 
               .points {
                 grid-column: 2;
