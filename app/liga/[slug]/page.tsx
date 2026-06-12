@@ -617,7 +617,7 @@ const climbers = standings
   isDemoMode
     ? { display_name: "Alex", climb: 4 }
     : hasScoredMatches
-      ? climbers[0] ?? leader
+      ? climbers[0] ?? null
       : null;
 
   const exactScoreLeader =
@@ -806,10 +806,10 @@ const climbers = standings
                 <>
                   <strong>{topClimber.display_name}</strong>
              <span>
-               {"climb" in topClimber && topClimber.climb > 0
-                 ? `+${topClimber.climb} placeringar`
-                 : "Leder ligan just nu"}
-               </span>
+  {"climb" in topClimber && topClimber.climb > 0
+    ? `+${topClimber.climb} placeringar`
+    : "Ingen större klättring just nu"}
+</span>
                 </>
               ) : (
                 <>

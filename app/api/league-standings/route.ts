@@ -118,20 +118,23 @@ export async function GET(request: Request) {
     standings.map((player, index) => [player.user_id, index + 1])
 );
 
-const comparisonTime =
-  snapshotTimes.find((time) => {
-    const rowsAtTime = snapshotRows.filter(
-      (snapshot) => snapshot.created_at === time
-    );
+const latestSnapshotTime = snapshotTimes[0] ?? null;
+const previousSnapshotTime = snapshotTimes[1] ?? null;
 
-    return rowsAtTime.some((snapshot) => {
-      const currentRank = currentRankByUserId.get(snapshot.user_id);
-      return currentRank && snapshot.rank !== currentRank;
-    });
-  }) ??
-  snapshotTimes[1] ??
-  snapshotTimes[0] ??
-  null;
+const latestSnapshotMatchesCurrent =
+  latestSnapshotTime
+    ? snapshotRows
+        .filter((snapshot) => snapshot.created_at === latestSnapshotTime)
+        .every((snapshot) => {
+          const currentRank = currentRankByUserId.get(snapshot.user_id);
+          return currentRank === snapshot.rank;
+        })
+    : false;
+
+const comparisonTime =
+  latestSnapshotMatchesCurrent
+    ? previousSnapshotTime
+    : latestSnapshotTime;
 
 const previousRankByUserId = new Map<string, number>();
 
