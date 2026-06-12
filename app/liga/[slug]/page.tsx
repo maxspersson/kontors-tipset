@@ -301,6 +301,20 @@ export default async function LeagueDetailPage({
 
   const liveMatch = matchRows.find((match) => match.status === "live") ?? null;
 
+const currentStartedMatch =
+  [...matchRows]
+    .filter(
+      (match) =>
+        new Date(match.kickoff_utc).getTime() <= nowTime &&
+        match.status !== "finished"
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.kickoff_utc).getTime() -
+        new Date(a.kickoff_utc).getTime()
+    )[0] ?? null;
+
+
   const finishedMatch =
     [...matchRows]
       .filter((match) => match.status === "finished")
@@ -312,13 +326,14 @@ export default async function LeagueDetailPage({
 
       const ONE_HOUR_MS = 60 * 60 * 1000;
 
-const isNextMatchWithinOneHour =
-  nextUpcomingMatch
-    ? new Date(nextUpcomingMatch.kickoff_utc).getTime() - nowTime <= ONE_HOUR_MS
-    : false;
+      const isNextMatchWithinOneHour =
+      nextUpcomingMatch
+      ? new Date(nextUpcomingMatch.kickoff_utc).getTime() - nowTime <= ONE_HOUR_MS
+      : false;
 
   const featuredMatch =
   liveMatch ??
+  currentStartedMatch ??
   (isNextMatchWithinOneHour ? nextUpcomingMatch : null) ??
   finishedMatch ??
   nextUpcomingMatch;
