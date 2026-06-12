@@ -559,39 +559,46 @@ const currentStartedMatch =
   const snapshotRows = (standingSnapshots ?? []) as StandingSnapshotRow[];
 
   const snapshotTimes = Array.from(
-    new Set(snapshotRows.map((snapshot) => snapshot.created_at))
-  ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  new Set(snapshotRows.map((snapshot) => snapshot.created_at))
+).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
-  const latestSnapshotTime = snapshotTimes[0] ?? null;
-  const previousSnapshotTime = snapshotTimes[1] ?? snapshotTimes[0] ?? null;
+const currentRankByUserId = new Map(
+  standings.map((standing, index) => [standing.user_id, index + 1])
+);
 
-  const latestRankByUserId = new Map<string, number>();
-  const previousRankByUserId = new Map<string, number>();
+const comparisonTime =
+  snapshotTimes.find((time) => {
+    const rowsAtTime = snapshotRows.filter(
+      (snapshot) => snapshot.created_at === time
+    );
 
-  if (latestSnapshotTime) {
-    snapshotRows
-      .filter((snapshot) => snapshot.created_at === latestSnapshotTime)
-      .forEach((snapshot) => {
-        latestRankByUserId.set(snapshot.user_id, snapshot.rank);
-      });
-  }
+    return rowsAtTime.some((snapshot) => {
+      const currentRank = currentRankByUserId.get(snapshot.user_id);
+      return currentRank && snapshot.rank !== currentRank;
+    });
+  }) ??
+  snapshotTimes[1] ??
+  snapshotTimes[0] ??
+  null;
 
-  if (previousSnapshotTime) {
-    snapshotRows
-      .filter((snapshot) => snapshot.created_at === previousSnapshotTime)
-      .forEach((snapshot) => {
-        previousRankByUserId.set(snapshot.user_id, snapshot.rank);
-      });
-  }
+const previousRankByUserId = new Map<string, number>();
 
-  const climbers = standings
-    .map((standing) => {
-      const latestRank = latestRankByUserId.get(standing.user_id);
+if (comparisonTime) {
+  snapshotRows
+    .filter((snapshot) => snapshot.created_at === comparisonTime)
+    .forEach((snapshot) => {
+      previousRankByUserId.set(snapshot.user_id, snapshot.rank);
+    });
+}
+
+    const climbers = standings
+    .map((standing, index) => {
+      const currentRank = index + 1;
       const previousRank = previousRankByUserId.get(standing.user_id);
 
       return {
         ...standing,
-        climb: latestRank && previousRank ? previousRank - latestRank : 0,
+        climb: previousRank ? previousRank - currentRank : 0,
       };
     })
     .filter((standing) => standing.climb > 0)
