@@ -94,10 +94,10 @@ export async function GET(request: Request) {
   }
 
   const standings = calculateStandings({
-  submissions: submissionRows,
-  predictions: [],
-  matches: (matches ?? []) as MatchRow[],
-  profiles: (profiles ?? []) as ProfileRow[],
+    submissions: submissionRows,
+    predictions: [],
+    matches: (matches ?? []) as MatchRow[],
+    profiles: (profiles ?? []) as ProfileRow[],
 });
 
   const { data: snapshots } = await supabase
@@ -114,8 +114,26 @@ export async function GET(request: Request) {
     new Set(snapshotRows.map((snapshot) => snapshot.created_at))
   ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
-  const comparisonTime = snapshotTimes[1] ?? snapshotTimes[0] ?? null;
-  const previousRankByUserId = new Map<string, number>();
+  const currentRankByUserId = new Map(
+    standings.map((player, index) => [player.user_id, index + 1])
+);
+
+const comparisonTime =
+  snapshotTimes.find((time) => {
+    const rowsAtTime = snapshotRows.filter(
+      (snapshot) => snapshot.created_at === time
+    );
+
+    return rowsAtTime.some((snapshot) => {
+      const currentRank = currentRankByUserId.get(snapshot.user_id);
+      return currentRank && snapshot.rank !== currentRank;
+    });
+  }) ??
+  snapshotTimes[1] ??
+  snapshotTimes[0] ??
+  null;
+
+const previousRankByUserId = new Map<string, number>();
 
   if (comparisonTime) {
     snapshotRows
