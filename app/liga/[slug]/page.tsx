@@ -554,35 +554,52 @@ const currentStartedMatch =
     .select("user_id, rank, points, created_at")
     .eq("league_id", league.id)
     .order("created_at", { ascending: false })
-    .limit(500);
+    .limit(5000);
 
   const snapshotRows = (standingSnapshots ?? []) as StandingSnapshotRow[];
 
-  const snapshotTimes = Array.from(
+const snapshotTimes = Array.from(
   new Set(snapshotRows.map((snapshot) => snapshot.created_at))
 ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
+function getRankMap(time: string) {
+  const map = new Map<string, number>();
+
+  snapshotRows
+    .filter((snapshot) => snapshot.created_at === time)
+    .forEach((snapshot) => {
+      map.set(snapshot.user_id, snapshot.rank);
+    });
+
+  return map;
+}
+
+function getRankSignature(time: string) {
+  return Array.from(getRankMap(time).entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([userId, rank]) => `${userId}:${rank}`)
+    .join("|");
+}
+
 const latestSnapshotTime = snapshotTimes[0] ?? null;
-const previousSnapshotTime = snapshotTimes[1] ?? null;
 
-const latestRankByUserId = new Map<string, number>();
-const previousRankByUserId = new Map<string, number>();
+const latestSnapshotSignature = latestSnapshotTime
+  ? getRankSignature(latestSnapshotTime)
+  : null;
 
-if (latestSnapshotTime) {
-  snapshotRows
-    .filter((snapshot) => snapshot.created_at === latestSnapshotTime)
-    .forEach((snapshot) => {
-      latestRankByUserId.set(snapshot.user_id, snapshot.rank);
-    });
-}
+const comparisonSnapshotTime =
+  snapshotTimes.find((time) => {
+    if (time === latestSnapshotTime) return false;
+    return getRankSignature(time) !== latestSnapshotSignature;
+  }) ?? null;
 
-if (previousSnapshotTime) {
-  snapshotRows
-    .filter((snapshot) => snapshot.created_at === previousSnapshotTime)
-    .forEach((snapshot) => {
-      previousRankByUserId.set(snapshot.user_id, snapshot.rank);
-    });
-}
+const latestRankByUserId = latestSnapshotTime
+  ? getRankMap(latestSnapshotTime)
+  : new Map<string, number>();
+
+const previousRankByUserId = comparisonSnapshotTime
+  ? getRankMap(comparisonSnapshotTime)
+  : new Map<string, number>();
 
 const shouldCompareLiveTable = !!liveMatch || !!currentStartedMatch;
 
@@ -596,10 +613,7 @@ const climbers = standings
 
     return {
       ...standing,
-      climb:
-        currentRank && previousRank
-          ? previousRank - currentRank
-          : 0,
+      climb: currentRank && previousRank ? previousRank - currentRank : 0,
     };
   })
   .filter((standing) => standing.climb > 0)
@@ -803,20 +817,21 @@ const climbers = standings
             <div className="highlight-card">
               <p>Hetast just nu</p>
               {topClimber ? (
-                <>
-                  <strong>{topClimber.display_name}</strong>
-             <span>
-  {"climb" in topClimber && topClimber.climb > 0
-    ? `+${topClimber.climb} placeringar`
-    : "Ingen större klättring just nu"}
-</span>
-                </>
-              ) : (
-                <>
-                  <strong>Inte igång ännu</strong>
-                  <span>Visas när tabellen börjar röra på sig.</span>
-                </>
-              )}
+  <>
+    <strong>{topClimber.display_name}</strong>
+    <span>+{topClimber.climb} placeringar</span>
+  </>
+) : hasScoredMatches ? (
+  <>
+    <strong>Ingen större klättring just nu</strong>
+    <span>Uppdateras när tabellen rör på sig.</span>
+  </>
+) : (
+  <>
+    <strong>Inte igång ännu</strong>
+    <span>Visas när tabellen börjar röra på sig.</span>
+  </>
+)}
             </div>
 
             <div className="highlight-card">
