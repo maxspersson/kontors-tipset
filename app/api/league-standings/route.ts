@@ -114,7 +114,7 @@ export async function GET(request: Request) {
     new Set(snapshotRows.map((snapshot) => snapshot.created_at))
   ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
-  const comparisonTime = snapshotTimes[snapshotTimes.length - 1] ?? null;
+  const comparisonTime = snapshotTimes[1] ?? snapshotTimes[0] ?? null;
   const previousRankByUserId = new Map<string, number>();
 
   if (comparisonTime) {

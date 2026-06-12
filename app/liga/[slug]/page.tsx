@@ -563,7 +563,7 @@ const currentStartedMatch =
   ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
   const latestSnapshotTime = snapshotTimes[0] ?? null;
-  const previousSnapshotTime = snapshotTimes[snapshotTimes.length - 1] ?? null;
+  const previousSnapshotTime = snapshotTimes[1] ?? snapshotTimes[0] ?? null;
 
   const latestRankByUserId = new Map<string, number>();
   const previousRankByUserId = new Map<string, number>();
