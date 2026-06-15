@@ -28,6 +28,7 @@ type NextMatch = {
   home_team_code: string | null;
   away_team_code: string | null;
   kickoff_utc: string;
+  status: string | null;
 } | null;
 
 type GlobalTopPlayer = {
@@ -224,14 +225,14 @@ export default async function Home() {
   const now = new Date().toISOString();
 
   const { data: nextMatchData } = await supabase
-    .from("matches")
-    .select(
-      "id, home_team, away_team, home_team_code, away_team_code, kickoff_utc"
-    )
-    .gte("kickoff_utc", now)
-    .order("kickoff_utc", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  .from("matches")
+  .select(
+    "id, home_team, away_team, home_team_code, away_team_code, kickoff_utc, status"
+  )
+  .neq("status", "finished")
+  .order("kickoff_utc", { ascending: true })
+  .limit(1)
+  .maybeSingle();
 
   const nextMatch = nextMatchData as NextMatch;
 
