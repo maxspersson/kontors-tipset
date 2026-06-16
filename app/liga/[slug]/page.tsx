@@ -851,27 +851,22 @@ const climbers = standings
           </section>
 
           {isMember && (
-            <section className="activity-card activity-card-wide">
-              <div className="activity-head">
-                <p>Senaste i ligan</p>
-              </div>
+  <section className="activity-card activity-card-wide">
+    <div className="activity-head">
+      <p>VM lever fortfarande</p>
+    </div>
 
-              {activityItems.length === 0 ? (
-                <div className="activity-empty">
-                  Bjud in fler deltagare så börjar ligan vakna till liv.
-                </div>
-              ) : (
-                <div className="activity-list">
-                  {activityItems.map((activity) => (
-                    <div key={activity.id} className="activity-row">
-                      <span>{activity.icon}</span>
-                      <p>{activity.text}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
+    <div className="activity-empty">
+      <strong>Sliter du också ditt hår över alla skrällar?</strong>
+      <span>
+        Lugn. VM-tipset lever längre än många tror. Du kan fortfarande
+        plocka massor av poäng i slutspelet. Matchpoäng delas ut för rätt
+        resultat och rätt matchutfall även om ditt slutspelsträd inte längre
+        stämmer med verkligheten.
+      </span>
+    </div>
+  </section>
+)}
 
           <div className="content-grid">
             <section className="panel leaderboard-panel">
@@ -1320,6 +1315,22 @@ const climbers = standings
               font-size: 14px;
               line-height: 1.5;
             }
+
+            .activity-empty strong {
+  display: block;
+  color: white;
+  font-size: 18px;
+  font-weight: 950;
+  letter-spacing: -0.03em;
+}
+
+.activity-empty span {
+  display: block;
+  margin-top: 8px;
+  color: rgba(255,255,255,0.62);
+  font-size: 14px;
+  line-height: 1.55;
+}
 
             .invite-small-link {
               margin-top: 16px;
