@@ -13,6 +13,7 @@ export default function RulesPage() {
     "Matchpoäng räknas först när ett faktiskt resultat finns registrerat.",
     "Gruppspel räknas efter ordinarie tid, alltså 90 minuter plus eventuell stopptid.",
     "Slutspel räknas efter 90 minuter plus eventuell förlängning.",
+    "I slutspelet kan du få matchpoäng för rätt resultat och rätt matchutfall även om du hade fel lag i matchen. Slutspelsbonus kräver däremot rätt lag i rätt runda.",
     "Straffläggning används bara för att avgöra vilket lag som går vidare eller vinner final/bronsmatch. Straffar räknas inte in i målresultatet.",
     "Andras tips låses upp löpande från 60 minuter före avspark för respektive match.",
     "Bästa grupptreor jämförs separat mellan grupperna och rankas på poäng, målskillnad, gjorda mål och därefter FIFA-ranking.",
@@ -182,6 +183,15 @@ export default function RulesPage() {
                     in i målresultatet.
                   </span>
                 </div>
+                <div className="example-box">
+  <p>Viktigt om slutspel</p>
+  <span>
+    Matchpoängen i slutspelet räknas på matchens nummer i spelschemat,
+    inte på exakt vilka lag du hade i matchen. Det betyder att du kan få
+    poäng för rätt mål och rätt matchutfall även om två andra lag faktiskt
+    spelar matchen.
+  </span>
+</div>
               </div>
 
               <div className="card">
