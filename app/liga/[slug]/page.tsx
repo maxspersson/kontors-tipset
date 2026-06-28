@@ -851,21 +851,27 @@ const climbers = standings
           </section>
 
           {isMember && (
-  <section className="activity-card activity-card-wide">
-    <div className="activity-head">
-      <p>VM lever fortfarande</p>
-    </div>
+ <section className="activity-card activity-card-wide">
+  <div className="activity-head">
+    <p>NU AVGÖRS VM</p>
+  </div>
 
-    <div className="activity-empty">
-      <strong>Sliter du också ditt hår över alla skrällar?</strong>
-      <span>
-        Lugn. VM-tipset lever längre än många tror. Du kan fortfarande
-        plocka massor av poäng i slutspelet. Matchpoäng delas ut för rätt
-        resultat och rätt matchutfall även om ditt slutspelsträd inte längre
-        stämmer med verkligheten.
-      </span>
-    </div>
-  </section>
+  <div className="activity-empty">
+  <strong>Slutspelet är här. Nu börjar allvaret.</strong>
+
+  <span>
+    72 matcher är spelade, men VM-tipset är långt ifrån avgjort. Det finns
+    fortfarande massor av poäng att spela om, så även den som ligger en bit efter
+    har goda chanser att klättra i tabellen.
+  </span>
+
+  <span>
+    Alla har tippat gruppspelet på sitt sätt, så slutspelsträden kan se lite
+    olika ut nu. Oavsett vilka lag du har i ditt träd rättas varje slutspelsmatch
+    efter sitt matchnummer och poängen delas ut som vanligt.
+  </span>
+</div>
+</section>
 )}
 
           <div className="content-grid">
