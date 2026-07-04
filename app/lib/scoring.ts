@@ -135,26 +135,6 @@ function getMatchPoints(prediction: PredictionRow, match: MatchRow) {
   return points;
 }
 
-function toWorldCupMatch(match: MatchRow): WorldCupMatch {
-  return {
-    id: match.id,
-    fifa_match_number: match.fifa_match_number,
-    stage: match.stage,
-    group_name: match.group_name,
-    home_team: match.home_team,
-    away_team: match.away_team,
-    home_team_code: match.home_team_code ?? null,
-    away_team_code: match.away_team_code ?? null,
-    home_fifa_ranking: match.home_fifa_ranking ?? null,
-    away_fifa_ranking: match.away_fifa_ranking ?? null,
-    home_score: match.home_score,
-    away_score: match.away_score,
-    kickoff_utc: match.kickoff_utc ?? "",
-    status: match.status ?? null,
-    city: match.city ?? null,
-  };
-}
-
 function buildAllGroupTables(
   matches: WorldCupMatch[],
   predictions: PredictionState
@@ -198,21 +178,9 @@ function getActualAdvancingTeam(match: MatchRow): AdvancingTeam | null {
   return null;
 }
 
-function actualScoresToPredictionState(matches: MatchRow[]): PredictionState {
-  const predictions: PredictionState = {};
-
-  for (const match of matches) {
-    predictions[match.id] = {
-      home: match.home_score === null ? "" : String(match.home_score),
-      away: match.away_score === null ? "" : String(match.away_score),
-      advancingTeam: getActualAdvancingTeam(match),
-    };
-  }
-
-  return predictions;
-}
-
-function snapshotToWorldCupMatches(snapshot: SnapshotPrediction[]): WorldCupMatch[] {
+function snapshotToWorldCupMatches(
+  snapshot: SnapshotPrediction[]
+): WorldCupMatch[] {
   return snapshot.map((item) => ({
     id: item.match.id,
     fifa_match_number: item.match.fifa_match_number,
@@ -232,7 +200,9 @@ function snapshotToWorldCupMatches(snapshot: SnapshotPrediction[]): WorldCupMatc
   }));
 }
 
-function snapshotToPredictionState(snapshot: SnapshotPrediction[]): PredictionState {
+function snapshotToPredictionState(
+  snapshot: SnapshotPrediction[]
+): PredictionState {
   const predictions: PredictionState = {};
 
   for (const item of snapshot) {
@@ -320,7 +290,9 @@ function buildTournamentProgression({
   }
 
   const finalRound = playoffRounds[playoffRounds.length - 1];
-  const finalMatch = finalRound?.find((match) => match.dbMatch.stage === "final");
+  const finalMatch = finalRound?.find(
+    (match) => match.dbMatch.stage === "final"
+  );
 
   return {
     roundOf16Teams,
@@ -330,6 +302,7 @@ function buildTournamentProgression({
     champion: finalMatch?.winner?.team ?? null,
   };
 }
+
 function buildActualTournamentProgressionFromMatches(
   matches: MatchRow[]
 ): TournamentProgression {
@@ -343,8 +316,7 @@ function buildActualTournamentProgressionFromMatches(
     const advancingTeam = getActualAdvancingTeam(match);
     if (!advancingTeam) continue;
 
-    const winner =
-      advancingTeam === "home" ? match.home_team : match.away_team;
+    const winner = advancingTeam === "home" ? match.home_team : match.away_team;
 
     if (match.stage === "round_of_32") {
       roundOf16Teams.add(winner);
@@ -375,6 +347,7 @@ function buildActualTournamentProgressionFromMatches(
     champion,
   };
 }
+
 function getBracketPoints(
   predicted: TournamentProgression,
   actual: TournamentProgression
@@ -423,9 +396,7 @@ export function calculateStandings({
   leagues?: LeagueRow[];
   limit?: number;
 }) {
-  const submittedKeys = new Set(
-    submissions.map((submission) => `${submission.league_id}:${submission.user_id}`)
-  );
+  void predictions;
 
   const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
   const leagueMap = new Map(leagues.map((league) => [league.id, league.name]));
@@ -467,41 +438,41 @@ export function calculateStandings({
   }
 
   for (const submission of submissions) {
-  const key = `${submission.league_id}:${submission.user_id}`;
-  const current = scoreMap.get(key);
+    const key = `${submission.league_id}:${submission.user_id}`;
+    const current = scoreMap.get(key);
 
-  if (!current) continue;
+    if (!current) continue;
 
-  const fullSnapshot = [
-    ...(submission.group_snapshot ?? []),
-    ...(submission.playoff_snapshot ?? []),
-  ];
+    const fullSnapshot = [
+      ...(submission.group_snapshot ?? []),
+      ...(submission.playoff_snapshot ?? []),
+    ];
 
-  for (const snapshotPrediction of fullSnapshot) {
-    const match = matchMap.get(snapshotPrediction.match_id);
+    for (const snapshotPrediction of fullSnapshot) {
+      const match = matchMap.get(snapshotPrediction.match_id);
 
-    if (!match || match.home_score === null || match.away_score === null) {
-      continue;
+      if (!match || match.home_score === null || match.away_score === null) {
+        continue;
+      }
+
+      const points = getMatchPoints(
+        {
+          league_id: submission.league_id,
+          user_id: submission.user_id,
+          match_id: snapshotPrediction.match_id,
+          predicted_home_score: snapshotPrediction.predicted_home_score,
+          predicted_away_score: snapshotPrediction.predicted_away_score,
+        },
+        match
+      );
+
+      current.matchPoints += points;
+      current.totalPoints += points;
+      current.playedMatches += 1;
+
+      if (points === 7) current.exactScores += 1;
     }
-
-    const points = getMatchPoints(
-      {
-        league_id: submission.league_id,
-        user_id: submission.user_id,
-        match_id: snapshotPrediction.match_id,
-        predicted_home_score: snapshotPrediction.predicted_home_score,
-        predicted_away_score: snapshotPrediction.predicted_away_score,
-      },
-      match
-    );
-
-    current.matchPoints += points;
-    current.totalPoints += points;
-    current.playedMatches += 1;
-
-    if (points === 7) current.exactScores += 1;
   }
-}
 
   for (const [key, current] of scoreMap.entries()) {
     const submission = submissionMap.get(key);
@@ -520,48 +491,11 @@ export function calculateStandings({
       requireCompletedGroups: false,
     });
 
-
-if (current.user_id === "221ddfdf-44e4-4419-b0d6-93964dfdbe0b") {
-  console.log("DEBUG predictedProgression", {
-    roundOf16Teams: Array.from(predictedProgression.roundOf16Teams),
-    quarterFinalTeams: Array.from(predictedProgression.quarterFinalTeams),
-    semiFinalTeams: Array.from(predictedProgression.semiFinalTeams),
-    finalTeams: Array.from(predictedProgression.finalTeams),
-    champion: predictedProgression.champion,
-  });
-
-  console.log("DEBUG actualProgression", {
-    roundOf16Teams: Array.from(actualProgression.roundOf16Teams),
-    quarterFinalTeams: Array.from(actualProgression.quarterFinalTeams),
-    semiFinalTeams: Array.from(actualProgression.semiFinalTeams),
-    finalTeams: Array.from(actualProgression.finalTeams),
-    champion: actualProgression.champion,
-  });
-}
     const bracketPoints = getBracketPoints(
-  predictedProgression,
-  actualProgression
-);
+      predictedProgression,
+      actualProgression
+    );
 
-if (current.user_id === "221ddfdf-44e4-4419-b0d6-93964dfdbe0b") {
-  console.log("DEBUG bracket points", bracketPoints);
-
-  console.log("DEBUG predictedProgression", {
-    roundOf16Teams: Array.from(predictedProgression.roundOf16Teams),
-    quarterFinalTeams: Array.from(predictedProgression.quarterFinalTeams),
-    semiFinalTeams: Array.from(predictedProgression.semiFinalTeams),
-    finalTeams: Array.from(predictedProgression.finalTeams),
-    champion: predictedProgression.champion,
-  });
-
-  console.log("DEBUG actualProgression", {
-    roundOf16Teams: Array.from(actualProgression.roundOf16Teams),
-    quarterFinalTeams: Array.from(actualProgression.quarterFinalTeams),
-    semiFinalTeams: Array.from(actualProgression.semiFinalTeams),
-    finalTeams: Array.from(actualProgression.finalTeams),
-    champion: actualProgression.champion,
-  });
-}
     current.bracketPoints += bracketPoints;
     current.totalPoints += bracketPoints;
   }
@@ -574,9 +508,7 @@ if (current.user_id === "221ddfdf-44e4-4419-b0d6-93964dfdbe0b") {
       league_name: leagueMap.get(score.league_id) ?? null,
       user_id: score.user_id,
       display_name:
-        profile?.display_name ||
-        formatDisplayName(profile?.email) ||
-        "Spelare",
+        profile?.display_name || formatDisplayName(profile?.email) || "Spelare",
       email: profile?.email || null,
       points: score.totalPoints,
       matchPoints: score.matchPoints,
@@ -587,22 +519,22 @@ if (current.user_id === "221ddfdf-44e4-4419-b0d6-93964dfdbe0b") {
   });
 
   standings.sort((a, b) => {
-  if (b.points !== a.points) return b.points - a.points;
+    if (b.points !== a.points) return b.points - a.points;
 
-  if (b.exactScores !== a.exactScores) {
-    return b.exactScores - a.exactScores;
-  }
+    if (b.exactScores !== a.exactScores) {
+      return b.exactScores - a.exactScores;
+    }
 
-  if (b.matchPoints !== a.matchPoints) {
-    return b.matchPoints - a.matchPoints;
-  }
+    if (b.matchPoints !== a.matchPoints) {
+      return b.matchPoints - a.matchPoints;
+    }
 
-  if (b.bracketPoints !== a.bracketPoints) {
-    return b.bracketPoints - a.bracketPoints;
-  }
+    if (b.bracketPoints !== a.bracketPoints) {
+      return b.bracketPoints - a.bracketPoints;
+    }
 
-  return a.display_name.localeCompare(b.display_name, "sv");
-});
+    return a.display_name.localeCompare(b.display_name, "sv");
+  });
 
   return typeof limit === "number" ? standings.slice(0, limit) : standings;
 }
