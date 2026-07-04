@@ -330,7 +330,51 @@ function buildTournamentProgression({
     champion: finalMatch?.winner?.team ?? null,
   };
 }
+function buildActualTournamentProgressionFromMatches(
+  matches: MatchRow[]
+): TournamentProgression {
+  const roundOf16Teams = new Set<string>();
+  const quarterFinalTeams = new Set<string>();
+  const semiFinalTeams = new Set<string>();
+  const finalTeams = new Set<string>();
+  let champion: string | null = null;
 
+  for (const match of matches) {
+    const advancingTeam = getActualAdvancingTeam(match);
+    if (!advancingTeam) continue;
+
+    const winner =
+      advancingTeam === "home" ? match.home_team : match.away_team;
+
+    if (match.stage === "round_of_32") {
+      roundOf16Teams.add(winner);
+    }
+
+    if (match.stage === "round_of_16") {
+      quarterFinalTeams.add(winner);
+    }
+
+    if (match.stage === "quarter_final") {
+      semiFinalTeams.add(winner);
+    }
+
+    if (match.stage === "semi_final") {
+      finalTeams.add(winner);
+    }
+
+    if (match.stage === "final") {
+      champion = winner;
+    }
+  }
+
+  return {
+    roundOf16Teams,
+    quarterFinalTeams,
+    semiFinalTeams,
+    finalTeams,
+    champion,
+  };
+}
 function getBracketPoints(
   predicted: TournamentProgression,
   actual: TournamentProgression
@@ -393,11 +437,7 @@ export function calculateStandings({
     ])
   );
 
-  const actualProgression = buildTournamentProgression({
-    matches: matches.map(toWorldCupMatch),
-    predictions: actualScoresToPredictionState(matches),
-    requireCompletedGroups: true,
-  });
+  const actualProgression = buildActualTournamentProgressionFromMatches(matches);
 
   const scoreMap = new Map<
     string,
@@ -480,11 +520,48 @@ export function calculateStandings({
       requireCompletedGroups: false,
     });
 
-    const bracketPoints = getBracketPoints(
-      predictedProgression,
-      actualProgression
-    );
 
+if (current.user_id === "221ddfdf-44e4-4419-b0d6-93964dfdbe0b") {
+  console.log("DEBUG predictedProgression", {
+    roundOf16Teams: Array.from(predictedProgression.roundOf16Teams),
+    quarterFinalTeams: Array.from(predictedProgression.quarterFinalTeams),
+    semiFinalTeams: Array.from(predictedProgression.semiFinalTeams),
+    finalTeams: Array.from(predictedProgression.finalTeams),
+    champion: predictedProgression.champion,
+  });
+
+  console.log("DEBUG actualProgression", {
+    roundOf16Teams: Array.from(actualProgression.roundOf16Teams),
+    quarterFinalTeams: Array.from(actualProgression.quarterFinalTeams),
+    semiFinalTeams: Array.from(actualProgression.semiFinalTeams),
+    finalTeams: Array.from(actualProgression.finalTeams),
+    champion: actualProgression.champion,
+  });
+}
+    const bracketPoints = getBracketPoints(
+  predictedProgression,
+  actualProgression
+);
+
+if (current.user_id === "221ddfdf-44e4-4419-b0d6-93964dfdbe0b") {
+  console.log("DEBUG bracket points", bracketPoints);
+
+  console.log("DEBUG predictedProgression", {
+    roundOf16Teams: Array.from(predictedProgression.roundOf16Teams),
+    quarterFinalTeams: Array.from(predictedProgression.quarterFinalTeams),
+    semiFinalTeams: Array.from(predictedProgression.semiFinalTeams),
+    finalTeams: Array.from(predictedProgression.finalTeams),
+    champion: predictedProgression.champion,
+  });
+
+  console.log("DEBUG actualProgression", {
+    roundOf16Teams: Array.from(actualProgression.roundOf16Teams),
+    quarterFinalTeams: Array.from(actualProgression.quarterFinalTeams),
+    semiFinalTeams: Array.from(actualProgression.semiFinalTeams),
+    finalTeams: Array.from(actualProgression.finalTeams),
+    champion: actualProgression.champion,
+  });
+}
     current.bracketPoints += bracketPoints;
     current.totalPoints += bracketPoints;
   }
